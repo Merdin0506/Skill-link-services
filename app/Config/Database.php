@@ -26,7 +26,7 @@ class Database extends Config
      */
     public array $default = [
         'DSN'          => '',
-        'hostname'     => 'localhost_skilllink',
+        'hostname'     => 'localhost',
         'username'     => '',
         'password'     => '',
         'database'     => '',
