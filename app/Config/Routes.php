@@ -7,6 +7,7 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
+
 $routes->group('api', function($routes) {
 
     $routes->get('records', 'Api\RecordsController::index');
@@ -18,3 +19,4 @@ $routes->group('api', function($routes) {
     $routes->delete('records/(:num)', 'Api\RecordsController::delete/$1');
 
 });
+
