@@ -7,6 +7,36 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
+// Authentication Routes
+$routes->get('auth/login', 'Auth::login');
+$routes->post('auth/doLogin', 'Auth::doLogin');
+$routes->get('auth/register', 'Auth::register');
+$routes->post('auth/doRegister', 'Auth::doRegister');
+$routes->get('logout', 'Auth::logout');
+
+// Dashboard Routes
+$routes->get('dashboard', 'Dashboard::index');
+$routes->get('admin/users', 'Dashboard::users');
+$routes->get('admin/bookings', 'Dashboard::bookings');
+$routes->get('admin/payments', 'Dashboard::payments');
+$routes->get('worker/available-jobs', 'Dashboard::availableJobs');
+$routes->get('worker/my-jobs', 'Dashboard::myJobs');
+$routes->get('worker/earnings', 'Dashboard::earnings');
+$routes->get('customer/bookings', 'Dashboard::myBookings');
+$routes->get('customer/services', 'Dashboard::services');
+$routes->get('customer/payments', 'Dashboard::myPayments');
+$routes->get('profile', 'Dashboard::profile');
+$routes->get('settings', 'Dashboard::settings');
+
+// Dashboard API Routes
+$routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) {
+    // Dashboard Routes
+    $routes->get('dashboard/data', 'DashboardController::data');
+    $routes->get('dashboard/stats', 'DashboardController::stats');
+    $routes->get('dashboard/analytics', 'DashboardController::analytics');
+    $routes->get('dashboard/bookings', 'DashboardController::bookings');
+});
+
 // API Routes for SkillLink Services
 $routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) {
     // Authentication Routes
