@@ -105,11 +105,20 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) 
     $routes->get('reviews/recent', 'ReviewsController::recentReviews');
     $routes->get('reviews/flagged', 'ReviewsController::flaggedReviews');
 
-    // Legacy Records Routes (for backward compatibility)
+    // Records Routes
     $routes->get('records', 'RecordsController::index');
     $routes->get('records/(:num)', 'RecordsController::show/$1');
     $routes->post('records', 'RecordsController::create');
     $routes->put('records/(:num)', 'RecordsController::update/$1');
     $routes->delete('records/(:num)', 'RecordsController::delete/$1');
 });
+
+// Dashboard Records Routes (admin only)
+$routes->get('admin/records', 'Dashboard::records');
+$routes->get('admin/records/create', 'Dashboard::recordCreate');
+$routes->post('admin/records/store', 'Dashboard::recordStore');
+$routes->get('admin/records/edit/(:num)', 'Dashboard::recordEdit/$1');
+$routes->post('admin/records/update/(:num)', 'Dashboard::recordUpdate/$1');
+$routes->post('admin/records/delete/(:num)', 'Dashboard::recordDelete/$1');
+$routes->post('admin/records/restore/(:num)', 'Dashboard::recordRestore/$1');
 

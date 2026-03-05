@@ -141,7 +141,6 @@ class CreateBookingsTable extends Migration
         $this->forge->addKey('customer_id');
         $this->forge->addKey('worker_id');
         $this->forge->addKey('service_id');
-        $this->forge->addKey('booking_reference');
         $this->forge->addKey('status');
         $this->forge->addKey('scheduled_date');
         

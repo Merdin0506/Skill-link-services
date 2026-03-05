@@ -6,6 +6,7 @@ use App\Models\UserModel;
 use App\Models\BookingModel;
 use App\Models\PaymentModel;
 use App\Models\ReviewModel;
+use App\Models\ServiceRecordModel;
 
 class Dashboard extends BaseController
 {
@@ -131,6 +132,266 @@ class Dashboard extends BaseController
         ];
 
         return view('dashboard/admin_payments', $data);
+    }
+
+    public function records()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $recordModel = new ServiceRecordModel();
+
+        // Get filter params
+        $status  = $this->request->getGet('status');
+        $payment = $this->request->getGet('payment_status');
+        $q       = $this->request->getGet('q');
+        $show_deleted = $this->request->getGet('show_deleted');
+
+        $builder = $recordModel
+            ->select('service_records.*, customers.first_name AS customer_first_name, customers.last_name AS customer_last_name, providers.first_name AS provider_first_name, providers.last_name AS provider_last_name, services.name AS service_name')
+            ->join('users AS customers', 'customers.id = service_records.customer_id')
+            ->join('users AS providers', 'providers.id = service_records.provider_id', 'left')
+            ->join('services', 'services.id = service_records.service_id');
+
+        if ($show_deleted) {
+            $builder->onlyDeleted();
+        }
+
+        if ($status) {
+            $builder->where('service_records.status', $status);
+        }
+        if ($payment) {
+            $builder->where('service_records.payment_status', $payment);
+        }
+        if ($q) {
+            $builder->groupStart()
+                ->like('service_records.payment_ref', $q)
+                ->orLike('service_records.address_text', $q)
+                ->orLike('customers.first_name', $q)
+                ->orLike('customers.last_name', $q)
+                ->orLike('services.name', $q)
+            ->groupEnd();
+        }
+
+        $records = $builder->orderBy('service_records.created_at', 'DESC')->findAll();
+
+        $data = [
+            'role'          => $this->session->get('user_role'),
+            'records'       => $records,
+            'user'          => $this->getCurrentUser(),
+            'filters'       => ['status' => $status, 'payment_status' => $payment, 'q' => $q, 'show_deleted' => $show_deleted],
+        ];
+
+        return view('dashboard/admin_records', $data);
+    }
+
+    public function recordCreate()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $serviceModel = new \App\Models\ServiceModel();
+
+        $data = [
+            'role'      => $this->session->get('user_role'),
+            'user'      => $this->getCurrentUser(),
+            'customers' => $this->userModel->where('user_type', 'customer')->orderBy('first_name')->findAll(),
+            'workers'   => $this->userModel->whereIn('user_type', ['worker'])->orderBy('first_name')->findAll(),
+            'services'  => $serviceModel->where('status', 'active')->orderBy('name')->findAll(),
+            'record'    => null,
+        ];
+
+        return view('dashboard/admin_record_form', $data);
+    }
+
+    public function recordStore()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $rules = [
+            'customer_id'    => 'required|integer',
+            'service_id'     => 'required|integer',
+            'status'         => 'required|in_list[pending,scheduled,in_progress,completed,cancelled]',
+            'labor_fee'      => 'permit_empty|numeric|greater_than_equal_to[0]',
+            'platform_fee'   => 'permit_empty|numeric|greater_than_equal_to[0]',
+            'payment_status' => 'permit_empty|in_list[unpaid,partial,paid,refunded]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $laborFee    = (float) ($this->request->getPost('labor_fee') ?? 0);
+        $platformFee = (float) ($this->request->getPost('platform_fee') ?? 0);
+
+        $recordData = [
+            'customer_id'    => $this->request->getPost('customer_id'),
+            'provider_id'    => $this->request->getPost('provider_id') ?: null,
+            'service_id'     => $this->request->getPost('service_id'),
+            'booking_id'     => $this->request->getPost('booking_id') ?: null,
+            'status'         => $this->request->getPost('status') ?? 'pending',
+            'scheduled_at'   => $this->request->getPost('scheduled_at') ?: null,
+            'address_text'   => $this->request->getPost('address_text'),
+            'labor_fee'      => $laborFee,
+            'platform_fee'   => $platformFee,
+            'total_amount'   => $laborFee + $platformFee,
+            'payment_status' => $this->request->getPost('payment_status') ?? 'unpaid',
+            'payment_ref'    => $this->request->getPost('payment_ref'),
+            'customer_note'  => $this->request->getPost('customer_note'),
+            'provider_note'  => $this->request->getPost('provider_note'),
+            'admin_note'     => $this->request->getPost('admin_note'),
+        ];
+
+        $recordModel = new ServiceRecordModel();
+
+        if ($recordModel->insert($recordData) === false) {
+            return redirect()->back()->withInput()->with('errors', $recordModel->errors());
+        }
+
+        return redirect()->to('/admin/records')->with('success', 'Record created successfully.');
+    }
+
+    public function recordEdit($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $recordModel  = new ServiceRecordModel();
+        $serviceModel = new \App\Models\ServiceModel();
+
+        $record = $recordModel->find((int) $id);
+        if (!$record) {
+            return redirect()->to('/admin/records')->with('error', 'Record not found.');
+        }
+
+        $data = [
+            'role'      => $this->session->get('user_role'),
+            'user'      => $this->getCurrentUser(),
+            'customers' => $this->userModel->where('user_type', 'customer')->orderBy('first_name')->findAll(),
+            'workers'   => $this->userModel->whereIn('user_type', ['worker'])->orderBy('first_name')->findAll(),
+            'services'  => $serviceModel->where('status', 'active')->orderBy('name')->findAll(),
+            'record'    => $record,
+        ];
+
+        return view('dashboard/admin_record_form', $data);
+    }
+
+    public function recordUpdate($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $recordModel = new ServiceRecordModel();
+        $record = $recordModel->find((int) $id);
+        if (!$record) {
+            return redirect()->to('/admin/records')->with('error', 'Record not found.');
+        }
+
+        $rules = [
+            'customer_id'    => 'required|integer',
+            'service_id'     => 'required|integer',
+            'status'         => 'required|in_list[pending,scheduled,in_progress,completed,cancelled]',
+            'labor_fee'      => 'permit_empty|numeric|greater_than_equal_to[0]',
+            'platform_fee'   => 'permit_empty|numeric|greater_than_equal_to[0]',
+            'payment_status' => 'permit_empty|in_list[unpaid,partial,paid,refunded]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $laborFee    = (float) ($this->request->getPost('labor_fee') ?? 0);
+        $platformFee = (float) ($this->request->getPost('platform_fee') ?? 0);
+
+        $recordData = [
+            'customer_id'    => $this->request->getPost('customer_id'),
+            'provider_id'    => $this->request->getPost('provider_id') ?: null,
+            'service_id'     => $this->request->getPost('service_id'),
+            'booking_id'     => $this->request->getPost('booking_id') ?: null,
+            'status'         => $this->request->getPost('status'),
+            'scheduled_at'   => $this->request->getPost('scheduled_at') ?: null,
+            'address_text'   => $this->request->getPost('address_text'),
+            'labor_fee'      => $laborFee,
+            'platform_fee'   => $platformFee,
+            'total_amount'   => $laborFee + $platformFee,
+            'payment_status' => $this->request->getPost('payment_status') ?? 'unpaid',
+            'payment_ref'    => $this->request->getPost('payment_ref'),
+            'customer_note'  => $this->request->getPost('customer_note'),
+            'provider_note'  => $this->request->getPost('provider_note'),
+            'admin_note'     => $this->request->getPost('admin_note'),
+        ];
+
+        if ($recordModel->update((int) $id, $recordData) === false) {
+            return redirect()->back()->withInput()->with('errors', $recordModel->errors());
+        }
+
+        return redirect()->to('/admin/records')->with('success', 'Record updated successfully.');
+    }
+
+    public function recordDelete($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $recordModel = new ServiceRecordModel();
+        $record = $recordModel->find((int) $id);
+        if (!$record) {
+            return redirect()->to('/admin/records')->with('error', 'Record not found.');
+        }
+
+        // Soft delete — sets deleted_at
+        $recordModel->delete((int) $id);
+
+        return redirect()->to('/admin/records')->with('success', 'Record deleted (archived) successfully.');
+    }
+
+    public function recordRestore($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+        if ($this->session->get('user_role') !== 'admin') {
+            return redirect()->to('/dashboard');
+        }
+
+        $recordModel = new ServiceRecordModel();
+
+        // Find including soft-deleted
+        $record = $recordModel->onlyDeleted()->find((int) $id);
+        if (!$record) {
+            return redirect()->to('/admin/records?show_deleted=1')->with('error', 'Deleted record not found.');
+        }
+
+        // Restore by clearing deleted_at
+        $recordModel->update((int) $id, ['deleted_at' => null]);
+
+        return redirect()->to('/admin/records')->with('success', 'Record restored successfully.');
     }
 
     public function availableJobs()

@@ -127,6 +127,7 @@
     </style>
 </head>
 <body>
+    <?php $errors = session('errors') ?? []; ?>
     <div class="container">
         <h1>SkillLink</h1>
         <p class="subtitle">Login to your account</p>

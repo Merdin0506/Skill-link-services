@@ -382,6 +382,10 @@
                     <i class="fas fa-credit-card"></i>
                     <span>Payments</span>
                 </a>
+                <a href="<?= base_url('admin/records') ?>">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>Service Records</span>
+                </a>
             <?php elseif ($role === 'worker'): ?>
                 <a href="<?= base_url('worker/available-jobs') ?>">
                     <i class="fas fa-briefcase"></i>

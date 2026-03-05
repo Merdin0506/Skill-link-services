@@ -13,9 +13,9 @@
         "php": "^8.2",
         "ext-intl": "*",
         "ext-mbstring": "*",
+        "firebase/php-jwt": "^6.0",
         "laminas/laminas-escaper": "^2.18",
-        "psr/log": "^3.0",
-        "firebase/php-jwt": "^6.0"
+        "psr/log": "^3.0"
     },
     "require-dev": {
         "codeigniter/coding-standard": "^1.7",
@@ -62,7 +62,10 @@
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "sort-packages": true
+        "sort-packages": true,
+        "audit": {
+            "block-insecure": false
+        }
     },
     "scripts": {
         "test": "phpunit"
