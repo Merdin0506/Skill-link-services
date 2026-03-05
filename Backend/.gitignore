@@ -8,6 +8,8 @@ composer.phar
 composer-setup.php
 
 # Writable directories
+/public/writable/
+
 /writable/cache/*
 !/writable/cache/index.html
 
