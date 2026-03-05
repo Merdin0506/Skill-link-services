@@ -22,6 +22,9 @@ class Dashboard extends BaseController
         $this->paymentModel = new PaymentModel();
         $this->reviewModel = new ReviewModel();
         $this->session = session();
+        
+        // Load dashboard helper
+        helper('dashboard');
     }
 
     /**

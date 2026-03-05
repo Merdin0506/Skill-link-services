@@ -1,0 +1,162 @@
+# Backend Setup and Configuration Guide
+
+## Overview
+The Skill-Link Services backend is built with CodeIgniter 4 and provides REST API endpoints for the mobile and desktop applications.
+
+## Prerequisites
+- **PHP 8.2+** with extensions: `intl`, `mbstring`, `mysqli`, `curl`
+- **MySQL 8.0+** or MariaDB 10.3+
+- **Composer** for dependency management
+- **XAMPP** (recommended for local development)
+
+## Quick Setup
+
+### 1. Start XAMPP
+- Start Apache and MySQL services
+- Ensure MySQL is running on port 3306
+
+### 2. Database Setup
+```sql
+CREATE DATABASE skilllink_services;
+```
+
+### 3. Install Dependencies
+```bash
+cd Backend
+composer install
+```
+
+### 4. Environment Configuration
+Copy `env.example` to `.env` and update:
+```ini
+# App Configuration
+app.baseURL = 'http://localhost:8080'
+
+# Database Configuration
+database.default.hostname = localhost
+database.default.database = skilllink_services
+database.default.username = root
+database.default.password = 
+
+# JWT Configuration
+JWT_SECRET = your-secret-key-change-this
+```
+
+### 5. Database Migration
+```bash
+php spark migrate
+```
+
+### 6. Start Development Server
+```bash
+php spark serve
+```
+
+The API will be available at: `http://localhost:8080`
+
+## Gitignore Configuration
+
+Essential files to ignore:
+
+```
+# Environment files
+.env
+.env.*
+
+# Dependencies
+/vendor/
+composer.phar
+
+# Writable directories
+/writable/cache/*
+/writable/logs/*
+/writable/session/*
+/writable/uploads/*
+
+# Database files
+*.sql
+*.db
+
+# Backup files
+*.bak
+*.backup
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+```
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - User registration
+- `POST /api/auth/login` - User login
+- `GET /api/auth/profile` - Get user profile
+
+### Services
+- `GET /api/services` - List services
+- `GET /api/services/categories` - Service categories
+
+### Bookings
+- `GET /api/bookings` - List bookings
+- `POST /api/bookings` - Create booking
+- `PUT /api/bookings/{id}` - Update booking
+
+### Users
+- `GET /api/users/workers` - List workers
+- `GET /api/users/customers` - List customers
+
+## User Types
+- **Owner** - System owner
+- **Admin** - Administrative access
+- **Cashier** - Payment management
+- **Worker** - Service providers
+- **Customer** - Service consumers
+
+## Testing API
+Use Postman or curl to test endpoints:
+
+```bash
+# Login
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "test@example.com", "password": "password123"}'
+
+# Get services
+curl http://localhost:8080/api/services
+```
+
+## Common Issues
+
+**Database Connection Error**
+- Ensure MySQL is running in XAMPP
+- Check database credentials in `.env`
+
+**formatNumber() Error**
+- Fixed by loading dashboard helper in BaseController
+
+**File Permissions**
+- Ensure `writable/` directory is writable
+
+## Development Workflow
+1. Make changes to code
+2. Test locally with `php spark serve`
+3. Use Postman to test API endpoints
+4. Commit changes to Git
+
+## Production Deployment
+1. Upload files to server
+2. Run `composer install --no-dev`
+3. Configure `.env` for production
+4. Run database migrations
+5. Configure web server (Apache/Nginx)
+6. Enable SSL certificates
+
+---
+
+**Framework**: CodeIgniter 4.7.0  
+**PHP Version**: 8.2+  
+**Database**: MySQL 8.0+  
+**Last Updated**: March 2026

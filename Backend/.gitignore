@@ -1,9 +1,13 @@
+# Environment files
 .env
 .env.*
 
+# Dependencies
 /vendor/
-/writable/
+composer.phar
+composer-setup.php
 
+# Writable directories
 /writable/cache/*
 !/writable/cache/index.html
 
@@ -19,5 +23,35 @@
 /writable/uploads/*
 !/writable/uploads/index.html
 
+# Testing
 /phpunit.xml
 /.phpunit.result.cache
+
+# Database files
+*.sql
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# OS files
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Logs
+*.log
