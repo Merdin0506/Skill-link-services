@@ -1,98 +1,388 @@
-# SkillLink Services Project
+# SkillLink Services Backend API
 
-## Company Name
-SkillLink Services Inc.
+A comprehensive backend API for SkillLink Services - a Service Workforce Management System that connects skilled workers with customers.
 
-## Company Description
-SkillLink Services Inc. is a service-based company that connects skilled workers such as mechanics, electricians, plumbers, and technicians with customers who require on-demand or scheduled services. The company manages service requests, worker assignments, payments, and reporting through a centralized system.
+## 🚀 Project Overview
 
-## Problem Definition
-Skilled workers lack a centralized platform, customers struggle to find reliable services, and payments are poorly documented. Manual processes lead to inefficiencies and lack of transparency.
+SkillLink Services Inc. is a service-based company that connects skilled workers such as mechanics, electricians, plumbers, and technicians with customers who require on-demand or scheduled services.
 
-## Proposed Solution
-Develop a Service Workforce Management System (SWMS) that integrates service booking, job tracking, payments, commission computation, and reporting.
+### Features
 
-## System Purpose
-To digitize business processes, centralize payments, ensure transparent worker compensation, and provide management reporting.
+- **User Management**: Multi-role system (Owner, Admin, Cashier, Worker, Customer)
+- **Service Booking**: Complete booking lifecycle from request to completion
+- **Payment Processing**: Multiple payment methods with commission-based worker payouts
+- **Review System**: Customer ratings and feedback for workers
+- **Real-time Tracking**: Job status updates and notifications
+- **Reporting**: Comprehensive analytics and reporting dashboard
 
-## Target Users
-- Company Owner
-- Administrator
-- Cashier / Finance Staff
-- Skilled Workers
-- Customers
-- Developers
+## 🛠️ Technology Stack
 
-## Business Processes
-1. Customer Service Request
-2. Job Assignment & Execution
-3. Payment Processing (Cash & E-Wallet)
-4. Commission-Based Worker Payout
-5. Reporting & Monitoring
+- **Framework**: CodeIgniter 4
+- **Language**: PHP 8.2+
+- **Database**: MySQL/MariaDB
+- **Authentication**: JWT (JSON Web Tokens)
+- **API Documentation**: RESTful API
 
-## Payment Model
-Customers pay the company. The company deducts a commission from labor fees and pays workers through scheduled payouts.
+## 📋 Prerequisites
 
-## Architecture
-The system follows a 3-Tier Architecture consisting of Presentation, Application, and Data layers.
+- PHP 8.2 or higher
+- MySQL/MariaDB
+- Composer
+- Web Server (Apache/Nginx)
 
-## Conclusion
-The proposed system demonstrates proper system integration, clear business processes, and scalable architecture suitable for a capstone project.
+## 🚀 Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/Merdin0506/Skill-link-services.git
+cd Skill-link-services/Backend
+```
+
+### 2. Install Dependencies
+
+```bash
+composer install
+```
+
+### 3. Environment Configuration
+
+```bash
+# Copy environment template
+cp env.example .env
+
+# Edit the .env file with your database credentials
+```
+
+### 4. Database Setup
+
+```bash
+# Create database
+mysql -u root -p
+CREATE DATABASE skilllink_services;
+
+# Run migrations
+php spark migrate
+```
+
+### 5. Generate Encryption Key
+
+```bash
+php spark key:generate
+```
+
+### 6. Set JWT Secret
+
+Add this to your `.env` file:
+```
+JWT_SECRET = your-super-secret-jwt-key-change-this-in-production
+```
+
+## 📚 API Documentation
+
+### Base URL
+```
+http://localhost:8080/api
+```
+
+### Authentication
+
+All API endpoints (except login/register) require JWT authentication.
+
+#### Register
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "john@example.com",
+    "password": "password123",
+    "user_type": "customer",
+    "phone": "+1234567890",
+    "address": "123 Main St"
+}
+```
+
+#### Login
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+    "email": "john@example.com",
+    "password": "password123"
+}
+```
+
+#### Get Profile
+```http
+GET /api/auth/profile
+Authorization: Bearer {jwt_token}
+```
+
+### Services
+
+#### Get All Services
+```http
+GET /api/services
+```
+
+#### Get Service by ID
+```http
+GET /api/services/{id}
+```
+
+#### Get Services by Category
+```http
+GET /api/services/category/{category}
+```
+
+### Bookings
+
+#### Create Booking
+```http
+POST /api/bookings
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+
+{
+    "customer_id": 1,
+    "service_id": 1,
+    "title": "Fix broken faucet",
+    "description": "Kitchen faucet is leaking",
+    "location_address": "123 Main St",
+    "scheduled_date": "2026-03-05",
+    "scheduled_time": "14:00",
+    "labor_fee": 500.00,
+    "priority": "medium"
+}
+```
+
+#### Get Customer Bookings
+```http
+GET /api/bookings?user_type=customer&user_id={customer_id}
+```
+
+#### Assign Worker to Booking
+```http
+POST /api/bookings/assign-worker
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+
+{
+    "booking_id": 1,
+    "worker_id": 2,
+    "assigned_by": 1
+}
+```
+
+### Payments
+
+#### Create Customer Payment
+```http
+POST /api/payments/customer
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+
+{
+    "booking_id": 1,
+    "payment_method": "gcash",
+    "processed_by": 1
+}
+```
+
+#### Get Payment Statistics
+```http
+GET /api/payments/statistics
+Authorization: Bearer {jwt_token}
+```
+
+### Reviews
+
+#### Create Review
+```http
+POST /api/reviews
+Authorization: Bearer {jwt_token}
+Content-Type: application/json
+
+{
+    "booking_id": 1,
+    "customer_id": 1,
+    "worker_id": 2,
+    "rating": 5,
+    "comment": "Excellent service!",
+    "service_quality": 5,
+    "timeliness": 5,
+    "professionalism": 5,
+    "would_recommend": 1
+}
+```
+
+#### Get Worker Ratings
+```http
+GET /api/reviews/worker/{worker_id}
+```
+
+## 🏗️ Project Structure
+
+```
+Backend/
+├── app/
+│   ├── Controllers/API/
+│   │   ├── AuthController.php
+│   │   ├── BookingsController.php
+│   │   ├── PaymentsController.php
+│   │   ├── ReviewsController.php
+│   │   ├── ServicesController.php
+│   │   └── UsersController.php
+│   ├── Database/
+│   │   └── Migrations/
+│   ├── Models/
+│   │   ├── BookingModel.php
+│   │   ├── PaymentModel.php
+│   │   ├── ReviewModel.php
+│   │   ├── ServiceModel.php
+│   │   └── UserModel.php
+│   └── Config/
+├── public/
+├── writable/
+│   ├── uploads/
+│   ├── logs/
+│   └── session/
+└── vendor/
+```
+
+## 🗄️ Database Schema
+
+### Users Table
+- Stores all user types (Owner, Admin, Cashier, Worker, Customer)
+- Includes worker-specific fields (skills, experience, commission rate)
+
+### Services Table
+- Available services with categories and pricing
+- Categories: mechanic, electrician, plumber, technician, general
+
+### Bookings Table
+- Service requests with full lifecycle tracking
+- Status: pending, assigned, in_progress, completed, cancelled, rejected
+
+### Payments Table
+- Customer payments and worker payouts
+- Multiple payment methods supported
+
+### Reviews Table
+- Customer ratings and feedback
+- Detailed rating categories (service quality, timeliness, professionalism)
+
+## 🔧 Development
+
+### Running Migrations
+```bash
+php spark migrate
+```
+
+### Creating New Migration
+```bash
+php spark make:migration create_new_table
+```
+
+### Running Tests
+```bash
+php spark test
+```
+
+### Code Generation
+```bash
+php spark make:controller API/NewController
+php spark make:model NewModel
+```
+
+## 🔐 Security Features
+
+- JWT Authentication
+- Password Hashing
+- Input Validation
+- SQL Injection Protection
+- XSS Protection
+- CORS Configuration
+
+## 📊 Business Logic
+
+### Commission System
+- Company receives full payment from customer
+- Commission is deducted from labor fees
+- Workers receive remaining amount via scheduled payouts
+
+### Payment Flow
+1. Customer creates booking
+2. Worker assigned and completes service
+3. Customer pays company (cash/e-wallet)
+4. Company creates worker payout
+5. Worker receives earnings
+
+### User Roles
+- **Owner**: Full system access and reporting
+- **Admin**: Manage users, bookings, and payments
+- **Cashier**: Process payments and manage payouts
+- **Worker**: Accept bookings and provide services
+- **Customer**: Request services and make payments
+
+## 🚀 Deployment
+
+### Production Setup
+
+1. Set environment variables:
+```env
+CI_ENVIRONMENT = production
+displayErrors = 0
+JWT_SECRET = your-production-secret-key
+```
+
+2. Configure production database
+3. Set up SSL certificates
+4. Configure web server (Apache/Nginx)
+5. Set up file permissions
+
+### Apache Configuration
+```apache
+<VirtualHost *:80>
+    DocumentRoot /path/to/Backend/public
+    ServerName yourdomain.com
+    
+    <Directory /path/to/Backend/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create feature branch
+3. Commit changes
+4. Push to branch
+5. Create Pull Request
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 📞 Support
+
+For support and questions:
+- Email: support@skilllink.com
+- GitHub Issues: https://github.com/Merdin0506/Skill-link-services/issues
+
+## 🔄 Version History
+
+- **v1.0.0** - Initial release with core functionality
+- **v1.1.0** - Added review system and ratings
+- **v1.2.0** - Enhanced payment processing
+- **v1.3.0** - Added reporting and analytics
 
 ---
 
-# CodeIgniter 4 Framework
-
-## What is CodeIgniter?
-
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).  
-
-This repository holds the distributable version of the framework.  
-It has been built from the [development repository](https://github.com/codeigniter4/CodeIgniter4).  
-
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.  
-
-You can read the [user guide](https://codeigniter.com/user_guide/) corresponding to the latest version of the framework.
-
-## Important Change with index.php
-
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder, for better security and separation of components.
-
-This means that you should configure your web server to "point" to your project's *public* folder, and not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the framework are exposed.
-
-**Please** read the user guide for a better explanation of how CI4 works!
-
-## Repository Management
-
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.  
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss FEATURE REQUESTS.  
-
-This repository is a "distribution" one, built by our release preparation script.  
-Problems with it can be raised on our forum, or as issues in the main repository.
-
-## Contributing
-
-We welcome contributions from the community.  
-
-Please read the [*Contributing to CodeIgniter*](https://github.com/codeigniter4/CodeIgniter4/blob/develop/CONTRIBUTING.md) section in the development repository.
-
-## Server Requirements
-
-PHP version 8.2 or higher is required, with the following extensions installed:
-
-- [intl](http://php.net/manual/en/intl.requirements.php)  
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)  
-
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - The end of life date for PHP 8.1 was December 31, 2025.
-> - If you are still using below PHP 8.2, you should upgrade immediately.
-> - The end of life date for PHP 8.2 will be December 31, 2026.
-
-Additionally, make sure that the following extensions are enabled in your PHP:
-
-- json (enabled by default - don't turn it off)  
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL  
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+**SkillLink Services Backend API** - Connecting skilled workers with customers, one service at a time.
