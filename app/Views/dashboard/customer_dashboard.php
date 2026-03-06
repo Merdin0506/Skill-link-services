@@ -48,41 +48,6 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="row mb-4">
-        <div class="col-lg-12">
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-lightning-bolt"></i> Quick Actions
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('customer/new-booking') ?>" class="btn btn-primary w-100">
-                                <i class="fas fa-plus"></i> New Booking
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('customer/bookings') ?>" class="btn btn-info w-100">
-                                <i class="fas fa-list"></i> My Bookings
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('customer/services') ?>" class="btn btn-warning w-100">
-                                <i class="fas fa-search"></i> Browse Services
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('customer/profile') ?>" class="btn btn-secondary w-100">
-                                <i class="fas fa-user"></i> Profile
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Analytics -->
     <div class="row mb-4">
         <div class="col-lg-6">

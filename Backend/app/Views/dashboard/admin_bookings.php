@@ -12,7 +12,6 @@
         <h3 class="mb-0">Bookings</h3>
         <div>
             <a href="<?= base_url('dashboard') ?>" class="btn btn-outline-primary btn-sm">Back to Dashboard</a>
-            <a href="<?= base_url('logout') ?>" class="btn btn-outline-danger btn-sm">Logout</a>
         </div>
     </div>
 

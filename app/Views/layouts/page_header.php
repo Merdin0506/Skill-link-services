@@ -3,11 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Skill Link Services</title>
+    <title><?= isset($pageTitle) ? $pageTitle . ' - Skill Link Services' : 'Skill Link Services' ?></title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+    
+    <!-- Shared Sidebar CSS -->
     <link rel="stylesheet" href="<?= base_url('css/sidebar.css') ?>">
+    
     <style>
         :root {
             --primary-color: #1e3c72;
@@ -55,32 +61,6 @@
 
         .stat-card.info {
             border-top-color: var(--info-color);
-        }
-
-        .stat-card .stat-icon {
-            font-size: 36px;
-            margin-bottom: 15px;
-            opacity: 0.85;
-        }
-
-        .stat-card .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--text-dark);
-            margin-bottom: 8px;
-        }
-
-        .stat-card .stat-label {
-            font-size: 14px;
-            color: var(--text-muted);
-            font-weight: 500;
-        }
-
-        .stat-card .stat-trend {
-            font-size: 12px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #e8e8e8;
         }
 
         .card {
@@ -143,87 +123,12 @@
             font-weight: 500;
         }
 
-        .badge-pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .badge-assigned {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .badge-in_progress {
-            background: #cfe2ff;
-            color: #084298;
-        }
-
-        .badge-completed {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .badge-cancelled {
-            background: #f8d7da;
-            color: #842029;
-        }
-
-        .badge-active {
-            background: #d1e7dd;
-            color: #0f5132;
-        }
-
-        .badge-inactive {
-            background: #f8d7da;
-            color: #842029;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin-bottom: 20px;
-        }
-
         .alert-custom {
             border: none;
             border-left: 4px solid var(--primary-color);
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 25px;
-        }
-
-        .alert-custom.success {
-            background: #f0f9ff;
-            border-left-color: var(--success-color);
-            color: #0f5132;
-        }
-
-        .alert-custom.info {
-            background: #f0f3ff;
-            border-left-color: var(--primary-color);
-            color: #084298;
-        }
-
-        .alert-custom.warning {
-            background: #fffbf0;
-            border-left-color: var(--warning-color);
-            color: #856404;
-        }
-
-        .alert-custom i {
-            margin-right: 10px;
-        }
-
-        .role-badge {
-            display: inline-block;
-            padding: 8px 15px;
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
-            color: white;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         .topbar {
@@ -234,10 +139,7 @@
             align-items: center;
             border-bottom: 1px solid #e8e8e8;
             margin-bottom: 30px;
-            border-radius: 10px 10px 0 0;
-            margin-left: -30px;
-            margin-right: -30px;
-            margin-top: -30px;
+            border-radius: 10px;
         }
 
         .welcome {
@@ -274,7 +176,19 @@
             color: var(--text-muted);
         }
 
-        /* Dashboard Page Content */
+        .role-badge {
+            display: inline-block;
+            padding: 8px 15px;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Page Content */
         .page-content {
             padding: 30px;
         }
@@ -310,6 +224,10 @@
             margin-top: 30px;
         }
     </style>
+    
+    <?php if (isset($customCss)): ?>
+        <link rel="stylesheet" href="<?= base_url($customCss) ?>">
+    <?php endif; ?>
 </head>
 <body>
     <?php
@@ -342,64 +260,3 @@
                 </div>
             </div>
         </div>
-
-        <!-- Load Role-Specific Dashboard -->
-        <?php 
-        $dashboardView = match($role) {
-            'admin' => 'dashboard/admin_dashboard',
-            'worker' => 'dashboard/worker_dashboard',
-            'customer' => 'dashboard/customer_dashboard',
-            'owner' => 'dashboard/customer_dashboard',
-            'cashier' => 'dashboard/cashier_dashboard',
-            default => 'dashboard/default_dashboard'
-        };
-        
-        echo view($dashboardView, get_defined_vars());
-        ?>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>&copy; <?= date('Y') ?> Skill Link Services. All rights reserved.</p>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const toggleBtn = document.getElementById('toggleSidebar');
-            const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
-            const mainContent = document.getElementById('mainContent') || document.querySelector('.main-content');
-
-            if (toggleBtn && sidebar && mainContent) {
-                toggleBtn.addEventListener('click', function() {
-                    sidebar.classList.toggle('collapsed');
-                    mainContent.classList.toggle('expanded');
-                    
-                    // Store preference in localStorage
-                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-                });
-
-                // Restore sidebar state from localStorage
-                if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                    sidebar.classList.add('collapsed');
-                    mainContent.classList.add('expanded');
-                }
-            }
-        });
-
-        // Format currency
-        function formatCurrency(value) {
-            return new Intl.NumberFormat('en-US', {
-                style: 'currency',
-                currency: 'USD'
-            }).format(value);
-        }
-
-        // Format numbers
-        function formatNumber(value) {
-            return new Intl.NumberFormat('en-US').format(value);
-        }
-    </script>
-</body>
-</html>

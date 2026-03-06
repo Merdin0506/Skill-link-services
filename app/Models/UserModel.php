@@ -39,9 +39,9 @@ class UserModel extends Model
         'password' => 'required|min_length[8]',
         'user_type' => 'required|in_list[owner,admin,cashier,worker,customer]',
         'status' => 'required|in_list[active,inactive,suspended]',
-        'phone' => 'max_length[20]',
-        'commission_rate' => 'numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
-        'experience_years' => 'integer|greater_than_equal_to[0]'
+        'phone' => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
+        'commission_rate' => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
+        'experience_years' => 'permit_empty|integer|greater_than_equal_to[0]'
     ];
 
     protected $validationMessages = [

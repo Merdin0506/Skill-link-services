@@ -105,9 +105,17 @@ class Auth extends BaseController
             // Set session data for dashboard pages.
             $this->session->set([
                 'user_id' => $user['id'],
-                'user_role' => $user['user_type'],
+                'role' => $user['user_type'],
+                'user_role' => $user['user_type'], // Keep for backward compatibility
                 'email' => $user['email'],
                 'user_name' => $user['first_name'] . ' ' . $user['last_name'],
+                'user' => [
+                    'id' => $user['id'],
+                    'first_name' => $user['first_name'],
+                    'last_name' => $user['last_name'],
+                    'email' => $user['email'],
+                    'user_type' => $user['user_type'],
+                ],
                 'logged_in' => true,
                 'api_token' => $token,
             ]);
@@ -157,7 +165,7 @@ class Auth extends BaseController
             'password' => 'required|min_length[8]',
             'password_confirm' => 'required|matches[password]',
             'user_type' => 'required|in_list[customer,worker]',
-            'phone' => 'max_length[20]',
+            'phone' => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
             'address' => 'max_length[500]'
         ];
 
@@ -214,9 +222,17 @@ class Auth extends BaseController
             // Auto login after registration.
             $this->session->set([
                 'user_id' => $user['id'],
+                'role' => $user['user_type'],
                 'user_role' => $user['user_type'],
                 'email' => $user['email'],
                 'user_name' => $user['first_name'] . ' ' . $user['last_name'],
+                'user' => [
+                    'id' => $user['id'],
+                    'first_name' => $user['first_name'],
+                    'last_name' => $user['last_name'],
+                    'email' => $user['email'],
+                    'user_type' => $user['user_type'],
+                ],
                 'logged_in' => true,
                 'api_token' => $this->createApiToken((int) $user['id'], (string) $user['user_type']),
             ]);

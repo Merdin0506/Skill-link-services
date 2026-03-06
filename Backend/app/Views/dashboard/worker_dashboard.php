@@ -48,41 +48,6 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="row mb-4">
-        <div class="col-lg-12">
-            <div class="card">
-                <div class="card-header">
-                    <i class="fas fa-lightning-bolt"></i> Quick Actions
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('worker/available-jobs') ?>" class="btn btn-primary w-100">
-                                <i class="fas fa-search"></i> Browse Jobs
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('worker/my-jobs') ?>" class="btn btn-info w-100">
-                                <i class="fas fa-tasks"></i> My Jobs
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('worker/earnings') ?>" class="btn btn-success w-100">
-                                <i class="fas fa-wallet"></i> Earnings
-                            </a>
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <a href="<?= base_url('worker/profile') ?>" class="btn btn-secondary w-100">
-                                <i class="fas fa-user"></i> Profile
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Analytics -->
     <div class="row mb-4">
         <div class="col-lg-6">

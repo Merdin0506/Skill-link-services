@@ -18,7 +18,6 @@
                 <a href="<?= base_url('admin/records?show_deleted=1') ?>" class="btn btn-outline-secondary btn-sm">View Archived</a>
             <?php endif; ?>
             <a href="<?= base_url('dashboard') ?>" class="btn btn-outline-primary btn-sm">Dashboard</a>
-            <a href="<?= base_url('logout') ?>" class="btn btn-outline-danger btn-sm">Logout</a>
         </div>
     </div>
 
