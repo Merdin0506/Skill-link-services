@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?= base_url('css/sidebar.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-layout-unified.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-table-unified.css') ?>">
     <style>
         :root {
             --primary-color: #1e3c72;
@@ -34,6 +36,10 @@
             transition: all 0.3s ease;
             border: none;
             border-top: 4px solid var(--primary-color);
+            height: 100%;
+            min-height: 185px;
+            display: flex;
+            flex-direction: column;
         }
 
         .stat-card:hover {
@@ -64,16 +70,22 @@
         }
 
         .stat-card .stat-value {
-            font-size: 32px;
+            font-size: clamp(1.4rem, 2.2vw, 2rem);
             font-weight: 700;
             color: var(--text-dark);
             margin-bottom: 8px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .stat-card .stat-label {
             font-size: 14px;
             color: var(--text-muted);
             font-weight: 500;
+            line-height: 1.25;
+            min-height: 34px;
         }
 
         .stat-card .stat-trend {
@@ -115,7 +127,9 @@
 
         .table-responsive {
             border-radius: 10px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
         }
 
         .table {
@@ -309,6 +323,74 @@
             font-size: 12px;
             margin-top: 30px;
         }
+
+        @media (max-width: 992px) {
+            .page-content {
+                padding: 20px;
+            }
+
+            .topbar {
+                margin-left: -20px;
+                margin-right: -20px;
+                margin-top: -20px;
+                padding: 15px 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+            }
+
+            .page-content {
+                padding: 15px;
+            }
+
+            .topbar {
+                margin-left: -15px;
+                margin-right: -15px;
+                margin-top: -15px;
+                border-radius: 0;
+                gap: 10px;
+            }
+
+            .user-profile {
+                width: 100%;
+                justify-content: space-between;
+                text-align: left;
+                gap: 10px;
+            }
+
+            .user-profile div {
+                min-width: 0;
+            }
+
+            .user-profile p {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 180px;
+            }
+
+            .card-body,
+            .card-header {
+                padding: 16px;
+            }
+
+            .stat-card {
+                min-height: 165px;
+                padding: 18px;
+            }
+
+            .stat-card .stat-icon {
+                font-size: 30px;
+                margin-bottom: 10px;
+            }
+
+            .stat-card .stat-value {
+                font-size: clamp(1.25rem, 5vw, 1.7rem);
+            }
+        }
     </style>
 </head>
 <body>
@@ -349,8 +431,7 @@
             'admin' => 'dashboard/admin_dashboard',
             'worker' => 'dashboard/worker_dashboard',
             'customer' => 'dashboard/customer_dashboard',
-            'owner' => 'dashboard/customer_dashboard',
-            'cashier' => 'dashboard/cashier_dashboard',
+            'finance' => 'dashboard/finance_dashboard',
             default => 'dashboard/default_dashboard'
         };
         
@@ -365,34 +446,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    <!-- Centralized Sidebar Toggle Script -->
+    <script src="<?= base_url('js/sidebar-toggle.js') ?>"></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const toggleBtn = document.getElementById('toggleSidebar');
-            const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
-            const mainContent = document.getElementById('mainContent') || document.querySelector('.main-content');
-
-            if (toggleBtn && sidebar && mainContent) {
-                toggleBtn.addEventListener('click', function() {
-                    sidebar.classList.toggle('collapsed');
-                    mainContent.classList.toggle('expanded');
-                    
-                    // Store preference in localStorage
-                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-                });
-
-                // Restore sidebar state from localStorage
-                if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                    sidebar.classList.add('collapsed');
-                    mainContent.classList.add('expanded');
-                }
+            // Keep dashboard data fresh by auto-refreshing the main dashboard view.
+            const path = window.location.pathname.replace(/\/+$/, '');
+            const isMainDashboard = path === '/dashboard' || path.endsWith('/dashboard') || path.endsWith('/index.php/dashboard');
+            if (isMainDashboard) {
+                setInterval(function() {
+                    if (!document.hidden) {
+                        window.location.reload();
+                    }
+                }, 30000);
             }
         });
 
         // Format currency
         function formatCurrency(value) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('en-PH', {
                 style: 'currency',
-                currency: 'USD'
+                currency: 'PHP'
             }).format(value);
         }
 

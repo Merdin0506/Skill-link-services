@@ -76,7 +76,7 @@ class CreatePaymentsTable extends Migration
                 'constraint' => 11,
                 'unsigned' => true,
                 'null' => true,
-                'comment' => 'Admin/Cashier who processed the payment',
+                'comment' => 'Admin/Finance who processed the payment',
             ],
             'notes' => [
                 'type' => 'TEXT',

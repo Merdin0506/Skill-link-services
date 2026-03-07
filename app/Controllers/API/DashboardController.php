@@ -96,7 +96,7 @@ class DashboardController extends ResourceController
             'owner' => $this->getOwnerStats($userId),
             'worker' => $this->getWorkerStats($userId),
             'customer' => $this->getCustomerStats($userId),
-            'cashier' => $this->getCashierStats(),
+            'finance' => $this->getFinanceStats(),
             default => []
         };
 
@@ -124,7 +124,7 @@ class DashboardController extends ResourceController
             'owner' => $this->getOwnerAnalytics($userId),
             'worker' => $this->getWorkerAnalytics($userId),
             'customer' => $this->getCustomerAnalytics($userId),
-            'cashier' => $this->getPaymentAnalytics(),
+            'finance' => $this->getPaymentAnalytics(),
             default => []
         };
 
@@ -153,7 +153,7 @@ class DashboardController extends ResourceController
             'owner' => $this->bookingModel->where('customer_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'worker' => $this->bookingModel->where('worker_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'customer' => $this->bookingModel->where('customer_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
-            'cashier' => $this->bookingModel->limit($limit)->orderBy('created_at', 'DESC')->find(),
+            'finance' => $this->bookingModel->limit($limit)->orderBy('created_at', 'DESC')->find(),
             default => []
         };
 
@@ -214,7 +214,7 @@ class DashboardController extends ResourceController
         ];
     }
 
-    private function getCashierStats()
+    private function getFinanceStats()
     {
         return [
             'total_payments' => $this->paymentModel->countAll(),
@@ -482,7 +482,7 @@ class DashboardController extends ResourceController
                 'owner' => $this->getOwnerStats($userId),
                 'worker' => $this->getWorkerStats($userId),
                 'customer' => $this->getCustomerStats($userId),
-                'cashier' => $this->getCashierStats(),
+                'finance' => $this->getFinanceStats(),
                 default => []
             },
             'analytics' => match ($userRole) {
@@ -490,7 +490,7 @@ class DashboardController extends ResourceController
                 'owner' => $this->getOwnerAnalytics($userId),
                 'worker' => $this->getWorkerAnalytics($userId),
                 'customer' => $this->getCustomerAnalytics($userId),
-                'cashier' => $this->getPaymentAnalytics(),
+                'finance' => $this->getPaymentAnalytics(),
                 default => []
             },
             'recentBookings' => $this->bookingModel->limit(10)->orderBy('created_at', 'DESC')->find()

@@ -77,18 +77,6 @@ if (!function_exists('isOwner')) {
     }
 }
 
-if (!function_exists('isCashier')) {
-    /**
-     * Check if current user is cashier
-     *
-     * @return bool
-     */
-    function isCashier(): bool
-    {
-        return userHasRole('cashier');
-    }
-}
-
 if (!function_exists('getCurrentUserId')) {
     /**
      * Get current user ID
@@ -141,12 +129,12 @@ if (!function_exists('hasResourceAccess')) {
         $userRole = getCurrentUserRole();
 
         $permissions = [
-            'dashboard' => ['admin', 'owner', 'worker', 'customer', 'cashier'],
+            'dashboard' => ['admin', 'owner', 'worker', 'customer', 'finance'],
             'users' => ['admin'],
-            'bookings' => ['admin', 'owner', 'worker', 'customer', 'cashier'],
-            'payments' => ['admin', 'cashier', 'customer', 'owner'],
-            'reports' => ['admin', 'cashier'],
-            'profile' => ['admin', 'owner', 'worker', 'customer', 'cashier'],
+            'bookings' => ['admin', 'owner', 'worker', 'customer'],
+            'payments' => ['admin', 'finance', 'customer', 'owner'],
+            'reports' => ['admin', 'finance'],
+            'profile' => ['admin', 'owner', 'worker', 'customer', 'finance'],
             'settings' => ['admin'],
         ];
 
@@ -173,7 +161,7 @@ if (!function_exists('getDashboardRoute')) {
             'worker' => '/worker/dashboard',
             'customer' => '/customer/dashboard',
             'owner' => '/owner/dashboard',
-            'cashier' => '/cashier/dashboard',
+            'finance' => '/dashboard',
             default => '/dashboard'
         };
     }
@@ -226,11 +214,11 @@ if (!function_exists('getSidebarMenu')) {
                 ['label' => 'Payments', 'url' => '/owner/payments', 'icon' => 'fa-credit-card'],
                 ['label' => 'Profile', 'url' => '/profile', 'icon' => 'fa-user-circle'],
             ],
-            'cashier' => [
+            'finance' => [
                 ['label' => 'Dashboard', 'url' => '/dashboard', 'icon' => 'fa-chart-line'],
-                ['label' => 'Payments', 'url' => '/cashier/payments', 'icon' => 'fa-credit-card'],
-                ['label' => 'Reports', 'url' => '/cashier/reports', 'icon' => 'fa-file-alt'],
-                ['label' => 'Reconciliation', 'url' => '/cashier/reconciliation', 'icon' => 'fa-calculator'],
+                ['label' => 'Payments', 'url' => '/finance/payments', 'icon' => 'fa-credit-card'],
+                ['label' => 'Payouts', 'url' => '/finance/payouts', 'icon' => 'fa-wallet'],
+                ['label' => 'Reports', 'url' => '/finance/reports', 'icon' => 'fa-file-alt'],
                 ['label' => 'Profile', 'url' => '/profile', 'icon' => 'fa-user-circle'],
             ],
             default => $baseMenu
@@ -249,7 +237,7 @@ if (!function_exists('formatCurrency')) {
      */
     function formatCurrency($value): string
     {
-        return '$' . number_format($value, 2);
+        return '₱' . number_format($value, 2);
     }
 }
 

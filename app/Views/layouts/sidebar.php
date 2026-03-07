@@ -40,7 +40,7 @@
                 <i class="fas fa-wallet"></i>
                 <span>Earnings</span>
             </a>
-        <?php elseif ($role === 'customer' || $role === 'owner'): ?>
+        <?php elseif ($role === 'customer'): ?>
             <a href="<?= base_url('customer/bookings') ?>" class="<?= (strpos(current_url(), '/customer/bookings') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-calendar-check"></i>
                 <span>My Bookings</span>
@@ -53,14 +53,18 @@
                 <i class="fas fa-credit-card"></i>
                 <span>Payments</span>
             </a>
-        <?php elseif ($role === 'cashier'): ?>
-            <a href="<?= base_url('cashier/payments') ?>" class="<?= (strpos(current_url(), '/cashier/payments') !== false) ? 'active' : '' ?>">
-                <i class="fas fa-credit-card"></i>
+        <?php elseif ($role === 'finance'): ?>
+            <a href="<?= base_url('finance/payments') ?>" class="<?= (strpos(current_url(), '/finance/payments') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-money-bill-wave"></i>
                 <span>Payments</span>
             </a>
-            <a href="<?= base_url('cashier/reports') ?>" class="<?= (strpos(current_url(), '/cashier/reports') !== false) ? 'active' : '' ?>">
-                <i class="fas fa-file-alt"></i>
-                <span>Reports</span>
+            <a href="<?= base_url('finance/payouts') ?>" class="<?= (strpos(current_url(), '/finance/payouts') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-hand-holding-usd"></i>
+                <span>Worker Payouts</span>
+            </a>
+            <a href="<?= base_url('finance/reports') ?>" class="<?= (strpos(current_url(), '/finance/reports') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-chart-bar"></i>
+                <span>Financial Reports</span>
             </a>
         <?php endif; ?>
         

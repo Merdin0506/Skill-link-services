@@ -81,6 +81,23 @@ class InitialDataSeeder extends Seeder
 
         $this->db->table('users')->insert($adminUser);
 
+        // Insert finance user
+        $financeUser = [
+            'first_name' => 'Finance',
+            'last_name' => 'Officer',
+            'email' => 'finance@skilllink.com',
+            'password' => password_hash('finance123', PASSWORD_DEFAULT),
+            'phone' => '+1234567891',
+            'address' => 'Finance Department',
+            'user_type' => 'finance',
+            'status' => 'active',
+            'email_verified_at' => date('Y-m-d H:i:s'),
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+
+        $this->db->table('users')->insert($financeUser);
+
         // Insert sample workers
         $workers = [
             [
@@ -169,7 +186,12 @@ class InitialDataSeeder extends Seeder
 
         echo "Initial data seeded successfully!\n";
         echo "Admin Login: admin@skilllink.com / admin123\n";
+        echo "Finance Login: finance@skilllink.com / finance123\n";
         echo "Worker Login: juan.santos@skilllink.com / worker123\n";
         echo "Customer Login: ana.cruz@email.com / customer123\n";
+        echo "\nBaseline Data Created:\n";
+        echo "- 5 Services\n";
+        echo "- 7 Users (1 Admin, 1 Finance, 3 Workers, 2 Customers)\n";
+        echo "- No seeded bookings/payments (real data only)\n";
     }
 }

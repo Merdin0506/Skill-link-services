@@ -1,0 +1,114 @@
+/* Unified dashboard layout responsiveness for shared wrappers */
+
+@media (max-width: 992px) {
+    .page-content {
+        padding: 20px;
+    }
+
+    .topbar {
+        margin-left: -20px;
+        margin-right: -20px;
+        margin-top: -20px;
+        padding: 15px 20px;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        padding: 15px;
+    }
+
+    .page-content {
+        padding: 15px;
+    }
+
+    .topbar {
+        margin-left: -15px;
+        margin-right: -15px;
+        margin-top: -15px;
+        border-radius: 0;
+        gap: 10px;
+        padding: 14px 16px;
+    }
+
+    .user-profile,
+    .topbar .user-profile {
+        width: 100%;
+        justify-content: space-between;
+        text-align: left;
+        gap: 10px;
+    }
+
+    .user-profile div,
+    .topbar .user-profile div {
+        min-width: 0;
+    }
+
+    .user-profile p,
+    .topbar .user-profile p {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 180px;
+    }
+
+    .card-body,
+    .card-header {
+        padding: 16px;
+    }
+
+    .stat-card {
+        min-height: 165px;
+        padding: 18px;
+    }
+
+    .stat-card .stat-icon {
+        font-size: 30px;
+        margin-bottom: 10px;
+    }
+
+    .stat-card .stat-value {
+        font-size: clamp(1.25rem, 5vw, 1.7rem);
+    }
+}
+
+@media (max-width: 576px) {
+    .main-content {
+        padding: 10px;
+    }
+
+    .page-content {
+        padding: 10px;
+    }
+
+    .topbar {
+        margin-left: -10px;
+        margin-right: -10px;
+        margin-top: -10px;
+        padding: 12px 10px;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .topbar .welcome {
+        width: 100%;
+    }
+
+    .card-body,
+    .card-header {
+        padding: 12px;
+    }
+
+    .stat-card {
+        min-height: 150px;
+        padding: 14px;
+    }
+
+    .stat-card .stat-icon {
+        font-size: 24px;
+    }
+
+    .stat-card .stat-value {
+        font-size: clamp(1.1rem, 6vw, 1.5rem);
+    }
+}

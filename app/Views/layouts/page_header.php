@@ -13,6 +13,7 @@
     
     <!-- Shared Sidebar CSS -->
     <link rel="stylesheet" href="<?= base_url('css/sidebar.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-layout-unified.css') ?>">
     
     <style>
         :root {
@@ -95,11 +96,31 @@
 
         .table-responsive {
             border-radius: 10px;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: hidden;
         }
 
         .table {
             margin-bottom: 0;
+        }
+
+        .table-fit {
+            table-layout: auto;
+            width: 100%;
+        }
+
+        .table-fit th,
+        .table-fit td {
+            white-space: normal;
+            word-break: normal;
+            overflow-wrap: break-word;
+        }
+
+        .table-payouts th,
+        .table-payouts td {
+            white-space: normal;
+            word-break: normal;
+            overflow-wrap: break-word;
         }
 
         .table thead th {
@@ -193,27 +214,9 @@
             padding: 30px;
         }
 
-        /* Animations */
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .stat-card {
-            animation: slideIn 0.5s ease-out;
-        }
-
-        .stat-card:nth-child(2) { animation-delay: 0.1s; }
-        .stat-card:nth-child(3) { animation-delay: 0.2s; }
-        .stat-card:nth-child(4) { animation-delay: 0.3s; }
-        .stat-card:nth-child(5) { animation-delay: 0.4s; }
-        .stat-card:nth-child(6) { animation-delay: 0.5s; }
+        /* Responsive table and layout behavior is centralized in:
+           - public/css/dashboard-layout-unified.css
+           - public/css/dashboard-table-unified.css */
 
         /* Footer */
         .footer {
@@ -224,6 +227,8 @@
             margin-top: 30px;
         }
     </style>
+
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-table-unified.css') ?>">
     
     <?php if (isset($customCss)): ?>
         <link rel="stylesheet" href="<?= base_url($customCss) ?>">
@@ -231,9 +236,9 @@
 </head>
 <body>
     <?php
-    // Ensure we have required variables
-    $role = session()->get('role') ?? 'customer';
-    $user = session()->get('user') ?? ['first_name' => '', 'last_name' => '', 'email' => ''];
+    // Use passed variables if available, otherwise fall back to session
+    $role = $role ?? session()->get('user_role') ?? 'customer';
+    $user = $user ?? session()->get('user') ?? ['first_name' => '', 'last_name' => '', 'email' => ''];
     ?>
 
     <!-- Include Sidebar -->
@@ -260,3 +265,4 @@
                 </div>
             </div>
         </div>
+

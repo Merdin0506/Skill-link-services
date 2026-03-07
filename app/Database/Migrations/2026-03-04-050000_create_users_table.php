@@ -47,7 +47,7 @@ class CreateUsersTable extends Migration
             ],
             'user_type' => [
                 'type' => 'ENUM',
-                'constraint' => ['owner', 'admin', 'cashier', 'worker', 'customer'],
+                'constraint' => ['admin', 'finance', 'worker', 'customer'],
                 'default' => 'customer',
             ],
             'status' => [

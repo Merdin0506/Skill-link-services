@@ -1,4 +1,4 @@
-<!-- Admin Dashboard -->
+﻿<!-- Admin Dashboard -->
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
@@ -17,7 +17,7 @@
         </div>
         <div class="col-md-3 col-sm-6 mb-3">
             <div class="stat-card warning">
-                <i class="fas fa-dollar-sign stat-icon" style="color: var(--warning-color);"></i>
+                <i class="fas fa-peso-sign stat-icon" style="color: var(--warning-color);"></i>
                 <div class="stat-value"><?= formatCurrency($stats['total_revenue'] ?? 0) ?></div>
                 <div class="stat-label">Total Revenue</div>
             </div>
@@ -140,15 +140,41 @@
 </div>
 
 <script>
-    // Booking Status Chart
-    const statusCtx = document.getElementById('bookingStatusChart')?.getContext('2d');
-    if (statusCtx) {
-        new Chart(statusCtx, {
+    window.addEventListener('load', function () {
+        if (typeof Chart === 'undefined') {
+            return;
+        }
+
+        const showEmptyState = function (canvasId, icon, message) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !canvas.parentElement) {
+                return;
+            }
+            canvas.parentElement.innerHTML = '<div class="text-center text-muted py-5"><i class="fas ' + icon + ' fa-2x mb-2 opacity-50"></i><p class="mb-0">' + message + '</p></div>';
+        };
+
+        const hasAnyData = function (values) {
+            return Array.isArray(values) && values.some(function (value) {
+                return Number(value) > 0;
+            });
+        };
+
+        const bookingStatusLabels = <?= json_encode(array_keys($analytics['bookings_by_status'] ?? [])) ?>;
+        const bookingStatusData = <?= json_encode(array_values($analytics['bookings_by_status'] ?? [])) ?>;
+        const bookingPriorityLabels = <?= json_encode(array_keys($analytics['bookings_by_priority'] ?? [])) ?>;
+        const bookingPriorityData = <?= json_encode(array_values($analytics['bookings_by_priority'] ?? [])) ?>;
+        const revenueTrendLabels = <?= json_encode(array_keys($analytics['revenue_trend'] ?? [])) ?>;
+        const revenueTrendData = <?= json_encode(array_values($analytics['revenue_trend'] ?? [])) ?>;
+
+        // Booking Status Chart
+        const statusCtx = document.getElementById('bookingStatusChart')?.getContext('2d');
+        if (statusCtx && hasAnyData(bookingStatusData)) {
+            new Chart(statusCtx, {
             type: 'doughnut',
             data: {
-                labels: <?= json_encode(array_keys($analytics['bookings_by_status'] ?? [])) ?>,
+                labels: bookingStatusLabels,
                 datasets: [{
-                    data: <?= json_encode(array_values($analytics['bookings_by_status'] ?? [])) ?>,
+                    data: bookingStatusData,
                     backgroundColor: [
                         '#fff3cd',
                         '#d1ecf1',
@@ -168,19 +194,21 @@
                     }
                 }
             }
-        });
-    }
+            });
+        } else {
+            showEmptyState('bookingStatusChart', 'fa-chart-pie', 'No booking status data yet.');
+        }
 
-    // Booking Priority Chart
-    const priorityCtx = document.getElementById('bookingPriorityChart')?.getContext('2d');
-    if (priorityCtx) {
-        new Chart(priorityCtx, {
+        // Booking Priority Chart
+        const priorityCtx = document.getElementById('bookingPriorityChart')?.getContext('2d');
+        if (priorityCtx && hasAnyData(bookingPriorityData)) {
+            new Chart(priorityCtx, {
             type: 'bar',
             data: {
-                labels: <?= json_encode(array_keys($analytics['bookings_by_priority'] ?? [])) ?>,
+                labels: bookingPriorityLabels,
                 datasets: [{
                     label: 'Number of Bookings',
-                    data: <?= json_encode(array_values($analytics['bookings_by_priority'] ?? [])) ?>,
+                    data: bookingPriorityData,
                     backgroundColor: [
                         '#d1e7dd',
                         '#fff3cd',
@@ -203,19 +231,21 @@
                     }
                 }
             }
-        });
-    }
+            });
+        } else {
+            showEmptyState('bookingPriorityChart', 'fa-chart-bar', 'No booking priority data yet.');
+        }
 
-    // Revenue Trend Chart
-    const revenueCtx = document.getElementById('revenueTrendChart')?.getContext('2d');
-    if (revenueCtx) {
-        new Chart(revenueCtx, {
+        // Revenue Trend Chart
+        const revenueCtx = document.getElementById('revenueTrendChart')?.getContext('2d');
+        if (revenueCtx && hasAnyData(revenueTrendData)) {
+            new Chart(revenueCtx, {
             type: 'line',
             data: {
-                labels: <?= json_encode(array_keys($analytics['revenue_trend'] ?? [])) ?>,
+                labels: revenueTrendLabels,
                 datasets: [{
                     label: 'Daily Revenue',
-                    data: <?= json_encode(array_values($analytics['revenue_trend'] ?? [])) ?>,
+                    data: revenueTrendData,
                     borderColor: '#4e73df',
                     backgroundColor: 'rgba(78, 115, 223, 0.1)',
                     borderWidth: 2,
@@ -237,12 +267,16 @@
                         beginAtZero: true,
                         ticks: {
                             callback: function(value) {
-                                return '$' + value.toLocaleString();
+                                return 'PHP ' + value.toLocaleString();
                             }
                         }
                     }
                 }
             }
-        });
-    }
+            });
+        } else {
+            showEmptyState('revenueTrendChart', 'fa-chart-line', 'No revenue trend data yet.');
+        }
+    });
 </script>
+

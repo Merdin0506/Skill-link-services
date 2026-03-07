@@ -7,6 +7,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-layout-unified.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-table-unified.css') ?>">
     <style>
         :root {
             --primary-color: #4e73df;
@@ -113,23 +115,29 @@
         /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
-                width: 100%;
-                position: relative;
-                min-height: auto;
-                max-height: 500px;
+                width: 250px;
+                min-width: 250px;
+                max-width: 250px;
+                position: fixed;
+                left: 0;
+                top: 0;
+                min-height: 100vh;
+                max-height: none;
             }
 
             .sidebar.collapsed {
-                width: 100%;
-                max-height: 60px;
+                width: 60px;
+                min-width: 60px;
+                max-width: 60px;
+                max-height: none;
             }
 
             .main-content {
-                margin-left: 0;
+                margin-left: 250px;
             }
 
             .main-content.expanded {
-                margin-left: 0;
+                margin-left: 60px;
             }
         }
 
@@ -170,6 +178,10 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             border-left: 4px solid var(--primary-color);
+            height: 100%;
+            min-height: 185px;
+            display: flex;
+            flex-direction: column;
         }
 
         .stat-card:hover {
@@ -200,15 +212,21 @@
         }
 
         .stat-card .stat-value {
-            font-size: 28px;
+            font-size: clamp(1.4rem, 2.2vw, 2rem);
             font-weight: bold;
             color: #333;
             margin-bottom: 5px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .stat-card .stat-label {
             font-size: 14px;
             color: #999;
+            line-height: 1.25;
+            min-height: 34px;
         }
 
         .card {
@@ -233,7 +251,9 @@
 
         .table-responsive {
             border-radius: 8px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
         }
 
         .table {
@@ -355,6 +375,65 @@
             font-size: 12px;
             margin-top: 30px;
         }
+        
+        @media (max-width: 992px) {
+            .page-content {
+                padding: 20px;
+            }
+
+            .topbar {
+                margin-left: -20px;
+                margin-right: -20px;
+                margin-top: -20px;
+                padding: 15px 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+            }
+
+            .page-content {
+                padding: 15px;
+            }
+
+            .topbar {
+                margin-left: -15px;
+                margin-right: -15px;
+                margin-top: -15px;
+                border-radius: 0;
+                gap: 10px;
+            }
+
+            .topbar .user-profile {
+                width: 100%;
+                justify-content: space-between;
+                text-align: left;
+                gap: 10px;
+            }
+
+            .topbar .user-profile p {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 180px;
+            }
+
+            .stat-card {
+                min-height: 165px;
+                padding: 18px;
+            }
+
+            .stat-card .stat-icon {
+                font-size: 30px;
+                margin-bottom: 10px;
+            }
+
+            .stat-card .stat-value {
+                font-size: clamp(1.25rem, 5vw, 1.7rem);
+            }
+        }
     </style>
 </head>
 <body>
@@ -399,7 +478,7 @@
                     <i class="fas fa-wallet"></i>
                     <span>Earnings</span>
                 </a>
-            <?php elseif ($role === 'customer' || $role === 'owner'): ?>
+            <?php elseif ($role === 'customer'): ?>
                 <a href="<?= base_url('customer/bookings') ?>">
                     <i class="fas fa-calendar-check"></i>
                     <span>My Bookings</span>
@@ -412,14 +491,18 @@
                     <i class="fas fa-credit-card"></i>
                     <span>Payments</span>
                 </a>
-            <?php elseif ($role === 'cashier'): ?>
-                <a href="<?= base_url('cashier/payments') ?>">
-                    <i class="fas fa-credit-card"></i>
+            <?php elseif ($role === 'finance'): ?>
+                <a href="<?= base_url('finance/payments') ?>">
+                    <i class="fas fa-money-bill-wave"></i>
                     <span>Payments</span>
                 </a>
-                <a href="<?= base_url('cashier/reports') ?>">
-                    <i class="fas fa-file-alt"></i>
-                    <span>Reports</span>
+                <a href="<?= base_url('finance/payouts') ?>">
+                    <i class="fas fa-hand-holding-usd"></i>
+                    <span>Worker Payouts</span>
+                </a>
+                <a href="<?= base_url('finance/reports') ?>">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Financial Reports</span>
                 </a>
             <?php endif; ?>
             <a href="<?= base_url('profile') ?>">
@@ -465,8 +548,7 @@
             'admin' => 'dashboard/admin_dashboard',
             'worker' => 'dashboard/worker_dashboard',
             'customer' => 'dashboard/customer_dashboard',
-            'owner' => 'dashboard/customer_dashboard',
-            'cashier' => 'dashboard/cashier_dashboard',
+            'finance' => 'dashboard/finance_dashboard',
             default => 'dashboard/default_dashboard'
         };
         
@@ -481,31 +563,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    
+    <!-- Centralized Sidebar Toggle Script -->
+    <script src="<?= base_url('js/sidebar-toggle.js') ?>"></script>
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const toggleBtn = document.getElementById('toggleSidebar');
-            const sidebar = document.getElementById('sidebar') || document.querySelector('.sidebar');
-            const mainContent = document.getElementById('mainContent') || document.querySelector('.main-content');
-
-            if (toggleBtn && sidebar && mainContent) {
-                toggleBtn.addEventListener('click', function() {
-                    sidebar.classList.toggle('collapsed');
-                    mainContent.classList.toggle('expanded');
-                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
-                });
-
-                if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                    sidebar.classList.add('collapsed');
-                    mainContent.classList.add('expanded');
-                }
+            // Keep dashboard data fresh by auto-refreshing the main dashboard view.
+            const path = window.location.pathname.replace(/\/+$/, '');
+            const isMainDashboard = path === '/dashboard' || path.endsWith('/dashboard') || path.endsWith('/index.php/dashboard');
+            if (isMainDashboard) {
+                setInterval(function() {
+                    if (!document.hidden) {
+                        window.location.reload();
+                    }
+                }, 30000);
             }
         });
 
         // Format currency
         function formatCurrency(value) {
-            return new Intl.NumberFormat('en-US', {
+            return new Intl.NumberFormat('en-PH', {
                 style: 'currency',
-                currency: 'USD'
+                currency: 'PHP'
             }).format(value);
         }
 

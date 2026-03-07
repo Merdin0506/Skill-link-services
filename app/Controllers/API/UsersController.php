@@ -239,7 +239,7 @@ class UsersController extends BaseController
             'total_users' => $this->userModel->countAll(),
             'total_workers' => $this->userModel->where('user_type', 'worker')->countAllResults(),
             'total_customers' => $this->userModel->where('user_type', 'customer')->countAllResults(),
-            'total_admin_staff' => $this->userModel->whereIn('user_type', ['owner', 'admin', 'cashier'])->countAllResults(),
+            'total_admin_staff' => $this->userModel->whereIn('user_type', ['admin', 'finance'])->countAllResults(),
             'active_users' => $this->userModel->where('status', 'active')->countAllResults(),
             'inactive_users' => $this->userModel->where('status', 'inactive')->countAllResults(),
             'suspended_users' => $this->userModel->where('status', 'suspended')->countAllResults()

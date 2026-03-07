@@ -1,4 +1,4 @@
-<!-- Customer/Owner Dashboard -->
+﻿<!-- Customer Dashboard -->
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
@@ -34,7 +34,7 @@
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
             <div class="stat-card success">
-                <i class="fas fa-dollar-sign stat-icon" style="color: var(--success-color);"></i>
+                <i class="fas fa-peso-sign stat-icon" style="color: var(--success-color);"></i>
                 <div class="stat-value"><?= formatCurrency($stats['total_spent'] ?? 0) ?></div>
                 <div class="stat-label">Total Spent</div>
             </div>
@@ -133,73 +133,106 @@
 </div>
 
 <script>
-    // Spending Trend Chart
-    const spendingCtx = document.getElementById('spendingTrendChart')?.getContext('2d');
-    if (spendingCtx) {
-        new Chart(spendingCtx, {
-            type: 'line',
-            data: {
-                labels: <?= json_encode(array_keys($analytics['spending_trend'] ?? [])) ?>,
-                datasets: [{
-                    label: 'Daily Spending',
-                    data: <?= json_encode(array_values($analytics['spending_trend'] ?? [])) ?>,
-                    borderColor: '#f6c23e',
-                    backgroundColor: 'rgba(246, 194, 62, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top'
-                    }
+    window.addEventListener('load', function () {
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js is not loaded');
+            return;
+        }
+
+        const showEmptyState = function (canvasId, icon, message) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !canvas.parentElement) {
+                return;
+            }
+            canvas.parentElement.innerHTML = '<div class="text-center text-muted py-5"><i class="fas ' + icon + ' fa-2x mb-2 opacity-50"></i><p class="mb-0">' + message + '</p></div>';
+        };
+
+        const hasAnyData = function (values) {
+            return Array.isArray(values) && values.some(function (value) {
+                return Number(value) > 0;
+            });
+        };
+
+        const spendingTrendLabels = <?= json_encode(array_keys($analytics['spending_trend'] ?? [])) ?>;
+        const spendingTrendData = <?= json_encode(array_values($analytics['spending_trend'] ?? [])) ?>;
+
+        // Spending Trend Chart
+        const spendingCtx = document.getElementById('spendingTrendChart')?.getContext('2d');
+        if (spendingCtx && hasAnyData(spendingTrendData)) {
+            new Chart(spendingCtx, {
+                type: 'line',
+                data: {
+                    labels: spendingTrendLabels,
+                    datasets: [{
+                        label: 'Daily Spending',
+                        data: spendingTrendData,
+                        backgroundColor: 'rgba(246, 194, 62, 0.1)',
+                        borderColor: '#f6c23e',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'PHP ' + value.toLocaleString();
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
-    }
+            });
+        } else {
+            showEmptyState('spendingTrendChart', 'fa-chart-line', 'No spending data yet.');
+        }
 
-    // Service Preferences Chart
-    const serviceCtx = document.getElementById('servicePreferencesChart')?.getContext('2d');
-    if (serviceCtx) {
-        new Chart(serviceCtx, {
-            type: 'doughnut',
-            data: {
-                labels: <?= json_encode(array_map(fn($item) => 'Service ' . ($item['service_id'] ?? 'N/A'), $analytics['service_preferences'] ?? [])) ?>,
-                datasets: [{
-                    data: <?= json_encode(array_map(fn($item) => $item['count'] ?? 0, $analytics['service_preferences'] ?? [])) ?>,
-                    backgroundColor: [
-                        '#4e73df',
-                        '#1cc88a',
-                        '#36b9cc',
-                        '#f6c23e',
-                        '#e74c3c'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
+        // Service Preferences Chart
+        const serviceCtx = document.getElementById('servicePreferencesChart')?.getContext('2d');
+        if (serviceCtx) {
+            const serviceData = <?= json_encode($analytics['service_preferences'] ?? []) ?>;
+            
+            if (serviceData && serviceData.length > 0) {
+                new Chart(serviceCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: serviceData.map(item => item.service_name || 'Unknown Service'),
+                        datasets: [{
+                            data: serviceData.map(item => item.count || 0),
+                            backgroundColor: [
+                                '#4e73df',
+                                '#1cc88a',
+                                '#36b9cc',
+                                '#f6c23e',
+                                '#e74c3c'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
                     }
-                }
+                });
+            } else {
+                // Show "No data" message
+                serviceCtx.canvas.parentElement.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-chart-pie fa-3x mb-3 opacity-25"></i><p>No service usage data yet.<br>Book a service to see your preferences.</p></div>';
             }
-        });
-    }
+        }
+    });
 </script>
+

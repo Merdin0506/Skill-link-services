@@ -122,8 +122,8 @@ class RecordsController extends BaseController
             return $this->failUnauthorized('Authentication required.');
         }
 
-        // Only admin, owner, or cashier may create records
-        if (!in_array($auth['role'], ['admin', 'owner', 'cashier'])) {
+        // Only admin, owner, or finance may create records
+        if (!in_array($auth['role'], ['admin', 'owner', 'finance'])) {
             return $this->failForbidden('You do not have permission to create records.');
         }
 
@@ -215,8 +215,8 @@ class RecordsController extends BaseController
             return $this->failNotFound('Record not found.');
         }
 
-        // Authorization: admin/owner/cashier can update any; worker can update their own assigned
-        if (in_array($auth['role'], ['admin', 'owner', 'cashier'])) {
+        // Authorization: admin/owner/finance can update any; worker can update their own assigned
+        if (in_array($auth['role'], ['admin', 'owner', 'finance'])) {
             // allowed
         } elseif ($auth['role'] === 'worker' && (int) $record['provider_id'] === $auth['id']) {
             // worker can only update notes and status for assigned records

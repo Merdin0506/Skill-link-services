@@ -37,7 +37,7 @@ class UserModel extends Model
         'last_name' => 'required|min_length[2]|max_length[100]',
         'email' => 'required|valid_email|is_unique[users.email,id,{id}]',
         'password' => 'required|min_length[8]',
-        'user_type' => 'required|in_list[owner,admin,cashier,worker,customer]',
+        'user_type' => 'required|in_list[admin,finance,worker,customer]',
         'status' => 'required|in_list[active,inactive,suspended]',
         'phone' => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
         'commission_rate' => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
@@ -66,7 +66,7 @@ class UserModel extends Model
 
     public function getAdminStaff($status = 'active')
     {
-        return $this->whereIn('user_type', ['owner', 'admin', 'cashier'])
+        return $this->whereIn('user_type', ['admin', 'finance'])
                     ->where('status', $status)
                     ->findAll();
     }
@@ -77,6 +77,54 @@ class UserModel extends Model
                     ->where('status', 'active')
                     ->like('skills', $skill)
                     ->findAll();
+    }
+
+    /**
+     * Get workers matching a service category
+     */
+    public function getWorkersByServiceCategory($serviceCategory)
+    {
+        // Map service categories to skill keywords
+        $skillMap = [
+            'electrician' => ['electrical', 'electrician', 'wiring'],
+            'plumber' => ['plumbing', 'plumber', 'pipe'],
+            'mechanic' => ['automotive', 'mechanic', 'engine'],
+            'technician' => ['technician', 'technical', 'repair'],
+            'general' => [] // general workers can have any skill
+        ];
+
+        $workers = $this->where('user_type', 'worker')
+                        ->where('status', 'active')
+                        ->findAll();
+
+        // If general category, return all active workers
+        if ($serviceCategory === 'general' || !isset($skillMap[$serviceCategory])) {
+            return $workers;
+        }
+
+        // Filter workers whose skills match the category
+        $matchingWorkers = [];
+        $keywords = $skillMap[$serviceCategory];
+
+        foreach ($workers as $worker) {
+            $workerSkills = json_decode($worker['skills'] ?? '[]', true);
+            if (!is_array($workerSkills)) {
+                continue;
+            }
+
+            // Check if any worker skill contains any of the keywords
+            foreach ($workerSkills as $skill) {
+                $skillLower = strtolower($skill);
+                foreach ($keywords as $keyword) {
+                    if (stripos($skillLower, $keyword) !== false) {
+                        $matchingWorkers[] = $worker;
+                        break 2; // Break both loops once matched
+                    }
+                }
+            }
+        }
+
+        return $matchingWorkers;
     }
 
     public function getWorkerRating($workerId)
@@ -112,9 +160,8 @@ class UserModel extends Model
             case 'owner':
                 return $this->getOwnerDashboard();
             case 'admin':
+            case 'finance':
                 return $this->getAdminDashboard();
-            case 'cashier':
-                return $this->getCashierDashboard();
             case 'worker':
                 return $this->getWorkerDashboard($userId);
             case 'customer':
@@ -171,15 +218,5 @@ class UserModel extends Model
     {
         return $this->getOwnerDashboard();
     }
-
-    private function getCashierDashboard()
-    {
-        $paymentModel = new PaymentModel();
-
-        return [
-            'pending_payments' => $paymentModel->where('status', 'pending')->countAllResults(),
-            'today_payments' => $paymentModel->getTodayPayments(),
-            'total_revenue' => $paymentModel->getTotalRevenue(),
-        ];
-    }
 }
+

@@ -8,7 +8,7 @@ SkillLink Services Inc. is a service-based company that connects skilled workers
 
 ### Features
 
-- **User Management**: Multi-role system (Owner, Admin, Cashier, Worker, Customer)
+- **User Management**: Multi-role system (Admin, Finance, Worker, Customer)
 - **Service Booking**: Complete booking lifecycle from request to completion
 - **Payment Processing**: Multiple payment methods with commission-based worker payouts
 - **Review System**: Customer ratings and feedback for workers
@@ -323,9 +323,8 @@ php spark make:model NewModel
 5. Worker receives earnings
 
 ### User Roles
-- **Owner**: Full system access and reporting
-- **Admin**: Manage users, bookings, and payments
-- **Cashier**: Process payments and manage payouts
+- **Admin**: Full system access, manage users, bookings, and payments
+- **Finance**: Process payments, manage payouts, and view financial reports
 - **Worker**: Accept bookings and provide services
 - **Customer**: Request services and make payments
 

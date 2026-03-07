@@ -14,7 +14,7 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-striped mb-0">
+                    <table class="table table-striped table-fit table-bookings mb-0">
                         <thead>
                             <tr>
                                 <th>Reference</th>
@@ -23,6 +23,7 @@
                                 <th>Scheduled Date</th>
                                 <th>Status</th>
                                 <th>Total Fee</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -52,10 +53,21 @@
                                         <span class="badge <?= $statusClass[$status] ?? 'bg-secondary' ?>"><?= esc(ucfirst(str_replace('_', ' ', $status))) ?></span>
                                     </td>
                                     <td><strong>₱<?= number_format((float)($row['total_fee'] ?? 0), 2) ?></strong></td>
+                                    <td>
+                                        <?php if (($row['status'] ?? '') === 'completed' && empty($row['review_id'])): ?>
+                                            <a href="<?= base_url('customer/reviews/create/' . ($row['id'] ?? '')) ?>" class="btn btn-sm btn-warning">
+                                                <i class="fas fa-star"></i> Rate
+                                            </a>
+                                        <?php elseif (!empty($row['review_id'])): ?>
+                                            <span class="badge bg-success">Rated</span>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <tr><td colspan="6" class="text-center py-4">
+                            <tr><td colspan="7" class="text-center py-4">
                                 <p class="text-muted mb-0">No bookings yet.</p>
                                 <a href="<?= base_url('customer/services') ?>" class="btn btn-primary btn-sm mt-2">Browse Services</a>
                             </td></tr>
