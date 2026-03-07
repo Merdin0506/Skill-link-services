@@ -137,6 +137,15 @@ class UsersController extends BaseController
             return $this->failNotFound('User not found');
         }
 
+        // Enforce a single super admin account.
+        $requestedRole = $this->request->getVar('user_type');
+        if (($user['user_type'] ?? '') === 'super_admin' && $requestedRole && $requestedRole !== 'super_admin') {
+            return $this->fail('The super admin role cannot be changed');
+        }
+        if (($user['user_type'] ?? '') !== 'super_admin' && $requestedRole === 'super_admin') {
+            return $this->fail('Only one super admin is allowed');
+        }
+
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
             'last_name' => 'required|min_length[2]|max_length[100]',
@@ -201,6 +210,12 @@ class UsersController extends BaseController
             return $this->failNotFound('User not found');
         }
 
+        // Protect super admin accounts from deletion.
+        $isSuperAdmin = (($user['user_type'] ?? '') === 'super_admin');
+        if ($isSuperAdmin) {
+            return $this->fail('Super admin account cannot be deleted');
+        }
+
         try {
             $this->userModel->delete($id);
 
@@ -239,7 +254,7 @@ class UsersController extends BaseController
             'total_users' => $this->userModel->countAll(),
             'total_workers' => $this->userModel->where('user_type', 'worker')->countAllResults(),
             'total_customers' => $this->userModel->where('user_type', 'customer')->countAllResults(),
-            'total_admin_staff' => $this->userModel->whereIn('user_type', ['admin', 'finance'])->countAllResults(),
+            'total_admin_staff' => $this->userModel->whereIn('user_type', ['super_admin', 'admin', 'finance'])->countAllResults(),
             'active_users' => $this->userModel->where('status', 'active')->countAllResults(),
             'inactive_users' => $this->userModel->where('status', 'inactive')->countAllResults(),
             'suspended_users' => $this->userModel->where('status', 'suspended')->countAllResults()

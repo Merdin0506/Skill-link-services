@@ -64,7 +64,7 @@ class InitialDataSeeder extends Seeder
 
         $this->db->table('services')->insertBatch($services);
 
-        // Insert admin user
+        // Insert super admin user
         $adminUser = [
             'first_name' => 'Admin',
             'last_name' => 'User',
@@ -72,7 +72,7 @@ class InitialDataSeeder extends Seeder
             'password' => password_hash('admin123', PASSWORD_DEFAULT),
             'phone' => '+1234567890',
             'address' => 'Office Address',
-            'user_type' => 'admin',
+            'user_type' => 'super_admin',
             'status' => 'active',
             'email_verified_at' => date('Y-m-d H:i:s'),
             'created_at' => date('Y-m-d H:i:s'),
@@ -185,13 +185,13 @@ class InitialDataSeeder extends Seeder
         $this->db->table('users')->insertBatch($customers);
 
         echo "Initial data seeded successfully!\n";
-        echo "Admin Login: admin@skilllink.com / admin123\n";
+        echo "Super Admin Login: admin@skilllink.com / admin123\n";
         echo "Finance Login: finance@skilllink.com / finance123\n";
         echo "Worker Login: juan.santos@skilllink.com / worker123\n";
         echo "Customer Login: ana.cruz@email.com / customer123\n";
         echo "\nBaseline Data Created:\n";
         echo "- 5 Services\n";
-        echo "- 7 Users (1 Admin, 1 Finance, 3 Workers, 2 Customers)\n";
+        echo "- 7 Users (1 Super Admin, 1 Finance, 3 Workers, 2 Customers)\n";
         echo "- No seeded bookings/payments (real data only)\n";
     }
 }

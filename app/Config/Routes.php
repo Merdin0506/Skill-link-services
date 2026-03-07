@@ -18,6 +18,11 @@ $routes->get('logout', 'Auth::logout');
 // Dashboard Routes
 $routes->get('dashboard', 'Dashboard::index');
 $routes->get('admin/users', 'Dashboard::users');
+$routes->get('admin/users/create', 'Dashboard::userCreate');
+$routes->post('admin/users/store', 'Dashboard::userStore');
+$routes->get('admin/users/edit/(:num)', 'Dashboard::userEdit/$1');
+$routes->post('admin/users/update/(:num)', 'Dashboard::userUpdate/$1');
+$routes->post('admin/users/delete/(:num)', 'Dashboard::userDelete/$1');
 $routes->get('admin/bookings', 'Dashboard::bookings');
 $routes->get('admin/payments', 'Dashboard::payments');
 $routes->get('worker/available-jobs', 'Dashboard::availableJobs');
@@ -41,6 +46,11 @@ $routes->post('finance/payouts/store/(:num)', 'Finance::storePayout/$1');
 $routes->get('finance/reports', 'Finance::reports');
 
 $routes->get('profile', 'Dashboard::profile');
+$routes->get('profile/edit', 'Dashboard::profileEdit');
+$routes->post('profile/update', 'Dashboard::profileUpdate');
+$routes->get('profile/change-password', 'Dashboard::changePassword');
+$routes->post('profile/update-password', 'Dashboard::updatePassword');
+$routes->post('profile/delete-account', 'Dashboard::deleteAccount');
 $routes->get('settings', 'Dashboard::settings');
 
 // Booking Routes

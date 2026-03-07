@@ -69,7 +69,7 @@ class Dashboard extends BaseController
             return redirect()->to('/auth/login');
         }
 
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -82,13 +82,390 @@ class Dashboard extends BaseController
         return view('dashboard/admin_users', $data);
     }
 
+    public function userCreate()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
+            return redirect()->to('/dashboard');
+        }
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+        ];
+
+        return view('dashboard/admin_user_form', $data);
+    }
+
+    public function userStore()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
+            return redirect()->to('/dashboard');
+        }
+
+        $validation = \Config\Services::validation();
+
+        $rules = [
+            'first_name' => 'required|min_length[2]|max_length[100]',
+            'last_name' => 'required|min_length[2]|max_length[100]',
+            'email' => 'required|valid_email|is_unique[users.email]',
+            'password' => 'required|min_length[6]',
+            'phone' => 'permit_empty|max_length[20]',
+            'address' => 'permit_empty|max_length[500]',
+            'user_type' => 'required|in_list[super_admin,admin,finance,worker,customer]',
+            'status' => 'required|in_list[active,inactive,suspended]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+        }
+
+        $userData = [
+            'first_name' => $this->request->getPost('first_name'),
+            'last_name' => $this->request->getPost('last_name'),
+            'email' => $this->request->getPost('email'),
+            'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
+            'phone' => $this->request->getPost('phone'),
+            'address' => $this->request->getPost('address'),
+            'user_type' => $this->request->getPost('user_type'),
+            'status' => $this->request->getPost('status'),
+            'email_verified_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if (($userData['user_type'] ?? '') === 'super_admin') {
+            return redirect()->back()->withInput()->with('error', 'Only one super admin is allowed.');
+        }
+
+        // Add worker-specific fields
+        if ($userData['user_type'] === 'worker') {
+            $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
+            $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
+            $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
+        }
+
+        if ($this->userModel->insert($userData) === false) {
+            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        }
+
+        return redirect()->to('/admin/users')->with('success', 'User created successfully.');
+    }
+
+    public function userEdit($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
+            return redirect()->to('/dashboard');
+        }
+
+        $targetUser = $this->userModel->find((int) $id);
+        if (!$targetUser) {
+            return redirect()->to('/admin/users')->with('error', 'User not found.');
+        }
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'editUser' => $targetUser,
+        ];
+
+        return view('dashboard/admin_user_form', $data);
+    }
+
+    public function userUpdate($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
+            return redirect()->to('/dashboard');
+        }
+
+        $targetUser = $this->userModel->find((int) $id);
+        if (!$targetUser) {
+            return redirect()->to('/admin/users')->with('error', 'User not found.');
+        }
+
+        $validation = \Config\Services::validation();
+
+        $rules = [
+            'first_name' => 'required|min_length[2]|max_length[100]',
+            'last_name' => 'required|min_length[2]|max_length[100]',
+            'email' => 'required|valid_email|is_unique[users.email,id,' . $id . ']',
+            'phone' => 'permit_empty|max_length[20]',
+            'address' => 'permit_empty|max_length[500]',
+            'user_type' => 'required|in_list[super_admin,admin,finance,worker,customer]',
+            'status' => 'required|in_list[active,inactive,suspended]',
+        ];
+
+        // Password is optional on update
+        if ($this->request->getPost('password')) {
+            $rules['password'] = 'min_length[6]';
+        }
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+        }
+
+        $userData = [
+            'first_name' => $this->request->getPost('first_name'),
+            'last_name' => $this->request->getPost('last_name'),
+            'email' => $this->request->getPost('email'),
+            'phone' => $this->request->getPost('phone'),
+            'address' => $this->request->getPost('address'),
+            'user_type' => $this->request->getPost('user_type'),
+            'status' => $this->request->getPost('status'),
+        ];
+
+        $targetIsSuperAdmin = (($targetUser['user_type'] ?? '') === 'super_admin');
+        $requestedIsSuperAdmin = (($userData['user_type'] ?? '') === 'super_admin');
+
+        // Enforce a single super admin account.
+        if ($targetIsSuperAdmin && !$requestedIsSuperAdmin) {
+            return redirect()->back()->withInput()->with('error', 'The super admin role cannot be changed.');
+        }
+        if (!$targetIsSuperAdmin && $requestedIsSuperAdmin) {
+            return redirect()->back()->withInput()->with('error', 'Only one super admin is allowed.');
+        }
+
+        // Update password if provided
+        if ($this->request->getPost('password')) {
+            $userData['password'] = password_hash($this->request->getPost('password'), PASSWORD_DEFAULT);
+        }
+
+        // Add worker-specific fields
+        if ($userData['user_type'] === 'worker') {
+            $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
+            $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
+            $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
+        }
+
+        if ($this->userModel->update((int) $id, $userData) === false) {
+            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        }
+
+        return redirect()->to('/admin/users')->with('success', 'User updated successfully.');
+    }
+
+    public function userDelete($id = null)
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
+            return redirect()->to('/dashboard');
+        }
+
+        $targetUser = $this->userModel->find((int) $id);
+        if (!$targetUser) {
+            return redirect()->to('/admin/users')->with('error', 'User not found.');
+        }
+
+        // Protect super admin accounts from deletion.
+        $isSuperAdmin = (($targetUser['user_type'] ?? '') === 'super_admin');
+        if ($isSuperAdmin) {
+            return redirect()->to('/admin/users')->with('error', 'Super admin account cannot be deleted.');
+        }
+
+        // Prevent deleting yourself
+        if ((int) $id === (int) $this->session->get('user_id')) {
+            return redirect()->to('/admin/users')->with('error', 'You cannot delete your own account.');
+        }
+
+        // Check if user has related bookings
+        $hasBookings = $this->bookingModel
+            ->groupStart()
+                ->where('customer_id', (int) $id)
+                ->orWhere('worker_id', (int) $id)
+            ->groupEnd()
+            ->countAllResults() > 0;
+
+        if ($hasBookings) {
+            // Soft delete by setting status to inactive
+            $this->userModel->update((int) $id, ['status' => 'inactive']);
+            return redirect()->to('/admin/users')->with('success', 'User account deactivated (has booking history).');
+        }
+
+        // Hard delete if no bookings
+        if ($this->userModel->delete((int) $id) === false) {
+            return redirect()->to('/admin/users')->with('error', 'Failed to delete user.');
+        }
+
+        return redirect()->to('/admin/users')->with('success', 'User deleted successfully.');
+    }
+
+    public function profileEdit()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+        ];
+
+        return view('dashboard/profile_edit', $data);
+    }
+
+    public function profileUpdate()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $userId = $this->session->get('user_id');
+        $currentUser = $this->userModel->find($userId);
+
+        if (!$currentUser) {
+            return redirect()->to('/auth/login');
+        }
+
+        $validation = \Config\Services::validation();
+
+        $rules = [
+            'first_name' => 'required|min_length[2]|max_length[100]',
+            'last_name' => 'required|min_length[2]|max_length[100]',
+            'email' => 'required|valid_email|is_unique[users.email,id,' . $userId . ']',
+            'phone' => 'permit_empty|max_length[20]',
+            'address' => 'permit_empty|max_length[500]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
+        }
+
+        $userData = [
+            'first_name' => $this->request->getPost('first_name'),
+            'last_name' => $this->request->getPost('last_name'),
+            'email' => $this->request->getPost('email'),
+            'phone' => $this->request->getPost('phone'),
+            'address' => $this->request->getPost('address'),
+        ];
+
+        // Add worker-specific fields if user is a worker
+        if ($currentUser['user_type'] === 'worker') {
+            $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
+            $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
+        }
+
+        if ($this->userModel->update($userId, $userData) === false) {
+            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        }
+
+        // Update session data
+        $this->session->set('user_name', $userData['first_name'] . ' ' . $userData['last_name']);
+        $this->session->set('email', $userData['email']);
+
+        return redirect()->to('/profile')->with('success', 'Profile updated successfully.');
+    }
+
+    public function changePassword()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+        ];
+
+        return view('dashboard/change_password', $data);
+    }
+
+    public function updatePassword()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $userId = $this->session->get('user_id');
+        $currentUser = $this->userModel->find($userId);
+
+        if (!$currentUser) {
+            return redirect()->to('/auth/login');
+        }
+
+        $validation = \Config\Services::validation();
+
+        $rules = [
+            'current_password' => 'required',
+            'new_password' => 'required|min_length[6]',
+            'confirm_password' => 'required|matches[new_password]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->with('errors', $validation->getErrors());
+        }
+
+        // Verify current password
+        if (!password_verify($this->request->getPost('current_password'), (string)$currentUser['password'])) {
+            return redirect()->back()->with('error', 'Current password is incorrect.');
+        }
+
+        $newPassword = password_hash($this->request->getPost('new_password'), PASSWORD_DEFAULT);
+
+        if ($this->userModel->update($userId, ['password' => $newPassword]) === false) {
+            return redirect()->back()->with('error', 'Failed to update password.');
+        }
+
+        return redirect()->to('/profile')->with('success', 'Password changed successfully.');
+    }
+
+    public function deleteAccount()
+    {
+        if (!$this->session->has('user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $userId = $this->session->get('user_id');
+        $currentUser = $this->userModel->find($userId);
+
+        if (!$currentUser) {
+            return redirect()->to('/auth/login');
+        }
+
+        // Check if user has active bookings
+        $activeBookings = $this->bookingModel
+            ->groupStart()
+                ->where('customer_id', $userId)
+                ->orWhere('worker_id', $userId)
+            ->groupEnd()
+            ->whereIn('status', ['pending', 'assigned', 'in_progress'])
+            ->countAllResults();
+
+        if ($activeBookings > 0) {
+            return redirect()->back()->with('error', 'Cannot delete account with active bookings. Please complete or cancel them first.');
+        }
+
+        // Soft delete by setting status to inactive
+        $this->userModel->update($userId, ['status' => 'inactive', 'email' => 'deleted_' . time() . '_' . $currentUser['email']]);
+
+        // Logout user
+        $this->session->destroy();
+
+        return redirect()->to('/')->with('success', 'Your account has been deleted successfully.');
+    }
+
     public function bookings()
     {
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
 
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -134,7 +511,7 @@ class Dashboard extends BaseController
             return redirect()->to('/auth/login');
         }
 
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -159,7 +536,7 @@ class Dashboard extends BaseController
             return redirect()->to('/auth/login');
         }
 
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -238,7 +615,7 @@ class Dashboard extends BaseController
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -264,7 +641,7 @@ class Dashboard extends BaseController
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -319,7 +696,7 @@ class Dashboard extends BaseController
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -348,7 +725,7 @@ class Dashboard extends BaseController
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -416,7 +793,7 @@ class Dashboard extends BaseController
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -437,7 +814,7 @@ class Dashboard extends BaseController
         if (!$this->session->has('user_id')) {
             return redirect()->to('/auth/login');
         }
-        if ($this->session->get('user_role') !== 'admin') {
+        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
             return redirect()->to('/dashboard');
         }
 
@@ -925,6 +1302,7 @@ class Dashboard extends BaseController
         ];
 
         switch ($userRole) {
+            case 'super_admin':
             case 'admin':
                 $data['stats'] = $this->getAdminStats();
                 $data['recentBookings'] = $this->getAllRecentBookings(10);
@@ -1436,3 +1814,6 @@ class Dashboard extends BaseController
             ->findAll();
     }
 }
+
+
+

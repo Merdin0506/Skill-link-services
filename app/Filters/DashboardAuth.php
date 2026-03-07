@@ -22,7 +22,7 @@ class DashboardAuth implements FilterInterface
 
         // Check if user has a valid role
         $userRole = $session->get('user_role');
-        $validRoles = ['admin', 'finance', 'worker', 'customer'];
+        $validRoles = ['super_admin', 'admin', 'finance', 'worker', 'customer'];
 
         if (!in_array($userRole, $validRoles)) {
             return redirect()->to('/login')->with('error', 'Invalid user role');

@@ -448,7 +448,7 @@
                 <i class="fas fa-chart-line"></i>
                 <span>Dashboard</span>
             </a>
-            <?php if ($role === 'admin'): ?>
+            <?php if (in_array($role, ['admin', 'super_admin'], true)): ?>
                 <a href="<?= base_url('admin/users') ?>">
                     <i class="fas fa-users"></i>
                     <span>Users</span>

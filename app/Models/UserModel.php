@@ -37,7 +37,7 @@ class UserModel extends Model
         'last_name' => 'required|min_length[2]|max_length[100]',
         'email' => 'required|valid_email|is_unique[users.email,id,{id}]',
         'password' => 'required|min_length[8]',
-        'user_type' => 'required|in_list[admin,finance,worker,customer]',
+        'user_type' => 'required|in_list[super_admin,admin,finance,worker,customer]',
         'status' => 'required|in_list[active,inactive,suspended]',
         'phone' => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
         'commission_rate' => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
@@ -66,7 +66,7 @@ class UserModel extends Model
 
     public function getAdminStaff($status = 'active')
     {
-        return $this->whereIn('user_type', ['admin', 'finance'])
+        return $this->whereIn('user_type', ['super_admin', 'admin', 'finance'])
                     ->where('status', $status)
                     ->findAll();
     }

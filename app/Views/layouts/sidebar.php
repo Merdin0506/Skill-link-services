@@ -10,7 +10,7 @@
             <span>Dashboard</span>
         </a>
         
-        <?php if ($role === 'admin'): ?>
+        <?php if (in_array($role, ['admin', 'super_admin'], true)): ?>
             <a href="<?= base_url('admin/users') ?>" class="<?= (strpos(current_url(), '/admin/users') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-users"></i>
                 <span>Users</span>

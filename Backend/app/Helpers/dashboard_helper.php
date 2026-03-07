@@ -267,8 +267,8 @@ if (!function_exists('canPerformBookingAction')) {
         $currentUserId = getCurrentUserId();
         $userRole = getCurrentUserRole();
 
-        // Admin can do anything
-        if ($userRole === 'admin') {
+        // Admin and super admin can do anything
+        if (in_array($userRole, ['admin', 'super_admin'], true)) {
             return true;
         }
 
