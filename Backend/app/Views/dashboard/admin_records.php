@@ -11,7 +11,9 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">Service Records <?= !empty($filters['show_deleted']) ? '<span class="badge bg-secondary">Archived</span>' : '' ?></h3>
         <div>
-            <a href="<?= base_url('admin/records/create') ?>" class="btn btn-success btn-sm">+ New Record</a>
+            <button type="button" class="btn btn-success btn-sm" disabled title="Records are auto-generated from completed bookings">
+                <i class="fas fa-lock"></i> Auto-Generated
+            </button>
             <?php if (!empty($filters['show_deleted'])): ?>
                 <a href="<?= base_url('admin/records') ?>" class="btn btn-outline-primary btn-sm">Active Records</a>
             <?php else: ?>
@@ -31,6 +33,58 @@
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endif; ?>
+
+    <!-- Status Summary Cards -->
+    <div class="row mb-3">
+        <div class="col-md-2">
+            <div class="card border-warning">
+                <div class="card-body p-2 text-center">
+                    <h6 class="mb-1 text-muted small">Pending</h6>
+                    <h3 class="mb-0 text-warning"><?= $statusCounts['pending'] ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-info">
+                <div class="card-body p-2 text-center">
+                    <h6 class="mb-1 text-muted small">Scheduled</h6>
+                    <h3 class="mb-0 text-info"><?= $statusCounts['scheduled'] ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-primary">
+                <div class="card-body p-2 text-center">
+                    <h6 class="mb-1 text-muted small">In Progress</h6>
+                    <h3 class="mb-0 text-primary"><?= $statusCounts['in_progress'] ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success">
+                <div class="card-body p-2 text-center">
+                    <h6 class="mb-1 text-muted small">Completed</h6>
+                    <h3 class="mb-0 text-success"><?= $statusCounts['completed'] ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-danger">
+                <div class="card-body p-2 text-center">
+                    <h6 class="mb-1 text-muted small">Cancelled</h6>
+                    <h3 class="mb-0 text-danger"><?= $statusCounts['cancelled'] ?></h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-dark">
+                <div class="card-body p-2 text-center">
+                    <h6 class="mb-1 text-muted small">Total</h6>
+                    <h3 class="mb-0"><?= array_sum($statusCounts) ?></h3>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Search / Filter Bar -->
     <div class="card shadow-sm mb-3">

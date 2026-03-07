@@ -28,7 +28,7 @@
 
     <div class="card shadow-sm">
         <div class="card-body">
-            <form method="post" action="<?= isset($record) && $record ? base_url('admin/records/update/' . $record['id']) : base_url('admin/records/store') ?>">
+            <form method="post" action="<?= isset($record) && $record ? base_url('admin/records/update/' . $record['id']) : '#' ?>">
 
                 <div class="row mb-3">
                     <div class="col-md-4">
@@ -143,8 +143,8 @@
                 </div>
 
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-primary">
-                        <?= isset($record) && $record ? 'Update Record' : 'Create Record' ?>
+                    <button type="submit" class="btn btn-primary" <?= isset($record) && $record ? '' : 'disabled' ?>>
+                        <?= isset($record) && $record ? 'Update Record' : 'Create Disabled' ?>
                     </button>
                     <a href="<?= base_url('admin/records') ?>" class="btn btn-outline-secondary">Cancel</a>
                 </div>

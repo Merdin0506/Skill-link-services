@@ -71,8 +71,13 @@ class BookingModel extends Model
     {
         $data['booking_reference'] = $this->generateBookingReference();
         $data['total_fee'] = $data['labor_fee'] + ($data['materials_fee'] ?? 0);
-        
-        return $this->insert($data);
+
+        $bookingId = $this->insert($data);
+        if ($bookingId) {
+            $this->syncServiceRecordFromBooking((int) $bookingId);
+        }
+
+        return $bookingId;
     }
 
     public function getBookingWithDetails($bookingId)
@@ -153,29 +158,47 @@ class BookingModel extends Model
         $commissionAmount = $booking['labor_fee'] * ($worker['commission_rate'] / 100);
         $workerEarnings = $booking['labor_fee'] - $commissionAmount;
 
-        return $this->update($bookingId, [
+        $updated = $this->update($bookingId, [
             'worker_id' => $workerId,
             'status' => 'assigned',
             'assigned_at' => date('Y-m-d H:i:s'),
             'commission_amount' => $commissionAmount,
             'worker_earnings' => $workerEarnings
         ]);
+
+        if ($updated) {
+            $this->syncServiceRecordFromBooking((int) $bookingId);
+        }
+
+        return $updated;
     }
 
     public function startBooking($bookingId)
     {
-        return $this->update($bookingId, [
+        $updated = $this->update($bookingId, [
             'status' => 'in_progress',
             'started_at' => date('Y-m-d H:i:s')
         ]);
+
+        if ($updated) {
+            $this->syncServiceRecordFromBooking((int) $bookingId);
+        }
+
+        return $updated;
     }
 
     public function completeBooking($bookingId)
     {
-        return $this->update($bookingId, [
+        $updated = $this->update($bookingId, [
             'status' => 'completed',
             'completed_at' => date('Y-m-d H:i:s')
         ]);
+
+        if ($updated) {
+            $this->syncServiceRecordFromBooking((int) $bookingId);
+        }
+
+        return $updated;
     }
 
     public function cancelBooking($bookingId, $reason = null)
@@ -184,7 +207,89 @@ class BookingModel extends Model
         if ($reason) {
             $data['notes'] = $reason;
         }
-        return $this->update($bookingId, $data);
+        $updated = $this->update($bookingId, $data);
+
+        if ($updated) {
+            $this->syncServiceRecordFromBooking((int) $bookingId);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Keep service_records in sync with booking lifecycle.
+     */
+    public function syncServiceRecordFromBooking(int $bookingId): bool
+    {
+        $booking = $this->find($bookingId);
+        if (!$booking) {
+            return false;
+        }
+
+        $db = db_connect();
+        $recordModel = new ServiceRecordModel();
+
+        $statusMap = [
+            'pending' => 'pending',
+            'assigned' => 'scheduled',
+            'in_progress' => 'in_progress',
+            'completed' => 'completed',
+            'cancelled' => 'cancelled',
+            'rejected' => 'cancelled',
+        ];
+
+        $recordStatus = $statusMap[$booking['status'] ?? 'pending'] ?? 'pending';
+
+        $scheduledAt = null;
+        if (!empty($booking['scheduled_date']) && !empty($booking['scheduled_time'])) {
+            $scheduledAt = $booking['scheduled_date'] . ' ' . $booking['scheduled_time'];
+        }
+
+        $payment = $db->table('payments')
+            ->select('payment_reference, status')
+            ->where('booking_id', $bookingId)
+            ->where('payment_type', 'customer_payment')
+            ->orderBy('id', 'DESC')
+            ->get()
+            ->getRowArray();
+
+        $paymentStatus = 'unpaid';
+        if (!empty($payment)) {
+            if (($payment['status'] ?? '') === 'completed') {
+                $paymentStatus = 'paid';
+            } elseif (($payment['status'] ?? '') === 'refunded') {
+                $paymentStatus = 'refunded';
+            } else {
+                $paymentStatus = 'partial';
+            }
+        }
+
+        $recordData = [
+            'booking_id' => $bookingId,
+            'customer_id' => (int) ($booking['customer_id'] ?? 0),
+            'provider_id' => !empty($booking['worker_id']) ? (int) $booking['worker_id'] : null,
+            'service_id' => (int) ($booking['service_id'] ?? 0),
+            'status' => $recordStatus,
+            'scheduled_at' => $scheduledAt,
+            'started_at' => $booking['started_at'] ?? null,
+            'completed_at' => $booking['completed_at'] ?? null,
+            'address_text' => $booking['location_address'] ?? null,
+            'labor_fee' => (float) ($booking['labor_fee'] ?? 0),
+            'platform_fee' => (float) ($booking['commission_amount'] ?? 0),
+            'total_amount' => (float) ($booking['total_fee'] ?? 0),
+            'payment_status' => $paymentStatus,
+            'payment_ref' => $payment['payment_reference'] ?? null,
+            'customer_note' => $booking['description'] ?? null,
+            'provider_note' => $booking['notes'] ?? null,
+            'admin_note' => 'Auto-synced from booking lifecycle',
+        ];
+
+        $existing = $recordModel->where('booking_id', $bookingId)->first();
+        if ($existing) {
+            return (bool) $recordModel->update((int) $existing['id'], $recordData);
+        }
+
+        return (bool) $recordModel->insert($recordData, false);
     }
 
     public function getAvailableWorkers($serviceCategory)

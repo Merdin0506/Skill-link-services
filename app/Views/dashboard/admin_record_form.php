@@ -35,7 +35,7 @@
                 <i class="fas fa-form"></i> Record Details
             </div>
             <div class="card-body">
-                <form method="post" action="<?= isset($record) && $record ? base_url('admin/records/update/' . $record['id']) : base_url('admin/records/store') ?>">
+                <form method="post" action="<?= isset($record) && $record ? base_url('admin/records/update/' . $record['id']) : '#' ?>">
 
                     <div class="row mb-3">
                         <div class="col-md-4">
@@ -150,9 +150,9 @@
                     </div>
 
                     <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" <?= isset($record) && $record ? '' : 'disabled' ?>>
                             <i class="fas fa-save"></i>
-                            <?= isset($record) && $record ? 'Update Record' : 'Create Record' ?>
+                            <?= isset($record) && $record ? 'Update Record' : 'Create Disabled' ?>
                         </button>
                         <a href="<?= base_url('admin/records') ?>" class="btn btn-outline-secondary">Cancel</a>
                     </div>

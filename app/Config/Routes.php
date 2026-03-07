@@ -8,6 +8,7 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Home::index');
 
 // Authentication Routes
+$routes->get('login', function() { return redirect()->to('/auth/login'); }); // Redirect shorthand
 $routes->get('auth/login', 'Auth::login');
 $routes->post('auth/doLogin', 'Auth::doLogin');
 $routes->get('auth/register', 'Auth::register');
@@ -21,12 +22,40 @@ $routes->get('admin/bookings', 'Dashboard::bookings');
 $routes->get('admin/payments', 'Dashboard::payments');
 $routes->get('worker/available-jobs', 'Dashboard::availableJobs');
 $routes->get('worker/my-jobs', 'Dashboard::myJobs');
+$routes->get('worker/job/(:num)', 'Dashboard::workerJobDetails/$1');
 $routes->get('worker/earnings', 'Dashboard::earnings');
 $routes->get('customer/bookings', 'Dashboard::myBookings');
 $routes->get('customer/services', 'Dashboard::services');
+$routes->get('customer/services/(:num)', 'Dashboard::serviceDetails/$1');
 $routes->get('customer/payments', 'Dashboard::myPayments');
+$routes->get('customer/reviews/create/(:num)', 'Dashboard::createReview/$1');
+$routes->post('customer/reviews/store/(:num)', 'Dashboard::storeReview/$1');
+
+// Finance Routes
+$routes->get('finance/payments', 'Finance::payments');
+$routes->get('finance/payments/record/(:num)', 'Finance::recordPaymentForm/$1');
+$routes->post('finance/payments/store/(:num)', 'Finance::storePayment/$1');
+$routes->get('finance/payouts', 'Finance::payouts');
+$routes->get('finance/payouts/record/(:num)', 'Finance::recordPayoutForm/$1');
+$routes->post('finance/payouts/store/(:num)', 'Finance::storePayout/$1');
+$routes->get('finance/reports', 'Finance::reports');
+
 $routes->get('profile', 'Dashboard::profile');
 $routes->get('settings', 'Dashboard::settings');
+
+// Booking Routes
+$routes->post('bookings/create', 'Bookings::store');
+$routes->post('bookings/cancel/(:num)', 'Bookings::cancel/$1');
+$routes->get('bookings/view/(:num)', 'Bookings::view/$1');
+
+// Worker Action Routes
+$routes->post('worker/accept-job/(:num)', 'WorkerActions::acceptJob/$1');
+$routes->post('worker/start-job/(:num)', 'WorkerActions::startJob/$1');
+$routes->get('worker/complete-job-form/(:num)', 'WorkerActions::completeJobForm/$1');
+$routes->post('worker/complete-job/(:num)', 'WorkerActions::completeJob/$1');
+
+// Admin Action Routes
+$routes->post('admin/assign-worker', 'WorkerActions::adminAssign');
 
 // Dashboard API Routes
 $routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) {
@@ -115,8 +144,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) 
 
 // Dashboard Records Routes (admin only)
 $routes->get('admin/records', 'Dashboard::records');
-$routes->get('admin/records/create', 'Dashboard::recordCreate');
-$routes->post('admin/records/store', 'Dashboard::recordStore');
 $routes->get('admin/records/edit/(:num)', 'Dashboard::recordEdit/$1');
 $routes->post('admin/records/update/(:num)', 'Dashboard::recordUpdate/$1');
 $routes->post('admin/records/delete/(:num)', 'Dashboard::recordDelete/$1');
