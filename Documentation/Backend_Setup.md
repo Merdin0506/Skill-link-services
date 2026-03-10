@@ -146,6 +146,39 @@ curl http://localhost:8080/api/services
 **File Permissions**
 - Ensure `writable/` directory is writable
 
+**Desktop Login Error: `Class "Firebase\\JWT\\JWT" not found`**
+- Cause: Backend `vendor/autoload.php` is missing or dependencies are incomplete.
+- Fix:
+
+```bash
+cd Backend
+composer install
+composer dump-autoload
+```
+
+Then restart the backend server:
+
+```bash
+php spark serve --host 127.0.0.1 --port 8080
+```
+
+## Desktop Connection Notes
+
+The Electron desktop app uses these backend endpoints:
+
+- `POST /api/auth/login` for credential sign-in
+- `GET /api/auth/profile` with `Authorization: Bearer <token>`
+
+Default desktop API URL:
+
+- `http://localhost:8080`
+
+Optional override for desktop runtime:
+
+```powershell
+$env:SKILLLINK_API_BASE_URL="http://127.0.0.1:8080"
+```
+
 ## Development Workflow
 1. Make changes to code
 2. Test locally with `php spark serve`

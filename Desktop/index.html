@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Skill Link Desktop</title>
+    <style>
+      :root {
+        --bg: #f2efe8;
+        --surface: #fffaf3;
+        --text: #1f2937;
+        --muted: #6b7280;
+        --primary: #0f766e;
+        --danger: #b91c1c;
+        --border: rgba(15, 23, 42, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background:
+          radial-gradient(circle at 12% 12%, rgba(15, 118, 110, 0.16), transparent 32%),
+          radial-gradient(circle at 88% 0%, rgba(250, 204, 21, 0.24), transparent 38%),
+          var(--bg);
+        display: grid;
+        place-items: center;
+        padding: 20px;
+      }
+
+      .card {
+        width: min(92vw, 760px);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 30px;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.7rem, 3.5vw, 2.4rem);
+      }
+
+      .subtitle {
+        margin-top: 10px;
+        color: var(--muted);
+      }
+
+      .meta {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      form {
+        margin-top: 22px;
+        display: grid;
+        gap: 12px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-weight: 600;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 11px 12px;
+        font-size: 1rem;
+        background: #ffffff;
+      }
+
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 14px;
+        font-weight: 600;
+        font-size: 0.97rem;
+        cursor: pointer;
+      }
+
+      #loginButton,
+      #logoutButton {
+        background: var(--primary);
+        color: #ffffff;
+      }
+
+      #status {
+        margin-top: 14px;
+        min-height: 24px;
+        font-size: 0.95rem;
+      }
+
+      #status.error {
+        color: var(--danger);
+      }
+
+      #status.success {
+        color: var(--primary);
+      }
+
+      #profileSection {
+        margin-top: 18px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 16px;
+        background: #ffffff;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .k {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .v {
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Skill Link Desktop</h1>
+      <p class="subtitle">Sign in with your existing backend account.</p>
+      <p class="meta" id="metaInfo">Loading app info...</p>
+
+      <section id="authSection">
+        <form id="loginForm">
+          <label>
+            Email
+            <input id="email" name="email" type="email" required autocomplete="username" />
+          </label>
+
+          <label>
+            Password
+            <input id="password" name="password" type="password" required autocomplete="current-password" />
+          </label>
+
+          <button id="loginButton" type="submit">Sign in</button>
+        </form>
+      </section>
+
+      <p id="status" aria-live="polite"></p>
+
+      <section id="profileSection" class="hidden">
+        <div class="profile-grid" id="profileGrid"></div>
+        <button id="logoutButton" type="button">Logout</button>
+      </section>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
