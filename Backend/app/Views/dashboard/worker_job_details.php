@@ -106,7 +106,7 @@
                     <?php else: ?>
                         <div class="text-center text-muted py-4">
                             <i class="fas fa-comments fa-2x mb-2 opacity-25"></i>
-                            <p class="mb-0">This customer has no published review history yet.</p>
+                            <p class="mb-0">No published review yet for this booking.</p>
                         </div>
                     <?php endif; ?>
                 </div>

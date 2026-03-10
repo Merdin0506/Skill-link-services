@@ -22,6 +22,7 @@ CREATE DATABASE skilllink_services;
 
 ### 3. Install Dependencies
 ```bash
+# from repository root
 cd Backend
 composer install
 ```
@@ -65,6 +66,7 @@ Essential files to ignore:
 
 # Dependencies
 /vendor/
+/Backend/vendor/
 composer.phar
 
 # Writable directories
@@ -72,6 +74,10 @@ composer.phar
 /writable/logs/*
 /writable/session/*
 /writable/uploads/*
+/Backend/writable/cache/*
+/Backend/writable/logs/*
+/Backend/writable/session/*
+/Backend/writable/uploads/*
 
 # Database files
 *.sql

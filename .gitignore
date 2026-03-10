@@ -4,11 +4,13 @@
 
 # Dependencies
 /vendor/
+/Backend/vendor/
 composer.phar
 composer-setup.php
 
 # Writable directories
 /public/writable/
+/Backend/public/writable/
 
 /writable/cache/*
 !/writable/cache/index.html
@@ -24,6 +26,21 @@ composer-setup.php
 
 /writable/uploads/*
 !/writable/uploads/index.html
+
+/Backend/writable/cache/*
+!/Backend/writable/cache/index.html
+
+/Backend/writable/debugbar/*
+!/Backend/writable/debugbar/index.html
+
+/Backend/writable/logs/*
+!/Backend/writable/logs/index.html
+
+/Backend/writable/session/*
+!/Backend/writable/session/index.html
+
+/Backend/writable/uploads/*
+!/Backend/writable/uploads/index.html
 
 # Testing
 /phpunit.xml

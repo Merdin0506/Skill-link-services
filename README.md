@@ -32,6 +32,8 @@ SkillLink Services Inc. is a service-based company that connects skilled workers
 
 ## 🚀 Installation
 
+> Repository layout note: `Backend/` is the canonical CodeIgniter project root. Run backend commands from `Backend/`.
+
 ### 1. Clone the Repository
 
 ```bash
