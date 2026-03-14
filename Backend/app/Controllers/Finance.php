@@ -26,13 +26,6 @@ class Finance extends BaseController
      */
     public function payments()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         // Get recorded customer payments from payments table
         $recordedPayments = $this->paymentModel
@@ -102,13 +95,6 @@ class Finance extends BaseController
      */
     public function payouts()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         // Get recorded worker payouts from payments table
         $recordedPayouts = $this->paymentModel
@@ -178,13 +164,6 @@ class Finance extends BaseController
      */
     public function reports()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         // Get financial statistics
         $totalRevenue = $this->paymentModel->getTotalRevenue();
@@ -252,13 +231,6 @@ class Finance extends BaseController
      */
     public function recordPaymentForm($bookingId)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         // Get booking details
         $booking = $this->bookingModel
@@ -296,13 +268,6 @@ class Finance extends BaseController
      */
     public function storePayment($bookingId)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $booking = $this->bookingModel->find($bookingId);
         if (!$booking || $booking['status'] !== 'completed') {
@@ -344,13 +309,6 @@ class Finance extends BaseController
      */
     public function recordPayoutForm($bookingId)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         // Get booking details
         $booking = $this->bookingModel
@@ -388,13 +346,6 @@ class Finance extends BaseController
      */
     public function storePayout($bookingId)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'finance') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $booking = $this->bookingModel->find($bookingId);
         if (!$booking || $booking['status'] !== 'completed') {

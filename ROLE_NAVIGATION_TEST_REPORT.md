@@ -259,6 +259,59 @@ $adminStaff = $model->whereIn('user_type', ['admin', 'finance'])
 ### Records API
 **File:** `app/Controllers/API/RecordsController.php`
 
+---
+
+## 7. RBAC Retest (March 14, 2026)
+
+### Scope Executed
+- Started backend server at `http://127.0.0.1:8080`
+- Ran web role-navigation probes using session cookies (`curl.exe`)
+- Ran API token/authorization probes (`Invoke-RestMethod`)
+
+### Important Findings and Fixes Applied During Retest
+
+1. `app/Config/Routes.php` contained duplicate legacy routes at the top without filters.
+- Impact: Unauthorized users could reach routes that should be protected.
+- Action taken: Removed duplicate legacy route block.
+
+2. Route filter chaining used `|` in route options (example: `jwtauth|roleapi:...`).
+- Impact: API routes returned `500` with `FilterException` (`"jwtauth|roleapi" filter must have a matching alias defined`).
+- Action taken: Switched grouped route filters to array syntax, e.g.
+    - `['filter' => ['dashboardauth', 'role:admin,super_admin']]`
+    - `['filter' => ['jwtauth', 'roleapi:admin,super_admin']]`
+
+### Web RBAC Result Summary (after route fixes)
+
+| Role | Route | Expected | Actual | Result |
+|------|-------|----------|--------|--------|
+| admin | `/admin/users` | allow | allow (`200`) | ✅ PASS |
+| admin | `/finance/reports` | block | redirected to `/auth/login` | ✅ PASS |
+| worker | `/worker/my-jobs` | allow | allow (`200`) | ✅ PASS |
+| worker | `/admin/users` | block | redirected to `/auth/login` | ✅ PASS |
+| customer | `/customer/bookings` | allow | allow (`200`) | ✅ PASS |
+| customer | `/finance/reports` | block | redirected to `/auth/login` | ✅ PASS |
+
+### API RBAC Result Summary (after route fixes)
+
+| Test | Expected | Actual | Result |
+|------|----------|--------|--------|
+| No token → `GET /api/auth/profile` | `401` | `401` | ✅ PASS |
+| Admin token → `GET /api/users` | `200` | `200` | ✅ PASS |
+| Worker token → `GET /api/users` | `403` | `403` | ✅ PASS |
+| Customer token → `GET /api/users` | `403` | `403` | ✅ PASS |
+| Admin token → `GET /api/payments` | `200` | `200` | ✅ PASS |
+| Worker token → `GET /api/payments` | `403` | `403` | ✅ PASS |
+| Customer token → `GET /api/payments` | `403` | `403` | ✅ PASS |
+
+### Remaining Blocker
+
+`finance@skilllink.com` currently fails login in both web and API:
+- Web login ends at `/auth/login`
+- API login returns `400` with `{"messages":{"error":"Invalid credentials"}}`
+
+This appears to be an account data/password issue (not an RBAC routing/filter issue).
+
+
 ```php
 // create() and update() methods
 if (!in_array($userType, ['admin', 'owner', 'finance'], true)) {

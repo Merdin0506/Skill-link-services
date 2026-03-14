@@ -121,141 +121,91 @@ class AuthController extends BaseController
 
     public function profile()
     {
-        $key = getenv('JWT_SECRET');
-        $header = $this->request->getHeaderLine('Authorization');
-        $token = null;
+        $userId = $this->request->authUserId;
+        $user   = $this->request->authUser;
 
-        if ($header) {
-            $token = str_replace('Bearer ', '', $header);
+        if (!$user) {
+            return $this->failNotFound('User not found');
         }
 
-        if (!$token) {
-            return $this->fail('Token required');
+        unset($user['password']);
+
+        // Add additional data based on user type
+        if ($user['user_type'] === 'worker') {
+            $user['average_rating'] = $this->userModel->getWorkerRating($userId);
+            $user['total_earnings'] = $this->userModel->getWorkerEarnings($userId);
         }
 
-        try {
-            $decoded = JWT::decode($token, new Key($key, 'HS256'));
-            $userId = $decoded->sub;
-
-            $user = $this->userModel->find($userId);
-            if (!$user) {
-                return $this->failNotFound('User not found');
-            }
-
-            unset($user['password']);
-
-            // Add additional data based on user type
-            if ($user['user_type'] === 'worker') {
-                $user['average_rating'] = $this->userModel->getWorkerRating($userId);
-                $user['total_earnings'] = $this->userModel->getWorkerEarnings($userId);
-            }
-
-            return $this->respond([
-                'status' => 'success',
-                'data' => $user
-            ]);
-        } catch (\Exception $e) {
-            return $this->fail('Invalid token');
-        }
+        return $this->respond([
+            'status' => 'success',
+            'data'   => $user,
+        ]);
     }
 
     public function updateProfile()
     {
-        $key = getenv('JWT_SECRET');
-        $header = $this->request->getHeaderLine('Authorization');
-        $token = null;
+        $userId = $this->request->authUserId;
 
-        if ($header) {
-            $token = str_replace('Bearer ', '', $header);
+        $rules = [
+            'first_name' => 'required|min_length[2]|max_length[100]',
+            'last_name'  => 'required|min_length[2]|max_length[100]',
+            'phone'      => 'max_length[20]',
+            'address'    => 'max_length[500]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
         }
 
-        if (!$token) {
-            return $this->fail('Token required');
+        $data = [
+            'first_name' => $this->request->getVar('first_name'),
+            'last_name'  => $this->request->getVar('last_name'),
+            'phone'      => $this->request->getVar('phone'),
+            'address'    => $this->request->getVar('address'),
+        ];
+
+        if (($this->request->authUser['user_type'] ?? '') === 'worker') {
+            $data['skills']           = $this->request->getVar('skills');
+            $data['experience_years'] = $this->request->getVar('experience_years');
         }
 
-        try {
-            $decoded = JWT::decode($token, new Key($key, 'HS256'));
-            $userId = $decoded->sub;
+        $this->userModel->update($userId, $data);
+        $user = $this->userModel->find($userId);
+        unset($user['password']);
 
-            $rules = [
-                'first_name' => 'required|min_length[2]|max_length[100]',
-                'last_name' => 'required|min_length[2]|max_length[100]',
-                'phone' => 'max_length[20]',
-                'address' => 'max_length[500]'
-            ];
-
-            if (!$this->validate($rules)) {
-                return $this->fail($this->validator->getErrors());
-            }
-
-            $data = [
-                'first_name' => $this->request->getVar('first_name'),
-                'last_name' => $this->request->getVar('last_name'),
-                'phone' => $this->request->getVar('phone'),
-                'address' => $this->request->getVar('address')
-            ];
-
-            if ($this->request->getVar('user_type') === 'worker') {
-                $data['skills'] = $this->request->getVar('skills');
-                $data['experience_years'] = $this->request->getVar('experience_years');
-            }
-
-            $this->userModel->update($userId, $data);
-            $user = $this->userModel->find($userId);
-            unset($user['password']);
-
-            return $this->respond([
-                'status' => 'success',
-                'message' => 'Profile updated successfully',
-                'data' => $user
-            ]);
-        } catch (\Exception $e) {
-            return $this->fail('Invalid token');
-        }
+        return $this->respond([
+            'status'  => 'success',
+            'message' => 'Profile updated successfully',
+            'data'    => $user,
+        ]);
     }
 
     public function changePassword()
     {
-        $key = getenv('JWT_SECRET');
-        $header = $this->request->getHeaderLine('Authorization');
-        $token = null;
+        $userId = $this->request->authUserId;
 
-        if ($header) {
-            $token = str_replace('Bearer ', '', $header);
+        $rules = [
+            'current_password' => 'required',
+            'new_password'     => 'required|min_length[8]',
+            'confirm_password' => 'required|matches[new_password]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
         }
 
-        if (!$token) {
-            return $this->fail('Token required');
+        // Re-fetch from DB to get the hashed password for verification
+        $user = $this->userModel->find($userId);
+        if (!password_verify($this->request->getVar('current_password'), $user['password'])) {
+            return $this->fail('Current password is incorrect');
         }
 
-        try {
-            $decoded = JWT::decode($token, new Key($key, 'HS256'));
-            $userId = $decoded->sub;
+        $this->userModel->changePassword($userId, $this->request->getVar('new_password'));
 
-            $rules = [
-                'current_password' => 'required',
-                'new_password' => 'required|min_length[8]',
-                'confirm_password' => 'required|matches[new_password]'
-            ];
-
-            if (!$this->validate($rules)) {
-                return $this->fail($this->validator->getErrors());
-            }
-
-            $user = $this->userModel->find($userId);
-            if (!password_verify($this->request->getVar('current_password'), $user['password'])) {
-                return $this->fail('Current password is incorrect');
-            }
-
-            $this->userModel->changePassword($userId, $this->request->getVar('new_password'));
-
-            return $this->respond([
-                'status' => 'success',
-                'message' => 'Password changed successfully'
-            ]);
-        } catch (\Exception $e) {
-            return $this->fail('Invalid token');
-        }
+        return $this->respond([
+            'status'  => 'success',
+            'message' => 'Password changed successfully',
+        ]);
     }
 
     public function logout()

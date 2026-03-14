@@ -13,6 +13,9 @@ use CodeIgniter\Filters\PageCache;
 use CodeIgniter\Filters\PerformanceMetrics;
 use CodeIgniter\Filters\SecureHeaders;
 use App\Filters\DashboardAuth;
+use App\Filters\RoleFilter;
+use App\Filters\JWTAuthFilter;
+use App\Filters\RoleApiFilter;
 
 class Filters extends BaseFilters
 {
@@ -36,6 +39,9 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'dashboardauth' => DashboardAuth::class,
+        'role'          => RoleFilter::class,
+        'jwtauth'       => JWTAuthFilter::class,
+        'roleapi'       => RoleApiFilter::class,
     ];
 
     /**
@@ -109,6 +115,8 @@ class Filters extends BaseFilters
      * @var array<string, array<string, list<string>>>
      */
     public array $filters = [
-        'dashboardauth' => ['before' => ['dashboard/*', 'admin/*', 'worker/*', 'customer/*', 'finance/*']],
+        // Route-level filters are now configured directly on route groups in Config/Routes.php.
+        // The global dashboardauth entry is kept only for the plain /dashboard route.
+        'dashboardauth' => ['before' => ['dashboard', 'profile', 'profile/*', 'settings', 'bookings/*']],
     ];
 }

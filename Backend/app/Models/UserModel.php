@@ -10,7 +10,7 @@ class UserModel extends Model
     protected $primaryKey = 'id';
     protected $useAutoIncrement = true;
     protected $returnType = 'array';
-    protected $useSoftDeletes = false;
+    protected $useSoftDeletes = true;
     protected $protectFields = true;
     protected $allowedFields = [
         'first_name',
@@ -29,24 +29,32 @@ class UserModel extends Model
     ];
 
     protected $useTimestamps = true;
-    protected $createdField = 'created_at';
-    protected $updatedField = 'updated_at';
+    protected $createdField  = 'created_at';
+    protected $updatedField  = 'updated_at';
+    protected $deletedField  = 'deleted_at';
 
     protected $validationRules = [
-        'first_name' => 'required|min_length[2]|max_length[100]',
-        'last_name' => 'required|min_length[2]|max_length[100]',
-        'email' => 'required|valid_email|is_unique[users.email,id,{id}]',
-        'password' => 'required|min_length[8]',
-        'user_type' => 'required|in_list[super_admin,admin,finance,worker,customer]',
-        'status' => 'required|in_list[active,inactive,suspended]',
-        'phone' => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
-        'commission_rate' => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
+        'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+        'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+        'email'      => 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email,id,{id}]',
+        'password'   => 'required|min_length[8]',
+        'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
+        'status'     => 'required|in_list[active,inactive,suspended]',
+        'phone'      => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
+        'commission_rate'  => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
         'experience_years' => 'permit_empty|integer|greater_than_equal_to[0]'
     ];
 
     protected $validationMessages = [
+        'first_name' => [
+            'regex_match' => 'First name can only contain letters and spaces.',
+        ],
+        'last_name' => [
+            'regex_match' => 'Last name can only contain letters and spaces.',
+        ],
         'email' => [
-            'is_unique' => 'Email already exists.',
+            'regex_match' => 'Email may only contain letters, digits, underscores, and one @ symbol.',
+            'is_unique'   => 'Email already exists.',
         ],
     ];
 

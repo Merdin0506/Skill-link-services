@@ -147,15 +147,15 @@ class UsersController extends BaseController
         }
 
         $rules = [
-            'first_name' => 'required|min_length[2]|max_length[100]',
-            'last_name' => 'required|min_length[2]|max_length[100]',
-            'phone' => 'max_length[20]',
-            'address' => 'max_length[500]',
-            'status' => 'required|in_list[active,inactive,suspended]'
+            'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'phone'      => 'max_length[20]',
+            'address'    => 'max_length[500]',
+            'status'     => 'required|in_list[active,inactive,suspended]'
         ];
 
         if ($this->request->getVar('email') && $this->request->getVar('email') !== $user['email']) {
-            $rules['email'] = 'required|valid_email|is_unique[users.email]';
+            $rules['email'] = 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email]';
         }
 
         if (!$this->validate($rules)) {

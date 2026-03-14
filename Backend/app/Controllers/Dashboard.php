@@ -34,9 +34,6 @@ class Dashboard extends BaseController
     public function index()
     {
         // Check if user is logged in
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $userId = $this->session->get('user_id');
         $userRole = $this->session->get('user_role');
@@ -65,13 +62,6 @@ class Dashboard extends BaseController
 
     public function users()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -84,13 +74,6 @@ class Dashboard extends BaseController
 
     public function userCreate()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -102,25 +85,18 @@ class Dashboard extends BaseController
 
     public function userStore()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $validation = \Config\Services::validation();
 
         $rules = [
-            'first_name' => 'required|min_length[2]|max_length[100]',
-            'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email|is_unique[users.email]',
-            'password' => 'required|min_length[6]',
-            'phone' => 'permit_empty|max_length[20]',
-            'address' => 'permit_empty|max_length[500]',
-            'user_type' => 'required|in_list[super_admin,admin,finance,worker,customer]',
-            'status' => 'required|in_list[active,inactive,suspended]',
+            'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'email'      => 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email]',
+            'password'   => 'required|min_length[6]',
+            'phone'      => 'permit_empty|max_length[20]',
+            'address'    => 'permit_empty|max_length[500]',
+            'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
+            'status'     => 'required|in_list[active,inactive,suspended]',
         ];
 
         if (!$this->validate($rules)) {
@@ -159,13 +135,6 @@ class Dashboard extends BaseController
 
     public function userEdit($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $targetUser = $this->userModel->find((int) $id);
         if (!$targetUser) {
@@ -183,13 +152,6 @@ class Dashboard extends BaseController
 
     public function userUpdate($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $targetUser = $this->userModel->find((int) $id);
         if (!$targetUser) {
@@ -199,13 +161,13 @@ class Dashboard extends BaseController
         $validation = \Config\Services::validation();
 
         $rules = [
-            'first_name' => 'required|min_length[2]|max_length[100]',
-            'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email|is_unique[users.email,id,' . $id . ']',
-            'phone' => 'permit_empty|max_length[20]',
-            'address' => 'permit_empty|max_length[500]',
-            'user_type' => 'required|in_list[super_admin,admin,finance,worker,customer]',
-            'status' => 'required|in_list[active,inactive,suspended]',
+            'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'email'      => 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email,id,' . $id . ']',
+            'phone'      => 'permit_empty|max_length[20]',
+            'address'    => 'permit_empty|max_length[500]',
+            'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
+            'status'     => 'required|in_list[active,inactive,suspended]',
         ];
 
         // Password is optional on update
@@ -259,13 +221,6 @@ class Dashboard extends BaseController
 
     public function userDelete($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $targetUser = $this->userModel->find((int) $id);
         if (!$targetUser) {
@@ -283,21 +238,6 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/users')->with('error', 'You cannot delete your own account.');
         }
 
-        // Check if user has related bookings
-        $hasBookings = $this->bookingModel
-            ->groupStart()
-                ->where('customer_id', (int) $id)
-                ->orWhere('worker_id', (int) $id)
-            ->groupEnd()
-            ->countAllResults() > 0;
-
-        if ($hasBookings) {
-            // Soft delete by setting status to inactive
-            $this->userModel->update((int) $id, ['status' => 'inactive']);
-            return redirect()->to('/admin/users')->with('success', 'User account deactivated (has booking history).');
-        }
-
-        // Hard delete if no bookings
         if ($this->userModel->delete((int) $id) === false) {
             return redirect()->to('/admin/users')->with('error', 'Failed to delete user.');
         }
@@ -307,9 +247,6 @@ class Dashboard extends BaseController
 
     public function profileEdit()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -321,9 +258,6 @@ class Dashboard extends BaseController
 
     public function profileUpdate()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $userId = $this->session->get('user_id');
         $currentUser = $this->userModel->find($userId);
@@ -373,9 +307,6 @@ class Dashboard extends BaseController
 
     public function changePassword()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -387,9 +318,6 @@ class Dashboard extends BaseController
 
     public function updatePassword()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $userId = $this->session->get('user_id');
         $currentUser = $this->userModel->find($userId);
@@ -426,9 +354,6 @@ class Dashboard extends BaseController
 
     public function deleteAccount()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $userId = $this->session->get('user_id');
         $currentUser = $this->userModel->find($userId);
@@ -461,13 +386,6 @@ class Dashboard extends BaseController
 
     public function bookings()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $bookings = $this->bookingModel
             ->select('bookings.*, customers.first_name AS customer_first_name, customers.last_name AS customer_last_name, workers.first_name AS worker_first_name, workers.last_name AS worker_last_name, services.name AS service_name, services.category AS service_category')
@@ -507,13 +425,6 @@ class Dashboard extends BaseController
 
     public function payments()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $payments = $this->paymentModel
             ->select('payments.*, bookings.booking_reference, bookings.title AS booking_title')
@@ -532,13 +443,6 @@ class Dashboard extends BaseController
 
     public function records()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $recordModel = new ServiceRecordModel();
 
@@ -612,12 +516,6 @@ class Dashboard extends BaseController
 
     public function recordCreate()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         // Strict mode: service records must originate from actual bookings.
         return redirect()->to('/admin/records')->with('error', 'Manual record creation is disabled. Records are generated from completed bookings.');
@@ -638,12 +536,6 @@ class Dashboard extends BaseController
 
     public function recordStore()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         // Strict mode: prevent manual insertion to avoid out-of-sync records.
         return redirect()->to('/admin/records')->with('error', 'Manual record creation is disabled. Complete a booking to generate a record.');
@@ -693,12 +585,6 @@ class Dashboard extends BaseController
 
     public function recordEdit($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $recordModel  = new ServiceRecordModel();
         $serviceModel = new \App\Models\ServiceModel();
@@ -722,12 +608,6 @@ class Dashboard extends BaseController
 
     public function recordUpdate($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $recordModel = new ServiceRecordModel();
         $record = $recordModel->find((int) $id);
@@ -790,12 +670,6 @@ class Dashboard extends BaseController
 
     public function recordDelete($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $recordModel = new ServiceRecordModel();
         $record = $recordModel->find((int) $id);
@@ -811,12 +685,6 @@ class Dashboard extends BaseController
 
     public function recordRestore($id = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-        if (!in_array($this->session->get('user_role'), ['admin', 'super_admin'], true)) {
-            return redirect()->to('/dashboard');
-        }
 
         $recordModel = new ServiceRecordModel();
 
@@ -834,13 +702,6 @@ class Dashboard extends BaseController
 
     public function availableJobs()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard');
-        }
 
         $workerId = (int) $this->session->get('user_id');
         
@@ -910,13 +771,6 @@ class Dashboard extends BaseController
 
     public function myJobs()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard');
-        }
 
         $workerId = (int) $this->session->get('user_id');
         $jobs = $this->bookingModel
@@ -938,13 +792,6 @@ class Dashboard extends BaseController
 
     public function workerJobDetails($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $workerId = (int) $this->session->get('user_id');
 
@@ -997,13 +844,6 @@ class Dashboard extends BaseController
 
     public function earnings()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard');
-        }
 
         $workerId = (int) $this->session->get('user_id');
 
@@ -1031,13 +871,6 @@ class Dashboard extends BaseController
 
     public function myBookings()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'customer') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $customerId = (int) $this->session->get('user_id');
         $bookings = $this->bookingModel
@@ -1060,9 +893,6 @@ class Dashboard extends BaseController
 
     public function services()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         // Load ServiceModel
         $serviceModel = new \App\Models\ServiceModel();
@@ -1083,13 +913,6 @@ class Dashboard extends BaseController
 
     public function serviceDetails($serviceId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'customer') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $serviceModel = new \App\Models\ServiceModel();
         $service = $serviceModel
@@ -1131,9 +954,6 @@ class Dashboard extends BaseController
 
     public function myPayments()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $customerId = (int) $this->session->get('user_id');
         $payments = $this->paymentModel
@@ -1155,13 +975,6 @@ class Dashboard extends BaseController
 
     public function createReview($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'customer') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $customerId = (int) $this->session->get('user_id');
 
@@ -1197,13 +1010,6 @@ class Dashboard extends BaseController
 
     public function storeReview($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'customer') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $customerId = (int) $this->session->get('user_id');
 
@@ -1262,9 +1068,6 @@ class Dashboard extends BaseController
 
     public function profile()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -1276,9 +1079,6 @@ class Dashboard extends BaseController
 
     public function settings()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
 
         $data = [
             'role' => $this->session->get('user_role'),

@@ -26,13 +26,6 @@ class WorkerActions extends BaseController
      */
     public function acceptJob($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login')->with('error', 'Please login to continue');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $workerId = (int) $this->session->get('user_id');
         $booking = $this->bookingModel->find($bookingId);
@@ -72,13 +65,6 @@ class WorkerActions extends BaseController
      */
     public function startJob($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $workerId = (int) $this->session->get('user_id');
         $booking = $this->bookingModel->find($bookingId);
@@ -116,13 +102,6 @@ class WorkerActions extends BaseController
      */
     public function completeJobForm($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $workerId = (int) $this->session->get('user_id');
         $booking = $this->bookingModel
@@ -159,13 +138,6 @@ class WorkerActions extends BaseController
      */
     public function completeJob($bookingId = null)
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'worker') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $workerId = (int) $this->session->get('user_id');
         $booking = $this->bookingModel->find($bookingId);
@@ -290,13 +262,6 @@ class WorkerActions extends BaseController
      */
     public function adminAssign()
     {
-        if (!$this->session->has('user_id')) {
-            return redirect()->to('/auth/login');
-        }
-
-        if ($this->session->get('user_role') !== 'admin') {
-            return redirect()->to('/dashboard')->with('error', 'Unauthorized access');
-        }
 
         $bookingId = $this->request->getPost('booking_id');
         $workerId = $this->request->getPost('worker_id');

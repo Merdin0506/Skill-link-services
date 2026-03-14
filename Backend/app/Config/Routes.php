@@ -7,98 +7,180 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
-// Authentication Routes
-$routes->get('login', function() { return redirect()->to('/auth/login'); }); // Redirect shorthand
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC ROUTES (no auth required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->get('login', static fn() => redirect()->to('/auth/login'));
 $routes->get('auth/login', 'Auth::login');
 $routes->post('auth/doLogin', 'Auth::doLogin');
 $routes->get('auth/register', 'Auth::register');
 $routes->post('auth/doRegister', 'Auth::doRegister');
 $routes->get('logout', 'Auth::logout');
 
-// Dashboard Routes
-$routes->get('dashboard', 'Dashboard::index');
-$routes->get('admin/users', 'Dashboard::users');
-$routes->get('admin/users/create', 'Dashboard::userCreate');
-$routes->post('admin/users/store', 'Dashboard::userStore');
-$routes->get('admin/users/edit/(:num)', 'Dashboard::userEdit/$1');
-$routes->post('admin/users/update/(:num)', 'Dashboard::userUpdate/$1');
-$routes->post('admin/users/delete/(:num)', 'Dashboard::userDelete/$1');
-$routes->get('admin/bookings', 'Dashboard::bookings');
-$routes->get('admin/payments', 'Dashboard::payments');
-$routes->get('worker/available-jobs', 'Dashboard::availableJobs');
-$routes->get('worker/my-jobs', 'Dashboard::myJobs');
-$routes->get('worker/job/(:num)', 'Dashboard::workerJobDetails/$1');
-$routes->get('worker/earnings', 'Dashboard::earnings');
-$routes->get('customer/bookings', 'Dashboard::myBookings');
-$routes->get('customer/services', 'Dashboard::services');
-$routes->get('customer/services/(:num)', 'Dashboard::serviceDetails/$1');
-$routes->get('customer/payments', 'Dashboard::myPayments');
-$routes->get('customer/reviews/create/(:num)', 'Dashboard::createReview/$1');
-$routes->post('customer/reviews/store/(:num)', 'Dashboard::storeReview/$1');
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED AUTHENTICATED WEB ROUTES (any logged-in role)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// Finance Routes
-$routes->get('finance/payments', 'Finance::payments');
-$routes->get('finance/payments/record/(:num)', 'Finance::recordPaymentForm/$1');
-$routes->post('finance/payments/store/(:num)', 'Finance::storePayment/$1');
-$routes->get('finance/payouts', 'Finance::payouts');
-$routes->get('finance/payouts/record/(:num)', 'Finance::recordPayoutForm/$1');
-$routes->post('finance/payouts/store/(:num)', 'Finance::storePayout/$1');
-$routes->get('finance/reports', 'Finance::reports');
+$routes->get('dashboard', 'Dashboard::index', ['filter' => 'dashboardauth']);
 
-$routes->get('profile', 'Dashboard::profile');
-$routes->get('profile/edit', 'Dashboard::profileEdit');
-$routes->post('profile/update', 'Dashboard::profileUpdate');
-$routes->get('profile/change-password', 'Dashboard::changePassword');
-$routes->post('profile/update-password', 'Dashboard::updatePassword');
-$routes->post('profile/delete-account', 'Dashboard::deleteAccount');
-$routes->get('settings', 'Dashboard::settings');
-
-// Booking Routes
-$routes->post('bookings/create', 'Bookings::store');
-$routes->post('bookings/cancel/(:num)', 'Bookings::cancel/$1');
-$routes->get('bookings/view/(:num)', 'Bookings::view/$1');
-
-// Worker Action Routes
-$routes->post('worker/accept-job/(:num)', 'WorkerActions::acceptJob/$1');
-$routes->post('worker/start-job/(:num)', 'WorkerActions::startJob/$1');
-$routes->get('worker/complete-job-form/(:num)', 'WorkerActions::completeJobForm/$1');
-$routes->post('worker/complete-job/(:num)', 'WorkerActions::completeJob/$1');
-
-// Admin Action Routes
-$routes->post('admin/assign-worker', 'WorkerActions::adminAssign');
-
-// Dashboard API Routes
-$routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) {
-    // Dashboard Routes
-    $routes->get('dashboard/data', 'DashboardController::data');
-    $routes->get('dashboard/stats', 'DashboardController::stats');
-    $routes->get('dashboard/analytics', 'DashboardController::analytics');
-    $routes->get('dashboard/bookings', 'DashboardController::bookings');
+$routes->group('profile', ['filter' => 'dashboardauth'], function ($routes) {
+    $routes->get('/', 'Dashboard::profile');
+    $routes->get('edit', 'Dashboard::profileEdit');
+    $routes->post('update', 'Dashboard::profileUpdate');
+    $routes->get('change-password', 'Dashboard::changePassword');
+    $routes->post('update-password', 'Dashboard::updatePassword');
+    $routes->post('delete-account', 'Dashboard::deleteAccount');
 });
 
-// API Routes for SkillLink Services
-$routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) {
-    // Authentication Routes
+$routes->get('settings', 'Dashboard::settings', ['filter' => 'dashboardauth']);
+$routes->get('bookings/view/(:num)', 'Bookings::view/$1', ['filter' => 'dashboardauth']);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN routes  (super_admin + admin)
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin']], function ($routes) {
+    $routes->get('users', 'Dashboard::users');
+    $routes->get('users/create', 'Dashboard::userCreate');
+    $routes->post('users/store', 'Dashboard::userStore');
+    $routes->get('users/edit/(:num)', 'Dashboard::userEdit/$1');
+    $routes->post('users/update/(:num)', 'Dashboard::userUpdate/$1');
+    $routes->post('users/delete/(:num)', 'Dashboard::userDelete/$1');
+    $routes->get('bookings', 'Dashboard::bookings');
+    $routes->get('payments', 'Dashboard::payments');
+    $routes->get('records', 'Dashboard::records');
+    $routes->get('records/edit/(:num)', 'Dashboard::recordEdit/$1');
+    $routes->post('records/update/(:num)', 'Dashboard::recordUpdate/$1');
+    $routes->post('records/delete/(:num)', 'Dashboard::recordDelete/$1');
+    $routes->post('records/restore/(:num)', 'Dashboard::recordRestore/$1');
+    $routes->post('assign-worker', 'WorkerActions::adminAssign');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FINANCE routes
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('finance', ['filter' => ['dashboardauth', 'role:finance']], function ($routes) {
+    $routes->get('payments', 'Finance::payments');
+    $routes->get('payments/record/(:num)', 'Finance::recordPaymentForm/$1');
+    $routes->post('payments/store/(:num)', 'Finance::storePayment/$1');
+    $routes->get('payouts', 'Finance::payouts');
+    $routes->get('payouts/record/(:num)', 'Finance::recordPayoutForm/$1');
+    $routes->post('payouts/store/(:num)', 'Finance::storePayout/$1');
+    $routes->get('reports', 'Finance::reports');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORKER routes
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('worker', ['filter' => ['dashboardauth', 'role:worker']], function ($routes) {
+    $routes->get('available-jobs', 'Dashboard::availableJobs');
+    $routes->get('my-jobs', 'Dashboard::myJobs');
+    $routes->get('job/(:num)', 'Dashboard::workerJobDetails/$1');
+    $routes->get('earnings', 'Dashboard::earnings');
+    $routes->post('accept-job/(:num)', 'WorkerActions::acceptJob/$1');
+    $routes->post('start-job/(:num)', 'WorkerActions::startJob/$1');
+    $routes->get('complete-job-form/(:num)', 'WorkerActions::completeJobForm/$1');
+    $routes->post('complete-job/(:num)', 'WorkerActions::completeJob/$1');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOMER routes
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('customer', ['filter' => ['dashboardauth', 'role:customer']], function ($routes) {
+    $routes->get('bookings', 'Dashboard::myBookings');
+    $routes->get('services', 'Dashboard::services');
+    $routes->get('services/(:num)', 'Dashboard::serviceDetails/$1');
+    $routes->get('payments', 'Dashboard::myPayments');
+    $routes->get('reviews/create/(:num)', 'Dashboard::createReview/$1');
+    $routes->post('reviews/store/(:num)', 'Dashboard::storeReview/$1');
+});
+
+$routes->group('bookings', ['filter' => ['dashboardauth', 'role:customer']], function ($routes) {
+    $routes->post('create', 'Bookings::store');
+    $routes->post('cancel/(:num)', 'Bookings::cancel/$1');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API — PUBLIC (no auth required)
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('api', ['namespace' => 'App\Controllers\API'], function ($routes) {
     $routes->post('auth/register', 'AuthController::register');
     $routes->post('auth/login', 'AuthController::login');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API — AUTHENTICATED (any valid JWT)
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => 'jwtauth'], function ($routes) {
     $routes->get('auth/profile', 'AuthController::profile');
     $routes->put('auth/profile', 'AuthController::updateProfile');
     $routes->post('auth/change-password', 'AuthController::changePassword');
     $routes->post('auth/logout', 'AuthController::logout');
-
-    // Services Routes
+    $routes->get('dashboard/data', 'DashboardController::data');
+    $routes->get('dashboard/stats', 'DashboardController::stats');
+    $routes->get('dashboard/analytics', 'DashboardController::analytics');
+    $routes->get('dashboard/bookings', 'DashboardController::bookings');
     $routes->get('services', 'ServicesController::index');
-    $routes->post('services', 'ServicesController::store');
-    $routes->get('services/(:num)', 'ServicesController::show/$1');
-    $routes->put('services/(:num)', 'ServicesController::update/$1');
-    $routes->delete('services/(:num)', 'ServicesController::delete/$1');
     $routes->get('services/categories', 'ServicesController::categories');
     $routes->get('services/popular', 'ServicesController::popular');
     $routes->get('services/category/(:segment)', 'ServicesController::byCategory/$1');
+    $routes->get('services/(:num)', 'ServicesController::show/$1');
+    $routes->get('reviews', 'ReviewsController::index');
+    $routes->get('reviews/(:num)', 'ReviewsController::show/$1');
+    $routes->get('reviews/worker/(:num)', 'ReviewsController::workerRating/$1');
+    $routes->get('reviews/top-workers', 'ReviewsController::topWorkers');
+    $routes->get('reviews/recent', 'ReviewsController::recentReviews');
+    $routes->get('reviews/can-review', 'ReviewsController::canReview');
+});
 
-    // Users Routes
+// ─────────────────────────────────────────────────────────────────────────────
+// API — CUSTOMER endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:customer,admin,super_admin']], function ($routes) {
+    $routes->post('bookings', 'BookingsController::store');
+    $routes->put('bookings/(:num)/cancel', 'BookingsController::cancelBooking/$1');
+    $routes->post('reviews', 'ReviewsController::store');
+    $routes->post('payments/customer', 'PaymentsController::createCustomerPayment');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API — WORKER endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:worker,admin,super_admin']], function ($routes) {
+    $routes->put('bookings/(:num)/start', 'BookingsController::startBooking/$1');
+    $routes->put('bookings/(:num)/complete', 'BookingsController::completeBooking/$1');
+    $routes->get('payments/worker-earnings/(:num)', 'PaymentsController::workerEarnings/$1');
+    $routes->post('payments/worker', 'PaymentsController::createWorkerPayout');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API — FINANCE + ADMIN endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:finance,admin,super_admin']], function ($routes) {
+    $routes->get('payments', 'PaymentsController::index');
+    $routes->get('payments/(:num)', 'PaymentsController::show/$1');
+    $routes->put('payments/(:num)/process', 'PaymentsController::processPayment/$1');
+    $routes->get('payments/methods', 'PaymentsController::paymentMethods');
+    $routes->get('payments/statistics', 'PaymentsController::statistics');
+    $routes->get('payments/revenue-report', 'PaymentsController::revenueReport');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API — ADMIN-only endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:admin,super_admin']], function ($routes) {
     $routes->get('users', 'UsersController::index');
-    $routes->post('users', 'UsersController::store'); // Admin only
+    $routes->post('users', 'UsersController::store');
     $routes->get('users/(:num)', 'UsersController::show/$1');
     $routes->put('users/(:num)', 'UsersController::update/$1');
     $routes->delete('users/(:num)', 'UsersController::delete/$1');
@@ -109,53 +191,21 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], function($routes) 
     $routes->get('users/statistics', 'UsersController::statistics');
     $routes->get('users/search', 'UsersController::search');
     $routes->put('users/(:num)/profile-image', 'UsersController::updateProfileImage/$1');
-
-    // Bookings Routes
     $routes->get('bookings', 'BookingsController::index');
-    $routes->post('bookings', 'BookingsController::store');
     $routes->get('bookings/(:num)', 'BookingsController::show/$1');
     $routes->post('bookings/assign-worker', 'BookingsController::assignWorker');
-    $routes->put('bookings/(:num)/start', 'BookingsController::startBooking/$1');
-    $routes->put('bookings/(:num)/complete', 'BookingsController::completeBooking/$1');
-    $routes->put('bookings/(:num)/cancel', 'BookingsController::cancelBooking/$1');
     $routes->get('bookings/available-workers/(:num)', 'BookingsController::availableWorkers/$1');
     $routes->get('bookings/statistics', 'BookingsController::statistics');
-
-    // Payments Routes
-    $routes->get('payments', 'PaymentsController::index');
-    $routes->get('payments/(:num)', 'PaymentsController::show/$1');
-    $routes->post('payments/customer', 'PaymentsController::createCustomerPayment');
-    $routes->post('payments/worker', 'PaymentsController::createWorkerPayout');
-    $routes->put('payments/(:num)/process', 'PaymentsController::processPayment/$1');
-    $routes->get('payments/methods', 'PaymentsController::paymentMethods');
-    $routes->get('payments/statistics', 'PaymentsController::statistics');
-    $routes->get('payments/worker-earnings/(:num)', 'PaymentsController::workerEarnings/$1');
-    $routes->get('payments/revenue-report', 'PaymentsController::revenueReport');
-
-    // Reviews Routes
-    $routes->get('reviews', 'ReviewsController::index');
-    $routes->post('reviews', 'ReviewsController::store');
-    $routes->get('reviews/(:num)', 'ReviewsController::show/$1');
-    $routes->get('reviews/worker/(:num)', 'ReviewsController::workerRating/$1');
-    $routes->get('reviews/top-workers', 'ReviewsController::topWorkers');
-    $routes->put('reviews/(:num)/status', 'ReviewsController::updateStatus/$1');
-    $routes->get('reviews/can-review', 'ReviewsController::canReview');
-    $routes->get('reviews/statistics', 'ReviewsController::statistics');
-    $routes->get('reviews/recent', 'ReviewsController::recentReviews');
-    $routes->get('reviews/flagged', 'ReviewsController::flaggedReviews');
-
-    // Records Routes
+    $routes->post('services', 'ServicesController::store');
+    $routes->put('services/(:num)', 'ServicesController::update/$1');
+    $routes->delete('services/(:num)', 'ServicesController::delete/$1');
     $routes->get('records', 'RecordsController::index');
     $routes->get('records/(:num)', 'RecordsController::show/$1');
     $routes->post('records', 'RecordsController::create');
     $routes->put('records/(:num)', 'RecordsController::update/$1');
     $routes->delete('records/(:num)', 'RecordsController::delete/$1');
+    $routes->put('reviews/(:num)/status', 'ReviewsController::updateStatus/$1');
+    $routes->get('reviews/flagged', 'ReviewsController::flaggedReviews');
+    $routes->get('reviews/statistics', 'ReviewsController::statistics');
 });
-
-// Dashboard Records Routes (admin only)
-$routes->get('admin/records', 'Dashboard::records');
-$routes->get('admin/records/edit/(:num)', 'Dashboard::recordEdit/$1');
-$routes->post('admin/records/update/(:num)', 'Dashboard::recordUpdate/$1');
-$routes->post('admin/records/delete/(:num)', 'Dashboard::recordDelete/$1');
-$routes->post('admin/records/restore/(:num)', 'Dashboard::recordRestore/$1');
 
