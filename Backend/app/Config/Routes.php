@@ -47,6 +47,8 @@ $routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin']
     $routes->get('users/edit/(:num)', 'Dashboard::userEdit/$1');
     $routes->post('users/update/(:num)', 'Dashboard::userUpdate/$1');
     $routes->post('users/delete/(:num)', 'Dashboard::userDelete/$1');
+    $routes->post('users/restore/(:num)', 'Dashboard::userRestore/$1');
+    $routes->post('users/delete-permanent/(:num)', 'Dashboard::userPermanentDelete/$1');
     $routes->get('bookings', 'Dashboard::bookings');
     $routes->get('payments', 'Dashboard::payments');
     $routes->get('records', 'Dashboard::records');

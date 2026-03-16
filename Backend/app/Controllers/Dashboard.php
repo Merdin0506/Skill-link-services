@@ -63,9 +63,17 @@ class Dashboard extends BaseController
     public function users()
     {
 
+        $showDeleted = (bool) $this->request->getGet('show_deleted');
+
+        $usersBuilder = $this->userModel->orderBy('created_at', 'DESC');
+        if ($showDeleted) {
+            $usersBuilder->onlyDeleted();
+        }
+
         $data = [
             'role' => $this->session->get('user_role'),
-            'users' => $this->userModel->orderBy('created_at', 'DESC')->findAll(),
+            'users' => $usersBuilder->findAll(),
+            'show_deleted' => $showDeleted,
             'user' => $this->getCurrentUser(),
         ];
 
@@ -242,7 +250,47 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/users')->with('error', 'Failed to delete user.');
         }
 
-        return redirect()->to('/admin/users')->with('success', 'User deleted successfully.');
+        return redirect()->to('/admin/users')->with('success', 'User archived successfully.');
+    }
+
+    public function userRestore($id = null)
+    {
+
+        $targetUser = $this->userModel->onlyDeleted()->find((int) $id);
+        if (!$targetUser) {
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Archived user not found.');
+        }
+
+        $restored = $this->userModel->builder()
+            ->where('id', (int) $id)
+            ->where('deleted_at IS NOT NULL', null, false)
+            ->update(['deleted_at' => null]);
+
+        if ($restored === false) {
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Failed to restore user.');
+        }
+
+        return redirect()->to('/admin/users')->with('success', 'User restored successfully.');
+    }
+
+    public function userPermanentDelete($id = null)
+    {
+
+        $targetUser = $this->userModel->onlyDeleted()->find((int) $id);
+        if (!$targetUser) {
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Archived user not found.');
+        }
+
+        $isSuperAdmin = (($targetUser['user_type'] ?? '') === 'super_admin');
+        if ($isSuperAdmin) {
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Super admin account cannot be permanently deleted.');
+        }
+
+        if ($this->userModel->delete((int) $id, true) === false) {
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Failed to permanently delete user.');
+        }
+
+        return redirect()->to('/admin/users?show_deleted=1')->with('success', 'User permanently deleted.');
     }
 
     public function profileEdit()
