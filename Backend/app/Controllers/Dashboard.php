@@ -99,7 +99,7 @@ class Dashboard extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
             'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-            'email'      => 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email]',
+            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]',
             'password'   => 'required|min_length[6]',
             'phone'      => 'permit_empty|max_length[20]',
             'address'    => 'permit_empty|max_length[500]',
@@ -171,17 +171,12 @@ class Dashboard extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
             'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-            'email'      => 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email,id,' . $id . ']',
+            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,' . $id . ']',
             'phone'      => 'permit_empty|max_length[20]',
             'address'    => 'permit_empty|max_length[500]',
             'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
             'status'     => 'required|in_list[active,inactive,suspended]',
         ];
-
-        // Password is optional on update
-        if ($this->request->getPost('password')) {
-            $rules['password'] = 'min_length[6]';
-        }
 
         if (!$this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $validation->getErrors());
@@ -208,10 +203,9 @@ class Dashboard extends BaseController
             return redirect()->back()->withInput()->with('error', 'Only one super admin is allowed.');
         }
 
-        // Update password if provided
-        if ($this->request->getPost('password')) {
-            $userData['password'] = password_hash($this->request->getPost('password'), PASSWORD_DEFAULT);
-        }
+        // Password updates are intentionally disallowed in admin user edit flow.
+        // Users must change their own password via profile/change-password.
+        unset($userData['password']);
 
         // Add worker-specific fields
         if ($userData['user_type'] === 'worker') {
@@ -319,7 +313,7 @@ class Dashboard extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
             'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email|is_unique[users.email,id,' . $userId . ']',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,' . $userId . ']',
             'phone' => 'permit_empty|max_length[20]',
             'address' => 'permit_empty|max_length[500]',
         ];

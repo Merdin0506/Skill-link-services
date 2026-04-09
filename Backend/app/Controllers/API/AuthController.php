@@ -24,7 +24,7 @@ class AuthController extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
             'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email|is_unique[users.email]',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]',
             'password' => 'required|min_length[8]',
             'phone' => 'max_length[20]',
             'user_type' => 'required|in_list[customer,worker]',
@@ -71,7 +71,7 @@ class AuthController extends BaseController
     public function login()
     {
         $rules = [
-            'email' => 'required|valid_email',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]',
             'password' => 'required'
         ];
 

@@ -110,16 +110,23 @@ $routes->group('bookings', ['filter' => ['dashboardauth', 'role:customer']], fun
 // API — PUBLIC (no auth required)
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API'], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors']], function ($routes) {
     $routes->post('auth/register', 'AuthController::register');
     $routes->post('auth/login', 'AuthController::login');
+    $routes->get('health', static function () {
+        return service('response')->setJSON([
+            'status' => 'success',
+            'message' => 'Backend is reachable',
+            'timestamp' => date('c'),
+        ]);
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // API — AUTHENTICATED (any valid JWT)
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => 'jwtauth'], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth']], function ($routes) {
     $routes->get('auth/profile', 'AuthController::profile');
     $routes->put('auth/profile', 'AuthController::updateProfile');
     $routes->post('auth/change-password', 'AuthController::changePassword');
@@ -145,7 +152,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => 'jwtaut
 // API — CUSTOMER endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:customer,admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:customer,admin,super_admin']], function ($routes) {
     $routes->post('bookings', 'BookingsController::store');
     $routes->put('bookings/(:num)/cancel', 'BookingsController::cancelBooking/$1');
     $routes->post('reviews', 'ReviewsController::store');
@@ -156,7 +163,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtau
 // API — WORKER endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:worker,admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:worker,admin,super_admin']], function ($routes) {
     $routes->put('bookings/(:num)/start', 'BookingsController::startBooking/$1');
     $routes->put('bookings/(:num)/complete', 'BookingsController::completeBooking/$1');
     $routes->get('payments/worker-earnings/(:num)', 'PaymentsController::workerEarnings/$1');
@@ -167,7 +174,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtau
 // API — FINANCE + ADMIN endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:finance,admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:finance,admin,super_admin']], function ($routes) {
     $routes->get('payments', 'PaymentsController::index');
     $routes->get('payments/(:num)', 'PaymentsController::show/$1');
     $routes->put('payments/(:num)/process', 'PaymentsController::processPayment/$1');
@@ -180,7 +187,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtau
 // API — ADMIN-only endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['jwtauth', 'roleapi:admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin']], function ($routes) {
     $routes->get('users', 'UsersController::index');
     $routes->post('users', 'UsersController::store');
     $routes->get('users/(:num)', 'UsersController::show/$1');

@@ -1,8 +1,2 @@
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('desktopApp', {
-  getVersion: () => ipcRenderer.invoke('app:getVersion'),
-  getApiBaseUrl: () => ipcRenderer.invoke('app:getApiBaseUrl'),
-  login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
-  getProfile: (token) => ipcRenderer.invoke('auth:profile', token)
-});
+// The renderer now talks directly to the backend API.
+// Keep this file minimal so preload cannot block the app shell.

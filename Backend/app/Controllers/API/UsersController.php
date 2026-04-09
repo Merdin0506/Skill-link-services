@@ -155,7 +155,7 @@ class UsersController extends BaseController
         ];
 
         if ($this->request->getVar('email') && $this->request->getVar('email') !== $user['email']) {
-            $rules['email'] = 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email]';
+            $rules['email'] = 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]';
         }
 
         if (!$this->validate($rules)) {

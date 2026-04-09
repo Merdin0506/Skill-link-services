@@ -3,170 +3,174 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Skill Link Desktop</title>
-    <style>
-      :root {
-        --bg: #f2efe8;
-        --surface: #fffaf3;
-        --text: #1f2937;
-        --muted: #6b7280;
-        --primary: #0f766e;
-        --danger: #b91c1c;
-        --border: rgba(15, 23, 42, 0.12);
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        color: var(--text);
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-        background:
-          radial-gradient(circle at 12% 12%, rgba(15, 118, 110, 0.16), transparent 32%),
-          radial-gradient(circle at 88% 0%, rgba(250, 204, 21, 0.24), transparent 38%),
-          var(--bg);
-        display: grid;
-        place-items: center;
-        padding: 20px;
-      }
-
-      .card {
-        width: min(92vw, 760px);
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        padding: 30px;
-        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.14);
-      }
-
-      h1 {
-        margin: 0;
-        font-size: clamp(1.7rem, 3.5vw, 2.4rem);
-      }
-
-      .subtitle {
-        margin-top: 10px;
-        color: var(--muted);
-      }
-
-      .meta {
-        margin-top: 8px;
-        color: var(--muted);
-        font-size: 0.92rem;
-      }
-
-      form {
-        margin-top: 22px;
-        display: grid;
-        gap: 12px;
-      }
-
-      label {
-        display: grid;
-        gap: 6px;
-        font-weight: 600;
-      }
-
-      input {
-        width: 100%;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 11px 12px;
-        font-size: 1rem;
-        background: #ffffff;
-      }
-
-      button {
-        border: 0;
-        border-radius: 10px;
-        padding: 11px 14px;
-        font-weight: 600;
-        font-size: 0.97rem;
-        cursor: pointer;
-      }
-
-      #loginButton,
-      #logoutButton {
-        background: var(--primary);
-        color: #ffffff;
-      }
-
-      #status {
-        margin-top: 14px;
-        min-height: 24px;
-        font-size: 0.95rem;
-      }
-
-      #status.error {
-        color: var(--danger);
-      }
-
-      #status.success {
-        color: var(--primary);
-      }
-
-      #profileSection {
-        margin-top: 18px;
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 16px;
-        background: #ffffff;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      .profile-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 10px;
-        margin-bottom: 12px;
-      }
-
-      .k {
-        color: var(--muted);
-        font-size: 0.88rem;
-      }
-
-      .v {
-        font-weight: 600;
-      }
-    </style>
+    <title>SkillLink Desktop</title>
+    <link rel="stylesheet" href="./src/renderer/styles/app.css" />
   </head>
   <body>
-    <main class="card">
-      <h1>Skill Link Desktop</h1>
-      <p class="subtitle">Sign in with your existing backend account.</p>
-      <p class="meta" id="metaInfo">Loading app info...</p>
+    <main class="shell auth-layout">
+      <!-- AUTH / LOGIN SECTION -->
+      <section id="authSection" class="panel auth-card">
+        <div class="logo-wrap">
+          <div class="logo">SL</div>
+          <h1>SkillLink</h1>
+          <p class="subtitle">Native desktop UI powered by backend APIs.</p>
+        </div>
 
-      <section id="authSection">
-        <form id="loginForm">
-          <label>
-            Email
+        <p class="meta" id="metaInfo">Desktop ready | API http://127.0.0.1:8080</p>
+
+        <form id="loginForm" class="auth-form">
+          <div class="field">
+            <label for="email">Email</label>
             <input id="email" name="email" type="email" required autocomplete="username" />
-          </label>
+          </div>
 
-          <label>
-            Password
+          <div class="field">
+            <label for="password">Password</label>
             <input id="password" name="password" type="password" required autocomplete="current-password" />
-          </label>
+          </div>
 
-          <button id="loginButton" type="submit">Sign in</button>
+          <button id="loginButton" type="submit">Login</button>
         </form>
+
+        <p id="loginStatus" aria-live="polite"></p>
+
+        <div class="auth-link">
+          Don't have an account? <button type="button" id="registerLink" data-auth-target="register">Sign up here</button>
+        </div>
       </section>
 
-      <p id="status" aria-live="polite"></p>
+      <!-- REGISTER SECTION -->
+      <section id="registerSection" class="panel auth-card hidden">
+        <div class="logo-wrap">
+          <div class="logo">SL</div>
+          <h1>SkillLink</h1>
+          <p class="subtitle">Create your account and start connecting</p>
+        </div>
 
-      <section id="profileSection" class="hidden">
-        <div class="profile-grid" id="profileGrid"></div>
-        <button id="logoutButton" type="button">Logout</button>
+        <form id="registerForm" class="auth-form">
+          <div class="form-row">
+            <div class="field">
+              <label for="first_name">First Name</label>
+              <input id="first_name" name="first_name" type="text" placeholder="John" required />
+            </div>
+            <div class="field">
+              <label for="last_name">Last Name</label>
+              <input id="last_name" name="last_name" type="text" placeholder="Doe" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="reg_email">Email Address</label>
+            <input id="reg_email" name="email" type="email" placeholder="you@example.com" required />
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="reg_password">Password</label>
+              <div class="password-field">
+                <input id="reg_password" name="password" type="password" placeholder="Enter password" required />
+                <button type="button" class="toggle-password" data-target="reg_password" aria-label="Show password">
+                  <svg class="icon-show" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <svg class="icon-hide" viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path><path d="M9.5 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-3.2 4.1"></path><path d="M6.6 6.6C4 8.1 2.6 10.6 2 12c0 0 3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <label for="password_confirm">Confirm Password</label>
+              <div class="password-field">
+                <input id="password_confirm" name="password_confirm" type="password" placeholder="Re-enter password" required />
+                <button type="button" class="toggle-password" data-target="password_confirm" aria-label="Show password">
+                  <svg class="icon-show" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  <svg class="icon-hide" viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"></path><path d="M9.5 5.2A11 11 0 0 1 12 5c6.5 0 10 7 10 7a16 16 0 0 1-3.2 4.1"></path><path d="M6.6 6.6C4 8.1 2.6 10.6 2 12c0 0 3.5 7 10 7a10.8 10.8 0 0 0 5.4-1.4"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="phone">Phone</label>
+              <input id="phone" name="phone" type="tel" placeholder="+15551234567" />
+            </div>
+            <div class="field">
+              <label for="user_type">Account Type</label>
+              <select id="user_type" name="user_type" required>
+                <option value="">Select account type</option>
+                <option value="customer">Customer</option>
+                <option value="worker">Skilled Worker</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="address">Address</label>
+            <textarea id="address" name="address" placeholder="Enter your full address"></textarea>
+          </div>
+
+          <div id="worker-fields" class="worker-fields hidden">
+            <div class="field">
+              <label for="skills">Skills</label>
+              <textarea id="skills" name="skills" placeholder="e.g., Electrical work, Plumbing, Carpentry, Painting"></textarea>
+            </div>
+            <div class="field">
+              <label for="experience_years">Years of Experience</label>
+              <input id="experience_years" name="experience_years" type="number" min="0" max="99" placeholder="0" />
+            </div>
+          </div>
+
+          <button type="submit">Create Account</button>
+        </form>
+
+        <p id="registerStatus" aria-live="polite"></p>
+
+        <div class="auth-link">
+          Already have an account? <button type="button" id="loginLink" data-auth-target="login">Login here</button>
+        </div>
+      </section>
+
+      <!-- DASHBOARD SECTION -->
+      <section id="dashboardSection" class="panel content hidden">
+        <div class="topbar">
+          <div>
+            <strong id="userName">User</strong>
+            <span class="muted" id="userEmail">-</span>
+          </div>
+          <div class="toolbar">
+            <span id="userRole" class="role-badge">role</span>
+            <button id="logoutButton" class="ghost-button" type="button">Logout</button>
+          </div>
+        </div>
+
+        <div class="shell-grid">
+          <aside class="panel sidebar">
+            <h2>Navigation</h2>
+            <p class="muted">Role-aware shell built from backend data.</p>
+            <div class="role-badge" id="sidebarRole">role</div>
+
+            <div class="dashboard-section">
+              <p class="section-title">Quick Actions</p>
+              <button type="button" class="ghost-button" id="refreshButton">Refresh Data</button>
+              <button type="button" class="ghost-button" id="profileButton">Open Profile</button>
+            </div>
+          </aside>
+
+          <section class="dashboard-section">
+            <article>
+              <h3 class="section-title">Statistics</h3>
+              <div id="statsGrid" class="stats-grid"></div>
+            </article>
+
+            <article>
+              <h3 class="section-title">Recent Bookings</h3>
+              <ul id="bookingList" class="booking-list"></ul>
+            </article>
+
+            <div id="roleContent"></div>
+          </section>
+        </div>
       </section>
     </main>
 
-    <script src="./renderer.js"></script>
+    <script type="module" src="./src/renderer/app/bootstrap.js"></script>
   </body>
 </html>

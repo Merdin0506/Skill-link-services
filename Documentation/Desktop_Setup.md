@@ -1,12 +1,22 @@
 # Desktop App Setup and Backend Connection
 
 ## Overview
-This guide explains how to run the Electron desktop app and connect it to the Skill-Link Services backend API.
+This guide explains how to run the Electron desktop app and connect it to the Skill-Link Services backend UI.
+
+The desktop app now uses a modular, feature-based architecture and opens backend web routes directly so the desktop interface exactly matches the website dashboard and role-based pages.
 
 ## Location
 Desktop app source files are in:
 
 - `Desktop/`
+
+Main architecture:
+
+- `Desktop/src/main/config/` - Environment and backend URL configuration
+- `Desktop/src/main/features/app/` - App lifecycle and system handlers
+- `Desktop/src/main/features/navigation/` - Backend route navigation handlers
+- `Desktop/src/main/features/window/` - Browser window creation behavior
+- `Desktop/src/preload/` - Safe renderer bridge APIs
 
 ## Prerequisites
 - Node.js 18+
@@ -37,6 +47,10 @@ Backend base URL used by desktop (default):
 
 - `http://localhost:8080`
 
+Desktop startup route:
+
+- `GET /auth/login`
+
 ## 3. Run the Desktop App
 ```bash
 cd Desktop
@@ -50,10 +64,12 @@ npm.cmd start
 ```
 
 ## 4. Login Flow Used by Desktop
-The app sends requests through Electron IPC from `main.js`:
+The desktop window loads backend web routes directly:
 
-- `POST /api/auth/login`
-- `GET /api/auth/profile` (Bearer token)
+- Login page: `/auth/login`
+- Dashboard page: `/dashboard`
+
+This ensures the desktop and backend website interface are the same.
 
 ## 5. Change Backend URL (Optional)
 If backend runs on another host/port, set:
@@ -66,9 +82,9 @@ npm.cmd start
 ## Troubleshooting
 
 ### `Error invoking remote method 'auth:login': TypeError: fetch failed`
-- Backend is not reachable.
+- This error should no longer appear in the new architecture.
+- If backend is down, desktop shows a fallback screen with actions to open backend routes.
 - Confirm `php spark serve` is running.
-- Confirm URL in desktop metadata line matches backend URL.
 
 ### `Error invoking remote method 'auth:login': Class "Firebase\\JWT\\JWT" not found`
 - Backend dependencies/autoload are incomplete.

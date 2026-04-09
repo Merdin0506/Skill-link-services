@@ -54,7 +54,7 @@ class Auth extends BaseController
         ]);
 
         $validation->setRules([
-            'email' => 'required|valid_email',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]',
             'password' => 'required|min_length[8]'
         ]);
 
@@ -161,7 +161,7 @@ class Auth extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
             'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]',
             'password' => 'required|min_length[8]',
             'password_confirm' => 'required|matches[password]',
             'user_type' => 'required|in_list[customer,worker]',

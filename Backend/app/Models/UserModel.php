@@ -36,7 +36,7 @@ class UserModel extends Model
     protected $validationRules = [
         'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
         'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-        'email'      => 'required|regex_match[/^[a-zA-Z0-9_]+@[a-zA-Z0-9][a-zA-Z0-9._-]*\.[a-zA-Z]{2,}$/]|is_unique[users.email,id,{id}]',
+        'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,{id}]',
         'password'   => 'required|min_length[8]',
         'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
         'status'     => 'required|in_list[active,inactive,suspended]',
@@ -53,7 +53,8 @@ class UserModel extends Model
             'regex_match' => 'Last name can only contain letters and spaces.',
         ],
         'email' => [
-            'regex_match' => 'Email may only contain letters, digits, underscores, and one @ symbol.',
+            'valid_email' => 'Please provide a valid email address.',
+            'regex_match' => 'Email may only use letters, numbers, dots, and underscores before @.',
             'is_unique'   => 'Email already exists.',
         ],
     ];

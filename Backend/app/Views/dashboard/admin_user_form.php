@@ -79,11 +79,18 @@
                                 <option value="suspended" <?= old('status', $editUser['status'] ?? '') === 'suspended' ? 'selected' : '' ?>>Suspended</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label for="password" class="form-label">Password <?= isset($editUser) ? '(Leave blank to keep current)' : '*' ?></label>
-                            <input type="password" class="form-control" id="password" name="password" 
-                                   <?= !isset($editUser) ? 'required' : '' ?>>
-                        </div>
+                        <?php if (!isset($editUser)): ?>
+                            <div class="col-md-4">
+                                <label for="password" class="form-label">Password *</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                        <?php else: ?>
+                            <div class="col-md-4">
+                                <label class="form-label">Password</label>
+                                <input type="text" class="form-control" value="Password updates are disabled for admin user edits." readonly>
+                                <small class="text-muted">Users must change their own password in Profile > Change Password.</small>
+                            </div>
+                        <?php endif; ?>
 
                         <!-- Worker-specific fields -->
                         <div id="workerFields" style="display: <?= old('user_type', $editUser['user_type'] ?? '') === 'worker' ? 'block' : 'none' ?>;">
