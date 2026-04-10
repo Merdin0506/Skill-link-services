@@ -1,13 +1,31 @@
-import { BACKEND_BASE_URL } from '../config/appConfig.js';
+import { BACKEND_BASE_URL, BACKEND_BASE_URLS } from '../config/appConfig.js';
 
-export async function requestJson(endpoint, options = {}) {
-  const url = `${BACKEND_BASE_URL.replace(/\/$/, '')}${endpoint}`;
+function createHeaders(options = {}) {
+  return {
+    'Content-Type': 'application/json',
+    ...(options.headers || {})
+  };
+}
+
+function parseErrorMessage(data, status) {
+  const nestedError =
+    data && typeof data.messages === 'object' && data.messages !== null
+      ? data.messages.error || Object.values(data.messages)[0]
+      : null;
+
+  return (
+    data?.message ||
+    nestedError ||
+    (typeof data?.messages === 'string' ? data.messages : null) ||
+    `Request failed (${status})`
+  );
+}
+
+async function requestOnce(baseUrl, endpoint, options = {}) {
+  const url = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
   const response = await fetch(url, {
     method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
+    headers: createHeaders(options),
     body: options.body ? JSON.stringify(options.body) : undefined
   });
 
@@ -23,19 +41,29 @@ export async function requestJson(endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    const nestedError =
-      data && typeof data.messages === 'object' && data.messages !== null
-        ? data.messages.error || Object.values(data.messages)[0]
-        : null;
-
-    const message =
-      data?.message ||
-      nestedError ||
-      (typeof data?.messages === 'string' ? data.messages : null) ||
-      `Request failed (${response.status})`;
-
-    throw new Error(message);
+    throw new Error(parseErrorMessage(data, response.status));
   }
 
   return data;
+}
+
+export async function requestJson(endpoint, options = {}) {
+  const baseUrls = [BACKEND_BASE_URL, ...BACKEND_BASE_URLS.filter((url) => url !== BACKEND_BASE_URL)];
+  let lastError = null;
+
+  for (const baseUrl of baseUrls) {
+    try {
+      return await requestOnce(baseUrl, endpoint, options);
+    } catch (error) {
+      lastError = error;
+
+      if (error instanceof TypeError) {
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError || new Error('Failed to fetch');
 }

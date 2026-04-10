@@ -19,7 +19,7 @@ export async function loadMeta() {
 
     const result = await bridge.pingBackend();
     if (result?.ok) {
-      updateText(metaElement, `Desktop ready | API ${BACKEND_BASE_URL}`);
+      updateText(metaElement, `Desktop ready | API ${result.baseUrl || BACKEND_BASE_URL}`);
     }
   } catch (error) {
     updateText(metaElement, `Desktop ready | API ${BACKEND_BASE_URL}`);

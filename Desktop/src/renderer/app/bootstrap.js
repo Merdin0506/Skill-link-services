@@ -6,6 +6,8 @@ import { bindAuthNavigation } from '../features/auth/navigation.js';
 import { getSession } from '../core/storage.js';
 
 async function bootstrap() {
+  document.body.classList.add('auth-mode');
+
   try {
     renderAuthView(async (currentSession) => {
       await renderDashboardView(currentSession);

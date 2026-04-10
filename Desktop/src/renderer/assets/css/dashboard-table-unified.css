@@ -1,0 +1,126 @@
+/* Unified responsive table rules for dashboard pages */
+
+.table-fit {
+    table-layout: auto;
+    width: 100%;
+}
+
+.table-fit th,
+.table-fit td {
+    white-space: normal;
+    word-break: normal;
+    overflow-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+    .table thead th,
+    .table tbody td {
+        padding: 10px;
+        font-size: 14px;
+    }
+
+    /* Default fit tables: keep first 6 columns */
+    .table-fit:not(.table-bookings):not(.table-payments):not(.table-payouts) th:nth-child(n+7),
+    .table-fit:not(.table-bookings):not(.table-payments):not(.table-payouts) td:nth-child(n+7) {
+        display: none !important;
+    }
+
+    /* Bookings: keep actions visible */
+    .table-bookings th:nth-child(3),
+    .table-bookings td:nth-child(3),
+    .table-bookings th:nth-child(4),
+    .table-bookings td:nth-child(4) {
+        display: none !important;
+    }
+
+    /* Payments: keep recorded by/date/actions visible */
+    .table-payments th:nth-child(2),
+    .table-payments td:nth-child(2),
+    .table-payments th:nth-child(3),
+    .table-payments td:nth-child(3),
+    .table-payments th:nth-child(5),
+    .table-payments td:nth-child(5) {
+        display: none !important;
+    }
+
+    /* Payouts: keep processed by/date/actions visible */
+    .table-payouts th:nth-child(2),
+    .table-payouts td:nth-child(2),
+    .table-payouts th:nth-child(3),
+    .table-payouts td:nth-child(3),
+    .table-payouts th:nth-child(5),
+    .table-payouts td:nth-child(5) {
+        display: none !important;
+    }
+
+    .table-bookings td:nth-child(1),
+    .table-bookings td:nth-child(2),
+    .table-payments td:nth-child(1),
+    .table-payments td:nth-child(4),
+    .table-payouts td:nth-child(1),
+    .table-payouts td:nth-child(4) {
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 576px) {
+    .table thead th,
+    .table tbody td {
+        padding: 6px;
+        font-size: 11px;
+        line-height: 1.2;
+    }
+
+    /* Default fit tables: keep first 5 columns */
+    .table-fit:not(.table-bookings):not(.table-payments):not(.table-payouts) th:nth-child(n+6),
+    .table-fit:not(.table-bookings):not(.table-payments):not(.table-payouts) td:nth-child(n+6) {
+        display: none !important;
+    }
+
+    /* Bookings: keep action column visible */
+    .table-bookings th:nth-child(3),
+    .table-bookings td:nth-child(3),
+    .table-bookings th:nth-child(4),
+    .table-bookings td:nth-child(4),
+    .table-bookings th:nth-child(5),
+    .table-bookings td:nth-child(5) {
+        display: none !important;
+    }
+
+    /* Payments: keep recorded by/date/actions visible */
+    .table-payments th:nth-child(2),
+    .table-payments td:nth-child(2),
+    .table-payments th:nth-child(3),
+    .table-payments td:nth-child(3),
+    .table-payments th:nth-child(5),
+    .table-payments td:nth-child(5),
+    .table-payments th:nth-child(6),
+    .table-payments td:nth-child(6) {
+        display: none !important;
+    }
+
+    /* Payouts: keep processed by/date/actions visible */
+    .table-payouts th:nth-child(2),
+    .table-payouts td:nth-child(2),
+    .table-payouts th:nth-child(3),
+    .table-payouts td:nth-child(3),
+    .table-payouts th:nth-child(5),
+    .table-payouts td:nth-child(5),
+    .table-payouts th:nth-child(6),
+    .table-payouts td:nth-child(6) {
+        display: none !important;
+    }
+
+    .table-bookings .btn,
+    .table-payments .btn,
+    .table-payouts .btn {
+        padding: 0.2rem 0.35rem;
+        font-size: 10px;
+        white-space: nowrap;
+    }
+
+    .badge {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+}

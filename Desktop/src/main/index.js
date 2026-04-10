@@ -2,6 +2,7 @@ const path = require('path');
 
 const {
   getBackendBaseUrl,
+  getBackendBaseUrls,
   getFallbackFilePath
 } = require('./config/appConfig');
 const { createMainWindow } = require('./features/window/createMainWindow');
@@ -13,9 +14,9 @@ const { registerDashboardHandlers } = require('./features/dashboard/dashboard.ha
 function bootstrapDesktopApp() {
   const preloadPath = path.join(__dirname, '..', '..', '..', 'preload.js');
 
-  registerDesktopInfoHandlers({ getBackendBaseUrl });
-  registerAuthHandlers({ getBackendBaseUrl });
-  registerDashboardHandlers({ getBackendBaseUrl });
+  registerDesktopInfoHandlers({ getBackendBaseUrl, getBackendBaseUrls });
+  registerAuthHandlers({ getBackendBaseUrls });
+  registerDashboardHandlers({ getBackendBaseUrls });
 
   registerAppLifecycle({
     createWindow: () =>

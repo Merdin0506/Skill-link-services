@@ -1,113 +1,129 @@
-# Desktop App Setup and Backend Connection
+# Desktop App Start Guide
 
 ## Overview
-This guide explains how to run the Electron desktop app and connect it to the Skill-Link Services backend UI.
+This document explains exactly how to start the SkillLink desktop app with the existing CodeIgniter backend.
 
-The desktop app now uses a modular, feature-based architecture and opens backend web routes directly so the desktop interface exactly matches the website dashboard and role-based pages.
-
-## Location
-Desktop app source files are in:
-
-- `Desktop/`
-
-Main architecture:
-
-- `Desktop/src/main/config/` - Environment and backend URL configuration
-- `Desktop/src/main/features/app/` - App lifecycle and system handlers
-- `Desktop/src/main/features/navigation/` - Backend route navigation handlers
-- `Desktop/src/main/features/window/` - Browser window creation behavior
-- `Desktop/src/preload/` - Safe renderer bridge APIs
+Current behavior:
+- Electron loads its own frontend files from Desktop/index.html.
+- Electron frontend calls backend API endpoints.
+- Backend routes and API logic remain unchanged.
 
 ## Prerequisites
+- PHP 8.2+
+- Composer
 - Node.js 18+
 - npm
-- Backend API running from `Backend/`
+- MySQL running and backend database already configured
 
-## 1. Install Desktop Dependencies
-```bash
-cd Desktop
-npm install
-```
+## Project Paths
+- Backend app root: Backend/
+- Desktop app root: Desktop/
 
-On Windows PowerShell, if script policy blocks `npm`, use:
+## One-Time Setup
 
-```powershell
-npm.cmd install
-```
+### 1. Install backend dependencies
+From Backend/:
 
-## 2. Start the Backend API
-Open another terminal and run:
+  composer install
 
-```bash
-cd Backend
-php spark serve --host 127.0.0.1 --port 8080
-```
+### 2. Install desktop dependencies
+From Desktop/:
 
-Backend base URL used by desktop (default):
+  npm install
 
-- `http://localhost:8080`
+If PowerShell blocks npm scripts, use npm.cmd instead:
 
-Desktop startup route:
+  npm.cmd install
 
-- `GET /auth/login`
+### 3. Create backend environment file
+If Backend/.env does not exist, copy from template:
 
-## 3. Run the Desktop App
-```bash
-cd Desktop
-npm start
-```
+  copy env.example .env
 
-On Windows PowerShell, you can also run:
+Then set at least:
+- app.baseURL = 'http://127.0.0.1:8080'
+- database.default.* values
+- JWT_SECRET value
 
-```powershell
-npm.cmd start
-```
+### 4. Prepare database schema
+From Backend/:
 
-## 4. Login Flow Used by Desktop
-The desktop window loads backend web routes directly:
+  php spark migrate
 
-- Login page: `/auth/login`
-- Dashboard page: `/dashboard`
+Optional (if you use seed data):
 
-This ensures the desktop and backend website interface are the same.
+  php spark db:seed InitialDataSeeder
 
-## 5. Change Backend URL (Optional)
-If backend runs on another host/port, set:
+## Daily Startup Steps
 
-```powershell
-$env:SKILLLINK_API_BASE_URL="http://127.0.0.1:8080"
-npm.cmd start
-```
+### Step 1. Start backend server
+Open Terminal 1, go to Backend/, then run:
 
-## Troubleshooting
+  php spark serve --host 127.0.0.1 --port 8080
 
-### `Error invoking remote method 'auth:login': TypeError: fetch failed`
-- This error should no longer appear in the new architecture.
-- If backend is down, desktop shows a fallback screen with actions to open backend routes.
-- Confirm `php spark serve` is running.
+Expected backend base URL:
+- http://127.0.0.1:8080
 
-### `Error invoking remote method 'auth:login': Class "Firebase\\JWT\\JWT" not found`
-- Backend dependencies/autoload are incomplete.
-- Run:
+### Step 2. Start desktop app
+Open Terminal 2, go to Desktop/, then run:
 
-```bash
-cd Backend
-composer install
-composer dump-autoload
-```
+  npm start
 
-Then restart backend server.
+PowerShell alternative:
 
-### `Request failed (400)`
-- Usually invalid payload or validation error.
-- Ensure you send valid email/password from seeded users.
-- Try sample account:
-  - `admin@skilllink.com` / `admin123`
+  npm.cmd start
 
-## Seeded Test Accounts
-Defined in `Backend/app/Database/Seeds/InitialDataSeeder.php`:
+### Step 3. Login in desktop app
+Use valid backend credentials.
+The desktop app authenticates against backend API endpoints and then loads the replicated dashboard UI.
 
-- Super Admin: `admin@skilllink.com` / `admin123`
-- Finance: `finance@skilllink.com` / `finance123`
-- Worker: `juan.santos@skilllink.com` / `worker123`
-- Customer: `ana.cruz@email.com` / `customer123`
+## Optional Backend URL Override
+If your backend is not on 127.0.0.1:8080, set the environment variable before starting Electron:
+
+  $env:SKILLLINK_API_BASE_URL="http://your-host:your-port"
+  npm.cmd start
+
+Notes:
+- Main-process API base URL uses SKILLLINK_API_BASE_URL if set.
+- Renderer fallback URL is currently set in Desktop/src/renderer/config/appConfig.js.
+- Best practice is to keep both pointing to the same backend host and port.
+
+## Quick Health Checklist
+Before launching desktop, verify:
+- Backend is running on the expected host and port.
+- Backend dependencies are installed.
+- Desktop dependencies are installed.
+- Database is reachable by backend.
+- JWT secret is configured in Backend/.env.
+
+## Common Startup Issues
+
+### Backend fails to start
+Try:
+
+  composer install
+  php spark serve --host 127.0.0.1 --port 8080
+
+### Login/API requests fail from desktop
+Check:
+- Backend URL is correct.
+- Backend server is running.
+- User credentials are valid.
+- Backend returns JSON for API routes.
+
+### JWT class not found
+From Backend/:
+
+  composer install
+  composer dump-autoload
+
+Restart backend after that.
+
+## Recommended Start Command Pair (Windows PowerShell)
+Terminal 1 in Backend/:
+
+  php spark serve --host 127.0.0.1 --port 8080
+
+Terminal 2 in Desktop/:
+
+  npm.cmd start

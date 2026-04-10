@@ -1,4 +1,4 @@
-import { getElementById, updateText } from '../../core/dom.js';
+import { getElementById } from '../../core/dom.js';
 import { clearSession, getSession } from '../../core/storage.js';
 import { setStatus } from '../../core/status.js';
 import { requestJson } from '../../services/apiClient.js';
@@ -28,7 +28,7 @@ function formatCurrency(value) {
 function createStatCard({ icon, value, label, tone = 'primary', subtitle = '' }) {
   return `
     <div class="col-md-3 col-sm-6 mb-3">
-      <div class="stat-card ${tone}">
+      <div class="stat-card desktop-stat-card ${tone}">
         <i class="${icon} stat-icon"></i>
         <div class="stat-value">${formatValue(value)}</div>
         <div class="stat-label">${label}</div>
@@ -221,11 +221,12 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
   const sidebarLinks = getSidebarLinks(role);
 
   dashboardSection.innerHTML = `
-    <div class="shell-grid dashboard-shell" id="mainContent">
-      <aside class="panel sidebar">
-        <div class="brand">
+    <div class="desktop-dashboard-shell">
+      <div class="sidebar desktop-sidebar" id="sidebar">
+        <div class="brand desktop-brand">
           <i class="fas fa-link"></i>
           <h5>SkillLink</h5>
+          <p>Desktop workspace</p>
         </div>
         <nav class="sidebar-nav">
           ${sidebarLinks.map((item, index) => `
@@ -242,17 +243,17 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
             <i class="fas fa-cog"></i>
             <span>Settings</span>
           </a>
-          <a href="#logout" id="sidebarLogoutLink" style="margin-top: 20px; border-top: 1px solid rgba(31,41,55,0.1); padding-top: 20px;">
+          <a href="#logout" id="sidebarLogoutLink" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>
           </a>
         </nav>
-      </aside>
+      </div>
 
-      <section class="main-content dashboard-main">
-        <div class="topbar">
-          <div class="welcome">
-            <button class="btn btn-sm btn-light" id="toggleSidebar" type="button">
+      <div class="main-content desktop-main-content" id="mainContent">
+        <div class="topbar desktop-topbar">
+          <div class="welcome desktop-welcome">
+            <button class="btn btn-sm btn-light desktop-toggle-button" id="toggleSidebar" type="button">
               <i class="fas fa-bars"></i>
             </button>
             <div>
@@ -260,22 +261,19 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
               <p class="mb-0 text-muted">${userName}</p>
             </div>
           </div>
-          <div class="user-profile">
-            <span class="role-badge">${displayRole}</span>
-            <div>
+          <div class="user-profile desktop-user-profile">
+            <div class="desktop-user-meta">
+              <span class="role-badge desktop-role-badge">${displayRole}</span>
+            </div>
+            <div class="desktop-account-panel">
               <p class="mb-0">${profile.email || '-'}</p>
               <small class="text-muted">Last login: Today</small>
             </div>
-            <button id="logoutButton" class="ghost-button" type="button">Logout</button>
+            <button id="logoutButton" class="ghost-button desktop-ghost-button" type="button">Logout</button>
           </div>
         </div>
 
-        <div class="container-fluid page-content">
-        <div class="dashboard-alert alert-custom info">
-          <i class="fas fa-info-circle"></i>
-          <strong>${template.title}</strong>
-          <p>${template.description}</p>
-        </div>
+        <div class="container-fluid page-content desktop-page-content">
 
         <div class="row mb-4">
           ${statCards}
@@ -283,11 +281,11 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
 
         <div class="row mb-4">
           <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header">
+            <div class="card desktop-card">
+              <div class="card-header desktop-card-header">
                 <i class="fas fa-chart-pie"></i> ${template.chartLeftTitle}
               </div>
-              <div class="card-body">
+              <div class="card-body desktop-card-body">
                 <div class="chart-container">
                   <div class="chart-placeholder">${template.chartLeftFallback}</div>
                 </div>
@@ -295,11 +293,11 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
             </div>
           </div>
           <div class="col-lg-6">
-            <div class="card">
-              <div class="card-header">
+            <div class="card desktop-card">
+              <div class="card-header desktop-card-header">
                 <i class="fas fa-chart-line"></i> ${template.chartRightTitle}
               </div>
-              <div class="card-body">
+              <div class="card-body desktop-card-body">
                 <div class="chart-container">
                   <div class="chart-placeholder">${template.chartRightFallback}</div>
                 </div>
@@ -310,11 +308,11 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
 
         <div class="row">
           <div class="col-lg-12">
-            <div class="card">
-              <div class="card-header">
+            <div class="card desktop-card">
+              <div class="card-header desktop-card-header">
                 <i class="fas fa-list"></i> ${template.tableTitle}
               </div>
-              <div class="card-body">
+              <div class="card-body desktop-card-body">
                 <div class="table-responsive">
                   <table class="table table-hover">
                     <thead>
@@ -332,18 +330,17 @@ function renderDashboardShell({ profile, stats, bookings, role }) {
           </div>
         </div>
 
-        <div id="roleContent" class="dashboard-section">
-          <article class="role-panel">
-            <h3 class="section-title">Quick Actions</h3>
-            <div class="quick-actions">
-              ${template.actions.map((action) => `<button type="button" class="action-button">${action}</button>`).join('')}
-            </div>
-          </article>
         </div>
+        <div class="footer desktop-footer">
+          <p>&copy; ${new Date().getFullYear()} Skill Link Services. All rights reserved.</p>
         </div>
-      </section>
+      </div>
     </div>
   `;
+
+  if (typeof window.initSidebarToggle === 'function') {
+    window.initSidebarToggle();
+  }
 }
 
 function setDashboardVisible(isVisible) {
@@ -354,6 +351,14 @@ function setDashboardVisible(isVisible) {
   authSection?.classList.toggle('hidden', isVisible);
   registerSection?.classList.add('hidden');
   dashboardSection?.classList.toggle('hidden', !isVisible);
+
+  if (isVisible) {
+    document.body.classList.remove('auth-mode');
+    document.body.classList.add('dashboard-mode');
+  } else {
+    document.body.classList.remove('dashboard-mode');
+    document.body.classList.add('auth-mode');
+  }
 }
 
 export async function renderDashboardView(session = getSession()) {
@@ -401,11 +406,6 @@ export async function renderDashboardView(session = getSession()) {
 
     const profile = profileResponse?.data || session.user || {};
     const currentRole = profile.user_type || session.user?.user_type || 'customer';
-
-    updateText(getElementById('userName'), [profile.first_name, profile.last_name].filter(Boolean).join(' ') || 'User');
-    updateText(getElementById('userRole'), currentRole);
-    updateText(getElementById('sidebarRole'), currentRole);
-    updateText(getElementById('userEmail'), profile.email || session.user?.email || '-');
 
     renderDashboardShell({
       profile,
