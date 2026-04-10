@@ -16,6 +16,8 @@ use App\Filters\DashboardAuth;
 use App\Filters\RoleFilter;
 use App\Filters\JWTAuthFilter;
 use App\Filters\RoleApiFilter;
+use App\Filters\PermissionFilter;
+use App\Filters\PermissionApiFilter;
 
 class Filters extends BaseFilters
 {
@@ -42,6 +44,8 @@ class Filters extends BaseFilters
         'role'          => RoleFilter::class,
         'jwtauth'       => JWTAuthFilter::class,
         'roleapi'       => RoleApiFilter::class,
+        'permission'    => PermissionFilter::class,
+        'permissionapi' => PermissionApiFilter::class,
     ];
 
     /**

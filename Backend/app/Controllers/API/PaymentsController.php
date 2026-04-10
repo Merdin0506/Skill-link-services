@@ -26,7 +26,7 @@ class PaymentsController extends BaseController
         $paymentType = $this->request->getVar('payment_type');
         $userId = $this->request->getVar('user_id');
         $userType = $this->request->getVar('user_type');
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         if ($status === 'pending') {
             $payments = $this->paymentModel->getPendingPayments();

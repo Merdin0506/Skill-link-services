@@ -42,4 +42,17 @@ abstract class BaseController extends Controller
         // Preload any models, libraries, etc, here.
         // $this->session = service('session');
     }
+
+    protected function getPositiveIntParam(string $key, int $default, int $min = 1): int
+    {
+        $value = $this->request->getVar($key);
+
+        if (!is_numeric($value)) {
+            return $default;
+        }
+
+        $value = (int) $value;
+
+        return $value >= $min ? $value : $default;
+    }
 }

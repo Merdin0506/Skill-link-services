@@ -22,9 +22,9 @@ $routes->get('logout', 'Auth::logout');
 // SHARED AUTHENTICATED WEB ROUTES (any logged-in role)
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->get('dashboard', 'Dashboard::index', ['filter' => 'dashboardauth']);
+$routes->get('dashboard', 'Dashboard::index', ['filter' => ['dashboardauth', 'permission']]);
 
-$routes->group('profile', ['filter' => 'dashboardauth'], function ($routes) {
+$routes->group('profile', ['filter' => ['dashboardauth', 'permission']], function ($routes) {
     $routes->get('/', 'Dashboard::profile');
     $routes->get('edit', 'Dashboard::profileEdit');
     $routes->post('update', 'Dashboard::profileUpdate');
@@ -33,14 +33,14 @@ $routes->group('profile', ['filter' => 'dashboardauth'], function ($routes) {
     $routes->post('delete-account', 'Dashboard::deleteAccount');
 });
 
-$routes->get('settings', 'Dashboard::settings', ['filter' => 'dashboardauth']);
-$routes->get('bookings/view/(:num)', 'Bookings::view/$1', ['filter' => 'dashboardauth']);
+$routes->get('settings', 'Dashboard::settings', ['filter' => ['dashboardauth', 'permission']]);
+$routes->get('bookings/view/(:num)', 'Bookings::view/$1', ['filter' => ['dashboardauth', 'permission']]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ADMIN routes  (super_admin + admin)
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin']], function ($routes) {
+$routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']], function ($routes) {
     $routes->get('users', 'Dashboard::users');
     $routes->get('users/create', 'Dashboard::userCreate');
     $routes->post('users/store', 'Dashboard::userStore');
@@ -63,7 +63,7 @@ $routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin']
 // FINANCE routes
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('finance', ['filter' => ['dashboardauth', 'role:finance']], function ($routes) {
+$routes->group('finance', ['filter' => ['dashboardauth', 'role:finance', 'permission']], function ($routes) {
     $routes->get('payments', 'Finance::payments');
     $routes->get('payments/record/(:num)', 'Finance::recordPaymentForm/$1');
     $routes->post('payments/store/(:num)', 'Finance::storePayment/$1');
@@ -77,7 +77,7 @@ $routes->group('finance', ['filter' => ['dashboardauth', 'role:finance']], funct
 // WORKER routes
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('worker', ['filter' => ['dashboardauth', 'role:worker']], function ($routes) {
+$routes->group('worker', ['filter' => ['dashboardauth', 'role:worker', 'permission']], function ($routes) {
     $routes->get('available-jobs', 'Dashboard::availableJobs');
     $routes->get('my-jobs', 'Dashboard::myJobs');
     $routes->get('job/(:num)', 'Dashboard::workerJobDetails/$1');
@@ -92,7 +92,7 @@ $routes->group('worker', ['filter' => ['dashboardauth', 'role:worker']], functio
 // CUSTOMER routes
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('customer', ['filter' => ['dashboardauth', 'role:customer']], function ($routes) {
+$routes->group('customer', ['filter' => ['dashboardauth', 'role:customer', 'permission']], function ($routes) {
     $routes->get('bookings', 'Dashboard::myBookings');
     $routes->get('services', 'Dashboard::services');
     $routes->get('services/(:num)', 'Dashboard::serviceDetails/$1');
@@ -101,7 +101,7 @@ $routes->group('customer', ['filter' => ['dashboardauth', 'role:customer']], fun
     $routes->post('reviews/store/(:num)', 'Dashboard::storeReview/$1');
 });
 
-$routes->group('bookings', ['filter' => ['dashboardauth', 'role:customer']], function ($routes) {
+$routes->group('bookings', ['filter' => ['dashboardauth', 'role:customer', 'permission']], function ($routes) {
     $routes->post('create', 'Bookings::store');
     $routes->post('cancel/(:num)', 'Bookings::cancel/$1');
 });
@@ -126,7 +126,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 // API — AUTHENTICATED (any valid JWT)
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'permissionapi']], function ($routes) {
     $routes->get('auth/profile', 'AuthController::profile');
     $routes->put('auth/profile', 'AuthController::updateProfile');
     $routes->post('auth/change-password', 'AuthController::changePassword');
@@ -152,7 +152,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 // API — CUSTOMER endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:customer,admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:customer,admin,super_admin', 'permissionapi']], function ($routes) {
     $routes->post('bookings', 'BookingsController::store');
     $routes->put('bookings/(:num)/cancel', 'BookingsController::cancelBooking/$1');
     $routes->post('reviews', 'ReviewsController::store');
@@ -163,7 +163,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 // API — WORKER endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:worker,admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:worker,admin,super_admin', 'permissionapi']], function ($routes) {
     $routes->put('bookings/(:num)/start', 'BookingsController::startBooking/$1');
     $routes->put('bookings/(:num)/complete', 'BookingsController::completeBooking/$1');
     $routes->get('payments/worker-earnings/(:num)', 'PaymentsController::workerEarnings/$1');
@@ -174,7 +174,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 // API — FINANCE + ADMIN endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:finance,admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:finance,admin,super_admin', 'permissionapi']], function ($routes) {
     $routes->get('payments', 'PaymentsController::index');
     $routes->get('payments/(:num)', 'PaymentsController::show/$1');
     $routes->put('payments/(:num)/process', 'PaymentsController::processPayment/$1');
@@ -187,7 +187,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 // API — ADMIN-only endpoints
 // ─────────────────────────────────────────────────────────────────────────────
 
-$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin']], function ($routes) {
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin', 'permissionapi']], function ($routes) {
     $routes->get('users', 'UsersController::index');
     $routes->post('users', 'UsersController::store');
     $routes->get('users/(:num)', 'UsersController::show/$1');

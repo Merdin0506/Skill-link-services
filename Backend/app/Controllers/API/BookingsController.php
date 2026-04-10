@@ -28,7 +28,7 @@ class BookingsController extends BaseController
         $status = $this->request->getVar('status');
         $userType = $this->request->getVar('user_type');
         $userId = $this->request->getVar('user_id');
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         if ($userType && $userId) {
             if ($userType === 'customer') {

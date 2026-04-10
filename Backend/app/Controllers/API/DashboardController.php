@@ -146,7 +146,7 @@ class DashboardController extends ResourceController
 
         $userId = $user['id'];
         $userRole = $user['user_type'];
-        $limit = $this->request->getVar('limit') ?? 10;
+        $limit = $this->getPositiveIntParam('limit', 10);
 
         $bookings = match ($userRole) {
             'admin' => $this->bookingModel->limit($limit)->orderBy('created_at', 'DESC')->find(),

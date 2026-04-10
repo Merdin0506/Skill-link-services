@@ -25,7 +25,7 @@ class ReviewsController extends BaseController
         $workerId = $this->request->getVar('worker_id');
         $serviceId = $this->request->getVar('service_id');
         $status = $this->request->getVar('status') ?? 'published';
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         if ($workerId) {
             $reviews = $this->reviewModel->getWorkerReviews($workerId, $status);
@@ -136,7 +136,7 @@ class ReviewsController extends BaseController
 
     public function topWorkers()
     {
-        $limit = $this->request->getVar('limit') ?? 10;
+        $limit = $this->getPositiveIntParam('limit', 10);
         $minReviews = $this->request->getVar('min_reviews') ?? 5;
 
         $workers = $this->reviewModel->getTopWorkers($limit, $minReviews);
@@ -224,7 +224,7 @@ class ReviewsController extends BaseController
 
     public function recentReviews()
     {
-        $limit = $this->request->getVar('limit') ?? 10;
+        $limit = $this->getPositiveIntParam('limit', 10);
         $reviews = $this->reviewModel->getRecentReviews($limit);
 
         return $this->respond([

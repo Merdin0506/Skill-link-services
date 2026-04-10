@@ -21,7 +21,7 @@ class UsersController extends BaseController
     {
         $userType = $this->request->getVar('user_type');
         $status = $this->request->getVar('status') ?? 'active';
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         if ($userType) {
             $users = $this->userModel
@@ -73,7 +73,7 @@ class UsersController extends BaseController
     {
         $status = $this->request->getVar('status') ?? 'active';
         $skill = $this->request->getVar('skill');
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         if ($skill) {
             $workers = $this->userModel->getWorkersBySkill($skill);
@@ -96,7 +96,7 @@ class UsersController extends BaseController
     public function customers()
     {
         $status = $this->request->getVar('status') ?? 'active';
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         $customers = $this->userModel->getCustomers($status);
 
@@ -114,7 +114,7 @@ class UsersController extends BaseController
     public function adminStaff()
     {
         $status = $this->request->getVar('status') ?? 'active';
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         $staff = $this->userModel->getAdminStaff($status);
 
@@ -270,7 +270,7 @@ class UsersController extends BaseController
     {
         $query = $this->request->getVar('q');
         $userType = $this->request->getVar('user_type');
-        $limit = $this->request->getVar('limit') ?? 20;
+        $limit = $this->getPositiveIntParam('limit', 20);
 
         if (!$query) {
             return $this->fail('Search query is required');

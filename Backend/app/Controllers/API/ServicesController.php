@@ -21,7 +21,7 @@ class ServicesController extends BaseController
     {
         $status = $this->request->getVar('status') ?? 'active';
         $category = $this->request->getVar('category');
-        $limit = $this->request->getVar('limit') ?? 50;
+        $limit = $this->getPositiveIntParam('limit', 50);
 
         $services = $this->serviceModel
             ->where('status', $status)
@@ -63,7 +63,7 @@ class ServicesController extends BaseController
 
     public function popular()
     {
-        $limit = $this->request->getVar('limit') ?? 10;
+        $limit = $this->getPositiveIntParam('limit', 10);
         $services = $this->serviceModel->getPopularServices($limit);
 
         return $this->respond([
