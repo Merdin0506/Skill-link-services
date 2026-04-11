@@ -5,7 +5,7 @@ use CodeIgniter\Router\RouteCollection;
 /**
  * @var RouteCollection $routes
  */
-$routes->get('/', 'Home::index');
+$routes->get('/', static fn() => redirect()->to('/auth/login'));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PUBLIC ROUTES (no auth required)
@@ -16,6 +16,9 @@ $routes->get('auth/login', 'Auth::login');
 $routes->post('auth/doLogin', 'Auth::doLogin');
 $routes->get('auth/register', 'Auth::register');
 $routes->post('auth/doRegister', 'Auth::doRegister');
+$routes->get('auth/verify-otp', 'Auth::verifyOtp');
+$routes->post('auth/doVerifyOtp', 'Auth::doVerifyOtp');
+$routes->post('auth/resendOtp', 'Auth::resendOtp');
 $routes->get('logout', 'Auth::logout');
 
 // ─────────────────────────────────────────────────────────────────────────────
