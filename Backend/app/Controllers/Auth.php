@@ -3,6 +3,8 @@
 namespace App\Controllers;
 
 use App\Models\UserModel;
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 
 class Auth extends BaseController
 {
@@ -112,44 +114,65 @@ class Auth extends BaseController
 
             $this->userModel->clearFailedLogins((int) $user['id']);
 
-            $token = $this->createApiToken((int) $user['id'], (string) $user['user_type']);
+            // --- MFA Integration Start ---
+            $otp = sprintf("%06d", mt_rand(0, 999999));
+            $expire = date("Y-m-d H:i:s", strtotime("+5 minutes"));
+            
+            // Log for debugging
+            log_message('debug', 'Generating OTP for user: ' . $user['email'] . ' code: ' . $otp);
 
-            // Set session data for dashboard pages.
-            $this->session->set([
-                'user_id' => $user['id'],
-                'role' => $user['user_type'],
-                'user_role' => $user['user_type'], // Keep for backward compatibility
-                'email' => $user['email'],
-                'user_name' => $user['first_name'] . ' ' . $user['last_name'],
-                'user' => [
-                    'id' => $user['id'],
-                    'first_name' => $user['first_name'],
-                    'last_name' => $user['last_name'],
-                    'email' => $user['email'],
-                    'user_type' => $user['user_type'],
-                ],
-                'logged_in' => true,
-                'api_token' => $token,
-            ]);
-
-            // Confirm session write succeeded before redirect.
-            if (!$this->session->has('user_id')) {
-                log_message('error', 'Login failed: session write did not persist for email={email}', [
-                    'email' => $email,
+            try {
+                $this->userModel->update($user['id'], [
+                    'otp' => $otp,
+                    'otp_expire' => $expire,
+                    'otp_attempts' => 0
                 ]);
-
-                return redirect()->back()
-                    ->withInput()
-                    ->with('error', 'We could not finish logging you in. Please try again.');
+            } catch (\Exception $e) {
+                log_message('error', 'Database update failed for OTP: ' . $e->getMessage());
+                return redirect()->back()->withInput()->with('error', 'Database error: Could not save OTP code.');
             }
 
-            log_message('info', 'Login successful. userId={userId}, email={email}, role={role}', [
-                'userId' => (int) $user['id'],
-                'email' => $email,
-                'role' => (string) $user['user_type'],
-            ]);
+            $this->session->set('temp_user_id', $user['id']);
+            $this->session->set('temp_email', $user['email']);
 
-            return redirect()->to('/dashboard')->with('success', 'You are now logged in.');
+            // Send Email
+            try {
+                if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+                    $mail = new PHPMailer(true);
+                    
+                    // SMTP Settings - FULL FIX
+                    $mail->isSMTP();
+                    $mail->Host       = 'smtp.gmail.com'; 
+                    $mail->SMTPAuth   = true;
+                    $mail->Username   = getenv('SMTP_USER'); 
+                    $mail->Password   = getenv('SMTP_PASS'); 
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; 
+                    $mail->Port       = 465;
+                    
+                    $mail->SMTPOptions = [
+                        'ssl' => [
+                            'verify_peer' => false,
+                            'verify_peer_name' => false,
+                            'allow_self_signed' => true
+                        ]
+                    ];
+
+                    $mail->setFrom('racazaxyrl@gmail.com', 'SkillLink MFA');
+                    $mail->addAddress($user['email']);
+                    $mail->isHTML(true);
+                    $mail->Subject = 'SkillLink Login Verification Code';
+                    $mail->Body    = $this->generateGeminiMessage($otp, $user['email']);
+                    
+                    if ($mail->send()) {
+                        return redirect()->to('/auth/verify-otp')->with('success', 'A 6-digit verification code has been sent to your email.');
+                    }
+                }
+                return redirect()->to('/auth/verify-otp')->with('error', 'Failed to send verification email. Please try Resending.');
+            } catch (\Throwable $e) {
+                log_message('error', 'SMTP ERROR: ' . $e->getMessage());
+                return redirect()->to('/auth/verify-otp')->with('error', 'We encountered an error sending your email. Please click Resend.');
+            }
+            // --- MFA Integration End ---
         } catch (\Throwable $e) {
             log_message('error', 'Login exception for email={email}. message={message} line={line}', [
                 'email' => $email,
@@ -230,9 +253,110 @@ class Auth extends BaseController
                     ->with('error', 'We could not create your account. Please try again.');
             }
 
-            $user = $this->userModel->find($userId);
+            // --- MFA Integration for Registration Start ---
+            $otp = sprintf("%06d", mt_rand(0, 999999));
+            $expire = date("Y-m-d H:i:s", strtotime("+5 minutes"));
+            
+            $this->userModel->update($userId, [
+                'otp' => $otp,
+                'otp_expire' => $expire,
+                'otp_attempts' => 0
+            ]);
 
-            // Auto login after registration.
+            // Set temporary session for OTP verification
+            $this->session->set('temp_user_id', $userId);
+            $this->session->set('temp_email', $email);
+
+            // Send Email via PHPMailer
+            try {
+                if (class_exists('PHPMailer\\PHPMailer\\PHPMailer')) {
+                    $mail = new PHPMailer(true);
+                    $mail->isSMTP();
+                    $mail->Host       = 'smtp.gmail.com'; 
+                    $mail->SMTPAuth   = true;
+                    $mail->Username   = getenv('SMTP_USER'); 
+                    $mail->Password   = getenv('SMTP_PASS'); 
+                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; 
+                    $mail->Port       = 465;
+                    $mail->SMTPOptions = [
+                        'ssl' => [
+                            'verify_peer' => false,
+                            'verify_peer_name' => false,
+                            'allow_self_signed' => true
+                        ]
+                    ];
+
+                    $mail->setFrom(getenv('SMTP_USER'), getenv('SMTP_FROM_NAME'));
+                    $mail->addAddress($email);
+                    $mail->isHTML(true);
+                    $mail->Subject = 'Welcome! Verify Your SkillLink Account';
+                    $mail->Body    = $this->generateGeminiMessage($otp, $email);
+                    
+                    if (@$mail->send()) {
+                        return redirect()->to('/auth/verify-otp')->with('success', 'Registration successful! Please enter the code sent to your email.');
+                    }
+                }
+                return redirect()->to('/auth/verify-otp')->with('error', 'Account created, but we couldn\'t send the verification email. Please try Resending.');
+            } catch (\Throwable $e) {
+                return redirect()->to('/auth/verify-otp')->with('error', 'Account created! Error sending email. Please use Resend OTP.');
+            }
+            // --- MFA Integration End ---
+        } catch (\Throwable $e) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'We could not create your account right now. Please try again.');
+        }
+    }
+
+    /**
+     * Show OTP verification page
+     */
+    public function verifyOtp()
+    {
+        if (!$this->session->has('temp_user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        return view('auth/verify_otp');
+    }
+
+    /**
+     * Process OTP verification
+     */
+    public function doVerifyOtp()
+    {
+        if (!$this->session->has('temp_user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $userId = $this->session->get('temp_user_id');
+        $otpInput = (string) $this->request->getPost('otp');
+
+        $user = $this->userModel->find($userId);
+
+        if (!$user) {
+            return redirect()->to('/auth/login');
+        }
+
+        // Security Checks
+        if (($user['otp_attempts'] ?? 0) >= 3) {
+            return redirect()->to('/auth/login')->with('error', 'Max attempts reached. Please login again.');
+        }
+
+        if ($user['otp_expire'] && strtotime((string) $user['otp_expire']) < time()) {
+            return redirect()->to('/auth/login')->with('error', 'OTP has expired. Please login again.');
+        }
+
+        if ($user['otp'] === $otpInput && !empty($user['otp'])) {
+            // Success: Clear OTP and log in
+            $this->userModel->update($userId, [
+                'otp' => null,
+                'otp_expire' => null,
+                'otp_attempts' => 0
+            ]);
+
+            $token = $this->createApiToken((int) $user['id'], (string) $user['user_type']);
+
             $this->session->set([
                 'user_id' => $user['id'],
                 'role' => $user['user_type'],
@@ -247,15 +371,121 @@ class Auth extends BaseController
                     'user_type' => $user['user_type'],
                 ],
                 'logged_in' => true,
-                'api_token' => $this->createApiToken((int) $user['id'], (string) $user['user_type']),
+                'api_token' => $token,
             ]);
 
-            return redirect()->to('/dashboard')
-                ->with('success', 'Your account is ready. Welcome to SkillLink.');
-        } catch (\Throwable $e) {
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'We could not create your account right now. Please try again.');
+            $this->session->remove('temp_user_id');
+            $this->session->remove('temp_email');
+
+            return redirect()->to('/dashboard')->with('success', 'Verification successful. Welcome!');
+        } else {
+            // Fail: Increment attempts
+            $newAttempts = ($user['otp_attempts'] ?? 0) + 1;
+            $this->userModel->update($userId, ['otp_attempts' => $newAttempts]);
+
+            return redirect()->back()->with('error', 'Invalid OTP code. Tries left: ' . (3 - $newAttempts));
+        }
+    }
+
+    /**
+     * Resend OTP
+     */
+    public function resendOtp()
+    {
+        if (!$this->session->has('temp_user_id')) {
+            return redirect()->to('/auth/login');
+        }
+
+        $userId = $this->session->get('temp_user_id');
+        $user = $this->userModel->find($userId);
+
+        $otp = sprintf("%06d", mt_rand(0, 999999));
+        $expire = date("Y-m-d H:i:s", strtotime("+5 minutes"));
+
+        $this->userModel->update($userId, [
+            'otp' => $otp,
+            'otp_expire' => $expire,
+            'otp_attempts' => 0
+        ]);
+
+        // Send Email (Reuse logic)
+        $mail = new PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host       = 'smtp.gmail.com'; 
+            $mail->SMTPAuth   = true;
+            $mail->Username   = getenv('SMTP_USER'); 
+            $mail->Password   = getenv('SMTP_PASS'); 
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; 
+            $mail->Port       = 465;
+            $mail->SMTPOptions = [
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ];
+
+            $mail->setFrom(getenv('SMTP_USER'), getenv('SMTP_FROM_NAME'));
+            $mail->addAddress($user['email']);
+            $mail->isHTML(true);
+            $mail->Subject = 'New Login OTP';
+            $mail->Body    = "Your new code is: <b>$otp</b>";
+            $mail->send();
+
+            return redirect()->back()->with('success', 'A new OTP has been sent to your email.');
+        } catch (Exception $e) {
+            log_message('error', 'Resend SMTP ERROR: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to resend email. Please try again later.');
+        }
+    }
+
+    private function generateGeminiMessage(string $otp, string $email): string
+    {
+        $apiKey = getenv('GEMINI_API_KEY');
+        if (empty($apiKey)) {
+            return "Your verification code is: <b>$otp</b>. It expires in 5 minutes.";
+        }
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
+        
+        $prompt = "Write a very short, professional and welcoming security email for a user with email $email who is logging into SkillLink Services. 
+                   The 6-digit verification code is $otp. 
+                   Mention it expires in 5 minutes. 
+                   Keep it very concise (max 3 sentences). 
+                   Use HTML <b> tag for the code.";
+
+        $data = [
+            "contents" => [
+                ["parts" => [["text" => $prompt]]]
+            ]
+        ];
+
+        try {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5); // 5 seconds timeout para hindi mabagal
+            
+            $response = curl_exec($ch);
+            if (curl_errno($ch)) {
+                return "Your verification code is: <b>$otp</b>. It expires in 5 minutes.";
+            }
+            curl_close($ch);
+
+            $result = json_decode($response, true);
+            $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? "Your verification code is: <b>$otp</b>. It expires in 5 minutes.";
+            
+            // Siguraduhin na ang OTP ay nandoon sa text (Safety Check)
+            if (strpos($text, $otp) === false) {
+                return "Your verification code is: <b>$otp</b>. It expires in 5 minutes.";
+            }
+            
+            return $text;
+        } catch (\Exception $e) {
+            return "Your verification code is: <b>$otp</b>. It expires in 5 minutes.";
         }
     }
 
