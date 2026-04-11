@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Libraries\SensitiveDataCipher;
 use CodeIgniter\Model;
 
 class UserModel extends Model
@@ -25,13 +26,21 @@ class UserModel extends Model
         'experience_years',
         'commission_rate',
         'profile_image',
-        'email_verified_at'
+        'email_verified_at',
+        'phone_last4',
+        'failed_login_attempts',
+        'locked_until',
+        'last_login_at',
+        'password_changed_at',
     ];
 
     protected $useTimestamps = true;
     protected $createdField  = 'created_at';
     protected $updatedField  = 'updated_at';
     protected $deletedField  = 'deleted_at';
+    protected $beforeInsert = ['protectSensitiveFields'];
+    protected $beforeUpdate = ['protectSensitiveFields'];
+    protected $afterFind = ['restoreSensitiveFields'];
 
     protected $validationRules = [
         'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
@@ -58,6 +67,14 @@ class UserModel extends Model
             'is_unique'   => 'Email already exists.',
         ],
     ];
+
+    private SensitiveDataCipher $cipher;
+
+    public function __construct(?\CodeIgniter\Database\ConnectionInterface $db = null, ?\CodeIgniter\Validation\ValidationInterface $validation = null)
+    {
+        parent::__construct($db, $validation);
+        $this->cipher = new SensitiveDataCipher();
+    }
 
     public function getWorkers($status = 'active')
     {
@@ -160,7 +177,43 @@ class UserModel extends Model
 
     public function changePassword($userId, $newPassword)
     {
-        return $this->update($userId, ['password' => password_hash($newPassword, PASSWORD_DEFAULT)]);
+        return $this->update($userId, [
+            'password' => password_hash($newPassword, PASSWORD_DEFAULT),
+            'password_changed_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function recordFailedLogin(int $userId, int $maxAttempts = 5, int $lockMinutes = 15): void
+    {
+        $user = $this->withDeleted()->find($userId);
+        if (!$user) {
+            return;
+        }
+
+        $attempts = (int) ($user['failed_login_attempts'] ?? 0) + 1;
+        $data = ['failed_login_attempts' => $attempts];
+
+        if ($attempts >= $maxAttempts) {
+            $data['locked_until'] = date('Y-m-d H:i:s', time() + ($lockMinutes * 60));
+        }
+
+        $this->builder()->where('id', $userId)->update($data);
+    }
+
+    public function clearFailedLogins(int $userId): void
+    {
+        $this->builder()->where('id', $userId)->update([
+            'failed_login_attempts' => 0,
+            'locked_until' => null,
+            'last_login_at' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function isLocked(array $user): bool
+    {
+        $lockedUntil = $user['locked_until'] ?? null;
+
+        return $lockedUntil !== null && strtotime((string) $lockedUntil) > time();
     }
 
     public function getDashboardData($userType, $userId)
@@ -227,5 +280,81 @@ class UserModel extends Model
     {
         return $this->getOwnerDashboard();
     }
-}
 
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    protected function protectSensitiveFields(array $data): array
+    {
+        if (!isset($data['data']) || !is_array($data['data'])) {
+            return $data;
+        }
+
+        foreach (['phone', 'address'] as $field) {
+            if (!array_key_exists($field, $data['data'])) {
+                continue;
+            }
+
+            $plainValue = $data['data'][$field];
+            if ($plainValue === null || trim((string) $plainValue) === '') {
+                $data['data'][$field] = null;
+                if ($field === 'phone') {
+                    $data['data']['phone_last4'] = null;
+                }
+                continue;
+            }
+
+            $data['data'][$field] = $this->cipher->encrypt((string) $plainValue);
+            if ($field === 'phone') {
+                $data['data']['phone_last4'] = $this->cipher->phoneLastFour((string) $plainValue);
+            }
+        }
+
+        if (array_key_exists('password', $data['data']) && !array_key_exists('password_changed_at', $data['data'])) {
+            $data['data']['password_changed_at'] = date('Y-m-d H:i:s');
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    protected function restoreSensitiveFields(array $data): array
+    {
+        if (!isset($data['data'])) {
+            return $data;
+        }
+
+        if (isset($data['data'][0]) && is_array($data['data'][0])) {
+            foreach ($data['data'] as &$row) {
+                $row = $this->decryptSensitiveRow($row);
+            }
+
+            return $data;
+        }
+
+        if (is_array($data['data'])) {
+            $data['data'] = $this->decryptSensitiveRow($data['data']);
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function decryptSensitiveRow(array $row): array
+    {
+        foreach (['phone', 'address'] as $field) {
+            if (array_key_exists($field, $row)) {
+                $row[$field] = $this->cipher->decrypt($row[$field]);
+            }
+        }
+
+        return $row;
+    }
+}

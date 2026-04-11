@@ -79,7 +79,17 @@ class Auth extends BaseController
                 'found' => $user ? 'yes' : 'no',
             ]);
 
+            if ($user && $this->userModel->isLocked($user)) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('error', 'Account is temporarily locked due to multiple failed login attempts.');
+            }
+
             if (!$user || !password_verify($password, $user['password'])) {
+                if ($user) {
+                    $this->userModel->recordFailedLogin((int) $user['id']);
+                }
+
                 log_message('notice', 'Login failed: invalid credentials. email={email}', [
                     'email' => $email,
                 ]);
@@ -99,6 +109,8 @@ class Auth extends BaseController
                     ->withInput()
                     ->with('error', 'Account is not active [DBG-LOGIN-STATUS]');
             }
+
+            $this->userModel->clearFailedLogins((int) $user['id']);
 
             $token = $this->createApiToken((int) $user['id'], (string) $user['user_type']);
 
@@ -201,6 +213,7 @@ class Auth extends BaseController
                 'phone' => $this->request->getPost('phone'),
                 'address' => $this->request->getPost('address'),
                 'status' => 'active',
+                'password_changed_at' => date('Y-m-d H:i:s'),
             ];
 
             // Add worker-specific fields

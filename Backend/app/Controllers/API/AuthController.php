@@ -43,7 +43,8 @@ class AuthController extends BaseController
             'phone' => $this->request->getVar('phone'),
             'user_type' => $this->request->getVar('user_type'),
             'address' => $this->request->getVar('address'),
-            'status' => 'active'
+            'status' => 'active',
+            'password_changed_at' => date('Y-m-d H:i:s'),
         ];
 
         if ($this->request->getVar('user_type') === 'worker') {
@@ -88,13 +89,20 @@ class AuthController extends BaseController
             return $this->fail('Invalid credentials');
         }
 
+        if ($this->userModel->isLocked($user)) {
+            return $this->fail('Account is temporarily locked due to multiple failed login attempts');
+        }
+
         if (!password_verify($password, $user['password'])) {
+            $this->userModel->recordFailedLogin((int) $user['id']);
             return $this->fail('Invalid credentials');
         }
 
         if ($user['status'] !== 'active') {
             return $this->fail('Account is not active');
         }
+
+        $this->userModel->clearFailedLogins((int) $user['id']);
 
         $key = getenv('JWT_SECRET');
         $payload = [

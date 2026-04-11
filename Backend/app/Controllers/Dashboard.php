@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Libraries\DatabaseBackupManager;
 use App\Models\UserModel;
 use App\Models\BookingModel;
 use App\Models\PaymentModel;
@@ -481,6 +482,65 @@ class Dashboard extends BaseController
         ];
 
         return view('dashboard/admin_payments', $data);
+    }
+
+    public function backups()
+    {
+        $manager = new DatabaseBackupManager();
+        $backups = $manager->listBackups();
+
+        $latestBackup = $backups[0] ?? null;
+        $totalSize = array_sum(array_column($backups, 'size'));
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'backups' => $backups,
+            'backupSummary' => [
+                'count' => count($backups),
+                'total_size' => $totalSize,
+                'latest_backup' => $latestBackup,
+            ],
+        ];
+
+        return view('dashboard/admin_backups', $data);
+    }
+
+    public function backupCreate()
+    {
+        try {
+            $manager = new DatabaseBackupManager();
+            $backup = $manager->createBackup();
+
+            return redirect()->to('/admin/backups')
+                ->with('success', 'Backup created successfully: ' . ($backup['filename'] ?? 'database backup'));
+        } catch (\Throwable $e) {
+            log_message('error', 'Backup creation failed: {message}', ['message' => $e->getMessage()]);
+
+            return redirect()->to('/admin/backups')
+                ->with('error', 'Failed to create backup: ' . $e->getMessage());
+        }
+    }
+
+    public function backupRestore()
+    {
+        $filename = trim((string) $this->request->getPost('backup_file'));
+        if ($filename === '') {
+            return redirect()->to('/admin/backups')->with('error', 'Please select a backup file to restore.');
+        }
+
+        try {
+            $manager = new DatabaseBackupManager();
+            $manager->restoreBackup($filename);
+
+            return redirect()->to('/admin/backups')
+                ->with('success', 'Database restored successfully from ' . $filename . '. A pre-restore backup was created automatically.');
+        } catch (\Throwable $e) {
+            log_message('error', 'Backup restore failed: {message}', ['message' => $e->getMessage()]);
+
+            return redirect()->to('/admin/backups')
+                ->with('error', 'Failed to restore backup: ' . $e->getMessage());
+        }
     }
 
     public function records()
@@ -1656,6 +1716,5 @@ class Dashboard extends BaseController
             ->findAll();
     }
 }
-
 
 

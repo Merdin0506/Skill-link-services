@@ -23,6 +23,10 @@
                 <i class="fas fa-credit-card"></i>
                 <span>Payments</span>
             </a>
+            <a href="<?= base_url('admin/backups') ?>" class="<?= (strpos(current_url(), '/admin/backups') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-database"></i>
+                <span>Backups</span>
+            </a>
             <a href="<?= base_url('admin/records') ?>" class="<?= (strpos(current_url(), '/admin/records') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-file-invoice"></i>
                 <span>Service Records</span>
