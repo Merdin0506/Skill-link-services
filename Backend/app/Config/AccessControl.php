@@ -76,6 +76,13 @@ class AccessControl extends BaseConfig
         'settings' => 'settings',
         'reports' => 'reports',
         'jobs' => 'jobs',
+        'job' => 'jobs',
+        'available-jobs' => 'jobs',
+        'my-jobs' => 'jobs',
+        'accept-job' => 'jobs',
+        'start-job' => 'jobs',
+        'complete-job' => 'jobs',
+        'complete-job-form' => 'jobs',
         'earnings' => 'earnings',
         'auth' => 'profile',
     ];

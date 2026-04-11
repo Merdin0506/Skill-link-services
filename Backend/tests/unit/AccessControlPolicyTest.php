@@ -59,6 +59,8 @@ final class AccessControlPolicyTest extends CIUnitTestCase
     {
         $this->assertSame('users', $this->policy->normalizeResource('user'));
         $this->assertSame('payments', $this->policy->normalizeResource('payment'));
+        $this->assertSame('jobs', $this->policy->normalizeResource('available-jobs'));
+        $this->assertSame('jobs', $this->policy->normalizeResource('complete-job'));
     }
 
     public function testMethodActionMappingSupportsCrudLevels(): void

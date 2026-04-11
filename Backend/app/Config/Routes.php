@@ -167,7 +167,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->put('bookings/(:num)/start', 'BookingsController::startBooking/$1');
     $routes->put('bookings/(:num)/complete', 'BookingsController::completeBooking/$1');
     $routes->get('payments/worker-earnings/(:num)', 'PaymentsController::workerEarnings/$1');
-    $routes->post('payments/worker', 'PaymentsController::createWorkerPayout');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -178,6 +177,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('payments', 'PaymentsController::index');
     $routes->get('payments/(:num)', 'PaymentsController::show/$1');
     $routes->put('payments/(:num)/process', 'PaymentsController::processPayment/$1');
+    $routes->post('payments/worker', 'PaymentsController::createWorkerPayout');
     $routes->get('payments/methods', 'PaymentsController::paymentMethods');
     $routes->get('payments/statistics', 'PaymentsController::statistics');
     $routes->get('payments/revenue-report', 'PaymentsController::revenueReport');
@@ -217,4 +217,3 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('reviews/flagged', 'ReviewsController::flaggedReviews');
     $routes->get('reviews/statistics', 'ReviewsController::statistics');
 });
-

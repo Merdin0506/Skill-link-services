@@ -88,6 +88,10 @@ class PermissionFilter implements FilterInterface
 
         $path = strtolower(implode('/', $segments));
 
+        if (str_contains($path, 'delete-account')) {
+            return 'update';
+        }
+
         if (str_contains($path, 'delete')) {
             return 'delete';
         }
