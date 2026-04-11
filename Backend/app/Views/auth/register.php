@@ -188,24 +188,32 @@
             min-height: 80px;
         }
 
-        .error-message {
-            background-color: #fff5f5;
-            border-left: 4px solid #e74c3c;
-            color: #c33;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
+        .auth-notice {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            margin-bottom: 20px;
+            border-radius: 10px;
             font-size: 14px;
+            line-height: 1.45;
         }
 
-        .success-message {
-            background-color: #f0f9ff;
-            border-left: 4px solid #1cc88a;
-            color: #16a34a;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            font-size: 14px;
+        .auth-notice.error {
+            color: #b9382b;
+            background: #fff3f1;
+            border: 1px solid #f3c4bd;
+        }
+
+        .auth-notice.success {
+            color: #157347;
+            background: #eefaf3;
+            border: 1px solid #bfe7cf;
+        }
+
+        .auth-notice i {
+            font-size: 15px;
+            flex-shrink: 0;
         }
 
         .hidden {
@@ -283,14 +291,16 @@
         </div>
 
         <?php if (session()->has('error')): ?>
-            <div class="error-message">
-                <i class="fas fa-exclamation-circle"></i> <?= session('error') ?>
+            <div class="auth-notice error">
+                <i class="fas fa-circle-exclamation"></i>
+                <span><?= esc(session('error')) ?></span>
             </div>
         <?php endif; ?>
 
         <?php if (session()->has('success')): ?>
-            <div class="success-message">
-                <i class="fas fa-check-circle"></i> <?= session('success') ?>
+            <div class="auth-notice success">
+                <i class="fas fa-circle-check"></i>
+                <span><?= esc(session('success')) ?></span>
             </div>
         <?php endif; ?>
 
@@ -520,4 +530,3 @@
     </script>
 </body>
 </html>
-

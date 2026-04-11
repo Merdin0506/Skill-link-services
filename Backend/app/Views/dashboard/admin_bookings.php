@@ -11,20 +11,6 @@
             </div>
         </div>
 
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <?= session('success') ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <?= session('error') ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-list"></i> All Bookings

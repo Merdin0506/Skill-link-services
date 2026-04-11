@@ -27,19 +27,6 @@
             </div>
         </div>
 
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="fas fa-check-circle"></i> <?= esc(session('success')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-circle"></i> <?= esc(session('error')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-list"></i> <?= !empty($show_deleted) ? 'Archived Users' : 'All Users' ?>
@@ -71,12 +58,12 @@
                                     <td>
                                         <?php $isSuperAdmin = (($row['user_type'] ?? '') === 'super_admin'); ?>
                                         <?php if (!empty($show_deleted)): ?>
-                                            <form action="<?= base_url('admin/users/restore/' . $row['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Restore this user?')">
+                                            <form action="<?= base_url('admin/users/restore/' . $row['id']) ?>" method="post" class="d-inline" data-confirm-message="Restore this user?" data-confirm-label="Restore" data-confirm-class="btn-success">
                                                 <button type="submit" class="btn btn-sm btn-success" title="Restore">
                                                     <i class="fas fa-rotate-left"></i>
                                                 </button>
                                             </form>
-                                            <form action="<?= base_url('admin/users/delete-permanent/' . $row['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Permanently delete this user? This cannot be undone.')">
+                                            <form action="<?= base_url('admin/users/delete-permanent/' . $row['id']) ?>" method="post" class="d-inline" data-confirm-title="Delete user permanently?" data-confirm-message="This cannot be undone." data-confirm-label="Delete permanently" data-confirm-class="btn-danger">
                                                 <button type="submit" class="btn btn-sm btn-danger" title="Delete Permanently">
                                                     <i class="fas fa-user-slash"></i>
                                                 </button>
@@ -90,7 +77,7 @@
                                                     <i class="fas fa-lock"></i>
                                                 </button>
                                             <?php else: ?>
-                                                <form action="<?= base_url('admin/users/delete/' . $row['id']) ?>" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this user?')">
+                                                <form action="<?= base_url('admin/users/delete/' . $row['id']) ?>" method="post" class="d-inline" data-confirm-message="Archive this user?" data-confirm-label="Archive" data-confirm-class="btn-danger">
                                                     <button type="submit" class="btn btn-sm btn-danger" title="Archive">
                                                         <i class="fas fa-trash"></i>
                                                     </button>

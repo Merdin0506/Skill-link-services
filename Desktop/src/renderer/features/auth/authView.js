@@ -15,8 +15,10 @@ export function renderAuthView(onAuthenticated) {
       return;
     }
 
-    loginStatusElement.className = '';
-    if (type) {
+    loginStatusElement.className = 'status-banner';
+    if (!message) {
+      loginStatusElement.classList.add('is-empty');
+    } else if (type) {
       loginStatusElement.classList.add(type);
     }
 

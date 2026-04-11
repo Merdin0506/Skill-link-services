@@ -108,12 +108,6 @@ $customCss = null;
                             <p class="mb-0"><strong>Estimated Duration:</strong> <span id="modal_service_duration"></span> mins</p>
                         </div>
 
-                        <?php if (session()->has('error')): ?>
-                            <div class="alert alert-danger">
-                                <?= session('error') ?>
-                            </div>
-                        <?php endif; ?>
-
                         <!-- Booking Form -->
                         <div class="row g-3">
                             <div class="col-md-12">

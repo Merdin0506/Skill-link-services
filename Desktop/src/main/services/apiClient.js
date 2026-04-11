@@ -5,18 +5,45 @@ function createHeaders(options = {}) {
   };
 }
 
+function polishMessage(message, fallback) {
+  if (!message || typeof message !== 'string') {
+    return fallback;
+  }
+
+  const cleaned = message.replace(/\s*\[DBG-[A-Z-]+\]\s*/g, '').trim();
+  const normalized = cleaned.toLowerCase();
+
+  if (normalized.includes('failed login attempts')) {
+    return 'Too many login tries for now. Please wait a bit and try again.';
+  }
+
+  if (normalized.includes('invalid credentials')) {
+    return 'That email or password does not look right.';
+  }
+
+  if (normalized.includes('not active')) {
+    return 'Your account is not active right now. Please contact support.';
+  }
+
+  if (normalized.includes('unable to connect to the database') || normalized.includes('mysql')) {
+    return 'The system is still connecting to the database. Please try again in a moment.';
+  }
+
+  return cleaned;
+}
+
 function parseErrorMessage(data, status) {
   const nestedError =
     data && typeof data.messages === 'object' && data.messages !== null
       ? data.messages.error || Object.values(data.messages)[0]
       : null;
 
-  return (
+  return polishMessage((
     data?.message ||
     nestedError ||
     (typeof data?.messages === 'string' ? data.messages : null) ||
     `Request failed (${status})`
-  );
+  ), `Request failed (${status})`);
 }
 
 async function requestOnce(baseUrl, endpoint, options = {}) {
@@ -56,6 +83,7 @@ async function requestJson(baseUrlOrUrls, endpoint, options = {}) {
       lastError = error;
 
       if (error instanceof TypeError) {
+        lastError = new Error('We could not reach the server. Please make sure the backend is running.');
         continue;
       }
 

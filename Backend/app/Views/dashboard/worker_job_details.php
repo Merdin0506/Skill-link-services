@@ -8,10 +8,6 @@
         </a>
     </div>
 
-    <?php if (session()->has('error')): ?>
-        <div class="alert alert-danger"><?= esc(session('error')) ?></div>
-    <?php endif; ?>
-
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="card h-100">
@@ -56,14 +52,14 @@
 
                     <div class="d-flex gap-2 flex-wrap">
                         <?php if (($booking['status'] ?? '') === 'pending'): ?>
-                            <form action="<?= base_url('worker/accept-job/' . ($booking['id'] ?? 0)) ?>" method="POST" onsubmit="return confirm('Accept this job?');">
+                            <form action="<?= base_url('worker/accept-job/' . ($booking['id'] ?? 0)) ?>" method="POST" data-confirm-message="Accept this job?" data-confirm-label="Accept job" data-confirm-class="btn-success">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-success">
                                     <i class="fas fa-check"></i> Accept Job
                                 </button>
                             </form>
                         <?php elseif (($booking['status'] ?? '') === 'assigned'): ?>
-                            <form action="<?= base_url('worker/start-job/' . ($booking['id'] ?? 0)) ?>" method="POST" onsubmit="return confirm('Start this job now?');">
+                            <form action="<?= base_url('worker/start-job/' . ($booking['id'] ?? 0)) ?>" method="POST" data-confirm-message="Start this job now?" data-confirm-label="Start job" data-confirm-class="btn-primary">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-play"></i> Start Job

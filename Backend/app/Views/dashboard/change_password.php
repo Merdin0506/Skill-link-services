@@ -1,38 +1,20 @@
-<?= view('layouts/page_header', ['pageTitle' => 'Change Password']) ?>
+<?= view('layouts/page_header', ['pageTitle' => 'Change Password', 'suppressFlashMessages' => true]) ?>
 
     <!-- Page Content -->
     <div class="page-content">
+        <?php $errors = session('errors') ?? []; ?>
+        <style>
+            .field-error {
+                margin-top: 6px;
+                color: #c0392b;
+                font-size: 0.88rem;
+            }
+        </style>
         <div class="row mb-4">
             <div class="col-12">
                 <h3 class="mb-0"><i class="fas fa-key"></i> Change Password</h3>
             </div>
         </div>
-
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="fas fa-check-circle"></i> <?= esc(session('success')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-circle"></i> <?= esc(session('error')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <?php if (session()->has('errors')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-circle"></i> <strong>Please fix the following errors:</strong>
-                <ul class="mb-0 mt-2">
-                    <?php foreach (session('errors') as $error): ?>
-                        <li><?= esc($error) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
 
         <div class="row justify-content-center">
             <div class="col-md-8">
@@ -45,16 +27,25 @@
                             <div class="row g-3">
                                 <div class="col-12">
                                     <label for="current_password" class="form-label">Current Password *</label>
-                                    <input type="password" class="form-control" id="current_password" name="current_password" required>
+                                    <input type="password" class="form-control <?= isset($errors['current_password']) ? 'is-invalid' : '' ?>" id="current_password" name="current_password" required>
+                                    <?php if (isset($errors['current_password'])): ?>
+                                        <div class="field-error"><?= esc($errors['current_password']) ?></div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="new_password" class="form-label">New Password *</label>
-                                    <input type="password" class="form-control" id="new_password" name="new_password" required minlength="6">
+                                    <input type="password" class="form-control <?= isset($errors['new_password']) ? 'is-invalid' : '' ?>" id="new_password" name="new_password" required minlength="6">
                                     <small class="text-muted">Minimum 6 characters</small>
+                                    <?php if (isset($errors['new_password'])): ?>
+                                        <div class="field-error"><?= esc($errors['new_password']) ?></div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="confirm_password" class="form-label">Confirm New Password *</label>
-                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required minlength="6">
+                                    <input type="password" class="form-control <?= isset($errors['confirm_password']) ? 'is-invalid' : '' ?>" id="confirm_password" name="confirm_password" required minlength="6">
+                                    <?php if (isset($errors['confirm_password'])): ?>
+                                        <div class="field-error"><?= esc($errors['confirm_password']) ?></div>
+                                    <?php endif; ?>
                                 </div>
                                 <div class="col-12 mt-4">
                                     <button type="submit" class="btn btn-primary">

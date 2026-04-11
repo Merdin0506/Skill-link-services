@@ -13,20 +13,6 @@
             Accept Job → Start Job → <strong>Complete & Collect Payment from Customer</strong> → Get Paid by Finance
         </div>
 
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <?= session('success') ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <?= session('error') ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-list"></i> Assigned Jobs
@@ -73,7 +59,7 @@
                                     <?php if ($row['status'] === 'assigned'): ?>
                                         <form action="<?= base_url('worker/start-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;" onsubmit="event.stopPropagation();">
                                             <?= csrf_field() ?>
-                                            <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('Start working on this job?');">
+                                            <button type="submit" class="btn btn-primary btn-sm" data-confirm-message="Start working on this job?" data-confirm-label="Start job" data-confirm-class="btn-primary">
                                                 <i class="fas fa-play"></i> Start
                                             </button>
                                         </form>

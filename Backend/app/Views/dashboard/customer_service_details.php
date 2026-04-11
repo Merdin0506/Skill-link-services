@@ -11,10 +11,6 @@ $customCss = null;
         </a>
     </div>
 
-    <?php if (session()->has('error')): ?>
-        <div class="alert alert-danger"><?= esc(session('error')) ?></div>
-    <?php endif; ?>
-
     <div class="row g-4">
         <div class="col-lg-5">
             <div class="card h-100">

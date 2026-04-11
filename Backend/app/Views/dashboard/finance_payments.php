@@ -16,13 +16,6 @@
             Payments highlighted in <span class="badge bg-warning">yellow</span> need manual recording (exceptions only).
         </div>
 
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <i class="fas fa-check-circle"></i> <?= esc(session('success')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-list"></i> All Customer Payments

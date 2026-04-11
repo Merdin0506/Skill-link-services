@@ -18,8 +18,10 @@ export function renderRegisterView(onRegisterSuccess) {
 
   function setRegisterStatus(message, type = null) {
     if (!registerStatusElement) return;
-    registerStatusElement.className = '';
-    if (type) {
+    registerStatusElement.className = 'status-banner';
+    if (!message) {
+      registerStatusElement.classList.add('is-empty');
+    } else if (type) {
       registerStatusElement.classList.add(type);
     }
     registerStatusElement.textContent = message || '';

@@ -69,7 +69,7 @@ class Auth extends BaseController
             return redirect()->back()
                 ->withInput()
                 ->with('errors', $errors)
-                ->with('error', 'Login validation failed. Please check your inputs. [DBG-LOGIN-VALIDATION]');
+                ->with('error', 'Please check your login details and try again.');
         }
 
         try {
@@ -82,7 +82,7 @@ class Auth extends BaseController
             if ($user && $this->userModel->isLocked($user)) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Account is temporarily locked due to multiple failed login attempts.');
+                    ->with('error', 'Too many login tries for now. Please wait a bit and try again.');
             }
 
             if (!$user || !password_verify($password, $user['password'])) {
@@ -96,7 +96,7 @@ class Auth extends BaseController
 
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Invalid credentials [DBG-LOGIN-CREDS]');
+                    ->with('error', 'That email or password does not look right.');
             }
 
             if (($user['status'] ?? null) !== 'active') {
@@ -107,7 +107,7 @@ class Auth extends BaseController
 
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Account is not active [DBG-LOGIN-STATUS]');
+                    ->with('error', 'Your account is not active right now. Please contact support.');
             }
 
             $this->userModel->clearFailedLogins((int) $user['id']);
@@ -140,7 +140,7 @@ class Auth extends BaseController
 
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Login failed due to session persistence issue. [DBG-LOGIN-SESSION]');
+                    ->with('error', 'We could not finish logging you in. Please try again.');
             }
 
             log_message('info', 'Login successful. userId={userId}, email={email}, role={role}', [
@@ -149,7 +149,7 @@ class Auth extends BaseController
                 'role' => (string) $user['user_type'],
             ]);
 
-            return redirect()->to('/dashboard')->with('success', 'Login successful!');
+            return redirect()->to('/dashboard')->with('success', 'You are now logged in.');
         } catch (\Throwable $e) {
             log_message('error', 'Login exception for email={email}. message={message} line={line}', [
                 'email' => $email,
@@ -159,7 +159,7 @@ class Auth extends BaseController
 
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Login failed. Please try again. [DBG-LOGIN-EXCEPTION]');
+                ->with('error', 'We could not log you in right now. Please try again in a moment.');
         }
     }
 
@@ -201,7 +201,7 @@ class Auth extends BaseController
             if ($this->userModel->where('email', $email)->first()) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Email already exists');
+                    ->with('error', 'That email is already being used.');
             }
 
             $postData = [
@@ -227,7 +227,7 @@ class Auth extends BaseController
             if (!$userId) {
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Registration failed. Please try again.');
+                    ->with('error', 'We could not create your account. Please try again.');
             }
 
             $user = $this->userModel->find($userId);
@@ -251,11 +251,11 @@ class Auth extends BaseController
             ]);
 
             return redirect()->to('/dashboard')
-                ->with('success', 'Registration successful! Welcome to Skill Link Services.');
+                ->with('success', 'Your account is ready. Welcome to SkillLink.');
         } catch (\Throwable $e) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Registration failed. Please try again.');
+                ->with('error', 'We could not create your account right now. Please try again.');
         }
     }
 
@@ -295,6 +295,6 @@ class Auth extends BaseController
     public function logout()
     {
         $this->session->destroy();
-        return redirect()->to('/auth/login')->with('success', 'Logged out successfully');
+        return redirect()->to('/auth/login')->with('success', 'You have been logged out.');
     }
 }

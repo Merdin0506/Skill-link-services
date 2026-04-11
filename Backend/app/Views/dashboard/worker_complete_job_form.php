@@ -1,19 +1,13 @@
-<?= view('layouts/page_header', ['pageTitle' => 'Complete Job & Collect Payment']) ?>
+<?= view('layouts/page_header', ['pageTitle' => 'Complete Job & Collect Payment', 'suppressFlashMessages' => true]) ?>
 
     <!-- Page Content -->
     <div class="page-content">
+        <?php $errors = session('errors') ?? []; ?>
         <div class="row mb-4">
             <div class="col-12">
                 <h3 class="mb-0"><i class="fas fa-check-circle"></i> Complete Job & Collect Payment</h3>
             </div>
         </div>
-
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-circle"></i> <?= esc(session('error')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
 
         <div class="card">
             <div class="card-header">
@@ -39,6 +33,12 @@
                 <i class="fas fa-hand-holding-usd"></i> Step 1: Collect Payment from Customer
             </div>
             <div class="card-body">
+                <?php if (session()->has('error')): ?>
+                    <div class="compact-form-notice error">
+                        <i class="fas fa-circle-exclamation"></i>
+                        <span><?= esc(session('error')) ?></span>
+                    </div>
+                <?php endif; ?>
                 <div class="alert alert-warning mb-4">
                     <h5><i class="fas fa-exclamation-triangle"></i> Important Instructions:</h5>
                     <ol class="mb-0">
@@ -51,16 +51,6 @@
 
                 <form method="POST" action="<?= base_url('worker/complete-job/' . $booking['id']) ?>">
                     <?= csrf_field() ?>
-
-                    <?php if (session('errors')): ?>
-                        <div class="alert alert-danger">
-                            <ul class="mb-0">
-                                <?php foreach (session('errors') as $field => $message): ?>
-                                    <li><?= esc($message) ?></li>
-                                <?php endforeach; ?>
-                            </ul>
-                        </div>
-                    <?php endif; ?>
 
                     <div class="row">
                         <div class="col-12 mb-3">
@@ -75,11 +65,12 @@
                             </label>
                             <div class="input-group input-group-lg">
                                 <span class="input-group-text bg-success text-white"><i class="fas fa-peso-sign"></i></span>
-                                <input type="number" class="form-control form-control-lg" id="amount_collected" name="amount_collected" 
+                                <input type="number" class="form-control form-control-lg <?= isset($errors['amount_collected']) ? 'is-invalid' : '' ?>" id="amount_collected" name="amount_collected" 
                                        step="0.01" min="0" max="<?= $booking['total_fee'] ?>" 
                                        value="<?= old('amount_collected', $booking['total_fee']) ?>" required>
                             </div>
                             <small class="text-success"><i class="fas fa-check-circle"></i> Expected amount: ₱<?= number_format($booking['total_fee'], 2) ?></small>
+                            <?php if (isset($errors['amount_collected'])): ?><div class="field-error"><?= esc($errors['amount_collected']) ?></div><?php endif; ?>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -87,21 +78,23 @@
                                 How Did Customer Pay? <span class="text-danger">*</span>
                                 <i class="fas fa-question-circle text-muted" title="Payment method used by customer"></i>
                             </label>
-                            <select class="form-select form-select-lg" id="payment_method" name="payment_method" required>
+                            <select class="form-select form-select-lg <?= isset($errors['payment_method']) ? 'is-invalid' : '' ?>" id="payment_method" name="payment_method" required>
                                 <option value="">-- Select Payment Method --</option>
                                 <option value="cash" <?= old('payment_method') === 'cash' ? 'selected' : '' ?>><i class="fas fa-money-bill"></i> Cash (Hand to Hand)</option>
                                 <option value="gcash" <?= old('payment_method') === 'gcash' ? 'selected' : '' ?>>GCash (Mobile Wallet)</option>
                                 <option value="paymaya" <?= old('payment_method') === 'paymaya' ? 'selected' : '' ?>>PayMaya (Mobile Wallet)</option>
                                 <option value="bank_transfer" <?= old('payment_method') === 'bank_transfer' ? 'selected' : '' ?>>Bank Transfer</option>
                             </select>
+                            <?php if (isset($errors['payment_method'])): ?><div class="field-error"><?= esc($errors['payment_method']) ?></div><?php endif; ?>
                         </div>
                     </div>
 
                     <div class="mb-3">
                         <label for="payment_notes" class="form-label">Notes (Optional)</label>
-                        <textarea class="form-control" id="payment_notes" name="payment_notes" rows="2" 
+                        <textarea class="form-control <?= isset($errors['payment_notes']) ? 'is-invalid' : '' ?>" id="payment_notes" name="payment_notes" rows="2" 
                                   maxlength="500" placeholder="Example: Customer paid exact amount in cash, Transaction ID: 1234567890"><?= old('payment_notes') ?></textarea>
                         <small class="text-muted">Add any notes about the payment (max 500 characters)</small>
+                        <?php if (isset($errors['payment_notes'])): ?><div class="field-error"><?= esc($errors['payment_notes']) ?></div><?php endif; ?>
                     </div>
 
                     <div class="alert alert-danger">

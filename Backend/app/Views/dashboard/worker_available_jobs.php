@@ -8,20 +8,6 @@
             </div>
         </div>
 
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show">
-                <?= session('success') ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <?= session('error') ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-list"></i> Browse Jobs
@@ -58,7 +44,7 @@
                                     <a href="<?= base_url('worker/job/' . ($row['id'] ?? 0)) ?>" class="btn btn-outline-primary btn-sm me-1" onclick="event.stopPropagation();">
                                         <i class="fas fa-eye"></i> Details
                                     </a>
-                                    <form action="<?= base_url('worker/accept-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;" onsubmit="event.stopPropagation(); return confirm('Accept this job?');">
+                                    <form action="<?= base_url('worker/accept-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;" data-confirm-message="Accept this job?" data-confirm-label="Accept job" data-confirm-class="btn-success">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-success btn-sm">
                                             <i class="fas fa-check"></i> Accept

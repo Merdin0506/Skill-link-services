@@ -378,18 +378,20 @@ class Dashboard extends BaseController
         ];
 
         if (!$this->validate($rules)) {
-            return redirect()->back()->with('errors', $validation->getErrors());
+            return redirect()->back()->withInput()->with('errors', $validation->getErrors());
         }
 
         // Verify current password
         if (!password_verify($this->request->getPost('current_password'), (string)$currentUser['password'])) {
-            return redirect()->back()->with('error', 'Current password is incorrect.');
+            return redirect()->back()
+                ->withInput()
+                ->with('errors', ['current_password' => 'Current password is incorrect.']);
         }
 
         $newPassword = password_hash($this->request->getPost('new_password'), PASSWORD_DEFAULT);
 
         if ($this->userModel->update($userId, ['password' => $newPassword]) === false) {
-            return redirect()->back()->with('error', 'Failed to update password.');
+            return redirect()->back()->withInput()->with('error', 'We could not update your password right now. Please try again.');
         }
 
         return redirect()->to('/profile')->with('success', 'Password changed successfully.');
@@ -1716,5 +1718,4 @@ class Dashboard extends BaseController
             ->findAll();
     }
 }
-
 

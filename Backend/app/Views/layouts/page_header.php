@@ -152,6 +152,247 @@
             margin-bottom: 25px;
         }
 
+        .skilllink-flash-stack {
+            display: grid;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .skilllink-alert {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: start;
+            gap: 14px;
+            padding: 16px 18px;
+            border: 1px solid rgba(30, 60, 114, 0.08);
+            border-left: 5px solid var(--primary-color);
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+        }
+
+        .skilllink-alert-success {
+            border-left-color: var(--success-color);
+            background: linear-gradient(180deg, #f6fffb 0%, #edfdf6 100%);
+        }
+
+        .skilllink-alert-error {
+            border-left-color: var(--danger-color);
+            background: linear-gradient(180deg, #fff8f7 0%, #fff1ef 100%);
+        }
+
+        .skilllink-alert-icon {
+            width: 42px;
+            height: 42px;
+            display: grid;
+            place-items: center;
+            border-radius: 12px;
+            font-size: 1rem;
+            color: #fff;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            box-shadow: 0 10px 18px rgba(30, 60, 114, 0.18);
+        }
+
+        .skilllink-alert-success .skilllink-alert-icon {
+            background: linear-gradient(135deg, #0f9f6e 0%, var(--success-color) 100%);
+        }
+
+        .skilllink-alert-error .skilllink-alert-icon {
+            background: linear-gradient(135deg, #c0392b 0%, var(--danger-color) 100%);
+        }
+
+        .skilllink-alert-body strong {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.98rem;
+        }
+
+        .skilllink-alert-body p,
+        .skilllink-alert-body li {
+            color: #4b5563;
+        }
+
+        .skilllink-alert-body ul {
+            margin: 8px 0 0;
+            padding-left: 18px;
+        }
+
+        .compact-form-notice {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            border-radius: 10px;
+            font-size: 0.92rem;
+            line-height: 1.4;
+        }
+
+        .compact-form-notice.error {
+            color: #b9382b;
+            background: #fff3f1;
+            border: 1px solid #f3c4bd;
+        }
+
+        .compact-form-notice.success {
+            color: #157347;
+            background: #eefaf3;
+            border: 1px solid #bfe7cf;
+        }
+
+        .compact-form-notice i {
+            flex-shrink: 0;
+        }
+
+        .field-error {
+            margin-top: 6px;
+            color: #c0392b;
+            font-size: 0.88rem;
+        }
+
+        .skilllink-confirm .modal-dialog {
+            max-width: 520px;
+        }
+
+        .skilllink-confirm .modal-content {
+            position: relative;
+            border: 0;
+            border-radius: 26px;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at top right, rgba(96, 165, 250, 0.22), transparent 34%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 252, 0.98));
+            box-shadow: 0 28px 70px rgba(15, 23, 42, 0.22);
+        }
+
+        .skilllink-confirm .modal-content::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 26px;
+            pointer-events: none;
+        }
+
+        .skilllink-confirm .modal-header {
+            position: relative;
+            padding: 24px 26px 10px;
+            border-bottom: 0;
+            background: transparent;
+            color: var(--text-dark);
+            align-items: flex-start;
+        }
+
+        .skilllink-confirm .modal-header::after {
+            content: "";
+            position: absolute;
+            top: -72px;
+            right: -48px;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(42, 82, 152, 0.18) 0%, rgba(42, 82, 152, 0) 72%);
+            pointer-events: none;
+        }
+
+        .skilllink-confirm .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            letter-spacing: 0.01em;
+        }
+
+        .skilllink-confirm .confirm-icon-shell {
+            width: 54px;
+            height: 54px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-size: 1.2rem;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            box-shadow: 0 16px 28px rgba(30, 60, 114, 0.24);
+        }
+
+        .skilllink-confirm[data-tone="danger"] .confirm-icon-shell {
+            background: linear-gradient(135deg, #c0392b 0%, var(--danger-color) 100%);
+            box-shadow: 0 16px 28px rgba(231, 76, 60, 0.22);
+        }
+
+        .skilllink-confirm[data-tone="success"] .confirm-icon-shell {
+            background: linear-gradient(135deg, #0f9f6e 0%, var(--success-color) 100%);
+            box-shadow: 0 16px 28px rgba(28, 200, 138, 0.22);
+        }
+
+        .skilllink-confirm[data-tone="warning"] .confirm-icon-shell {
+            background: linear-gradient(135deg, #d97706 0%, #f6c23e 100%);
+            box-shadow: 0 16px 28px rgba(246, 194, 62, 0.24);
+        }
+
+        .skilllink-confirm .modal-body {
+            padding: 8px 26px 22px;
+        }
+
+        .skilllink-confirm .confirm-lead {
+            margin: 0 0 10px;
+            font-size: 1.08rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .skilllink-confirm .confirm-text {
+            margin: 0;
+            color: #5b6472;
+            line-height: 1.65;
+            white-space: pre-line;
+            max-width: 42ch;
+        }
+
+        .skilllink-confirm .confirm-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(30, 60, 114, 0.08);
+            color: #36507a;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .skilllink-confirm[data-tone="danger"] .confirm-chip {
+            background: rgba(231, 76, 60, 0.1);
+            color: #b9382b;
+        }
+
+        .skilllink-confirm[data-tone="success"] .confirm-chip {
+            background: rgba(28, 200, 138, 0.12);
+            color: #0f7a55;
+        }
+
+        .skilllink-confirm[data-tone="warning"] .confirm-chip {
+            background: rgba(246, 194, 62, 0.18);
+            color: #9a6700;
+        }
+
+        .skilllink-confirm .modal-footer {
+            padding: 0 26px 26px;
+            border-top: 0;
+            gap: 12px;
+        }
+
+        .skilllink-confirm .modal-footer .btn {
+            min-width: 118px;
+            border-radius: 14px;
+            padding: 10px 18px;
+            font-weight: 700;
+        }
+
         .topbar {
             background: white;
             padding: 20px 30px;
@@ -266,3 +507,10 @@
             </div>
         </div>
 
+        <?php if (empty($suppressFlashMessages)): ?>
+            <div class="page-content">
+                <div class="skilllink-flash-stack">
+                    <?= view('layouts/flash_messages') ?>
+                </div>
+            </div>
+        <?php endif; ?>

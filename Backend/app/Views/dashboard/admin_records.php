@@ -23,17 +23,6 @@
             </div>
         </div>
 
-        <?php if (session()->has('success')): ?>
-            <div class="alert alert-success alert-dismissible fade show"><i class="fas fa-check-circle"></i> <?= esc(session('success')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-        <?php if (session()->has('error')): ?>
-            <div class="alert alert-danger alert-dismissible fade show"><i class="fas fa-exclamation-circle"></i> <?= esc(session('error')) ?>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <!-- Status Summary Cards -->
         <div class="row mb-3">
             <div class="col-md-2">
@@ -160,12 +149,12 @@
                                 <td><?= esc($row['scheduled_at'] ?? '-') ?></td>
                                 <td>
                                     <?php if (!empty($filters['show_deleted'])): ?>
-                                        <form method="post" action="<?= base_url('admin/records/restore/' . $row['id']) ?>" class="d-inline" onsubmit="return confirm('Restore this record?')">
+                                        <form method="post" action="<?= base_url('admin/records/restore/' . $row['id']) ?>" class="d-inline" data-confirm-message="Restore this record?" data-confirm-label="Restore" data-confirm-class="btn-success">
                                             <button class="btn btn-outline-success btn-sm">Restore</button>
                                         </form>
                                     <?php else: ?>
                                         <a href="<?= base_url('admin/records/edit/' . $row['id']) ?>" class="btn btn-outline-primary btn-sm">Edit</a>
-                                        <form method="post" action="<?= base_url('admin/records/delete/' . $row['id']) ?>" class="d-inline" onsubmit="return confirm('Are you sure you want to archive this record?')">
+                                        <form method="post" action="<?= base_url('admin/records/delete/' . $row['id']) ?>" class="d-inline" data-confirm-message="Archive this record?" data-confirm-label="Archive" data-confirm-class="btn-danger">
                                             <button class="btn btn-outline-danger btn-sm">Delete</button>
                                         </form>
                                     <?php endif; ?>

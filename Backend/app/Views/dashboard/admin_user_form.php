@@ -1,7 +1,8 @@
-<?= view('layouts/page_header', ['pageTitle' => isset($editUser) ? 'Edit User' : 'Create User']) ?>
+<?= view('layouts/page_header', ['pageTitle' => isset($editUser) ? 'Edit User' : 'Create User', 'suppressFlashMessages' => true]) ?>
 
     <!-- Page Content -->
     <div class="page-content">
+        <?php $errors = session('errors') ?? []; ?>
         <div class="row mb-4">
             <div class="col-12">
                 <h3 class="mb-0">
@@ -11,53 +12,52 @@
             </div>
         </div>
 
-        <?php if (session()->has('errors')): ?>
-            <div class="alert alert-danger alert-dismissible fade show">
-                <i class="fas fa-exclamation-circle"></i> <strong>Please fix the following errors:</strong>
-                <ul class="mb-0 mt-2">
-                    <?php foreach (session('errors') as $error): ?>
-                        <li><?= esc($error) ?></li>
-                    <?php endforeach; ?>
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        <?php endif; ?>
-
         <div class="card">
             <div class="card-header">
                 <i class="fas fa-info-circle"></i> User Information
             </div>
             <div class="card-body">
+                <?php if (session()->has('error')): ?>
+                    <div class="compact-form-notice error">
+                        <i class="fas fa-circle-exclamation"></i>
+                        <span><?= esc(session('error')) ?></span>
+                    </div>
+                <?php endif; ?>
                 <form action="<?= isset($editUser) ? base_url('admin/users/update/' . $editUser['id']) : base_url('admin/users/store') ?>" method="post">
                     <div class="row g-3">
                         <div class="col-md-6">
                             <label for="first_name" class="form-label">First Name *</label>
-                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                            <input type="text" class="form-control <?= isset($errors['first_name']) ? 'is-invalid' : '' ?>" id="first_name" name="first_name" 
                                    value="<?= esc(old('first_name', $editUser['first_name'] ?? '')) ?>" required>
+                            <?php if (isset($errors['first_name'])): ?><div class="field-error"><?= esc($errors['first_name']) ?></div><?php endif; ?>
                         </div>
                         <div class="col-md-6">
                             <label for="last_name" class="form-label">Last Name *</label>
-                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                            <input type="text" class="form-control <?= isset($errors['last_name']) ? 'is-invalid' : '' ?>" id="last_name" name="last_name" 
                                    value="<?= esc(old('last_name', $editUser['last_name'] ?? '')) ?>" required>
+                            <?php if (isset($errors['last_name'])): ?><div class="field-error"><?= esc($errors['last_name']) ?></div><?php endif; ?>
                         </div>
                         <div class="col-md-6">
                             <label for="email" class="form-label">Email *</label>
-                            <input type="email" class="form-control" id="email" name="email" 
+                            <input type="email" class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>" id="email" name="email" 
                                    value="<?= esc(old('email', $editUser['email'] ?? '')) ?>" required>
+                            <?php if (isset($errors['email'])): ?><div class="field-error"><?= esc($errors['email']) ?></div><?php endif; ?>
                         </div>
                         <div class="col-md-6">
                             <label for="phone" class="form-label">Phone</label>
-                            <input type="text" class="form-control" id="phone" name="phone" 
+                            <input type="text" class="form-control <?= isset($errors['phone']) ? 'is-invalid' : '' ?>" id="phone" name="phone" 
                                    value="<?= esc(old('phone', $editUser['phone'] ?? '')) ?>">
+                            <?php if (isset($errors['phone'])): ?><div class="field-error"><?= esc($errors['phone']) ?></div><?php endif; ?>
                         </div>
                         <div class="col-12">
                             <label for="address" class="form-label">Address</label>
-                            <textarea class="form-control" id="address" name="address" rows="2"><?= esc(old('address', $editUser['address'] ?? '')) ?></textarea>
+                            <textarea class="form-control <?= isset($errors['address']) ? 'is-invalid' : '' ?>" id="address" name="address" rows="2"><?= esc(old('address', $editUser['address'] ?? '')) ?></textarea>
+                            <?php if (isset($errors['address'])): ?><div class="field-error"><?= esc($errors['address']) ?></div><?php endif; ?>
                         </div>
                         <div class="col-md-4">
                             <label for="user_type" class="form-label">User Role *</label>
                             <?php $isEditingSuperAdmin = isset($editUser) && (($editUser['user_type'] ?? '') === 'super_admin'); ?>
-                            <select class="form-select" id="user_type" name="user_type" required onchange="toggleWorkerFields()">
+                            <select class="form-select <?= isset($errors['user_type']) ? 'is-invalid' : '' ?>" id="user_type" name="user_type" required onchange="toggleWorkerFields()">
                                 <option value="">Select Role</option>
                                 <?php if ($isEditingSuperAdmin): ?>
                                     <option value="super_admin" selected>Super Admin</option>
@@ -70,19 +70,22 @@
                             <?php if ($isEditingSuperAdmin): ?>
                                 <small class="text-muted">Super admin role is fixed and cannot be reassigned.</small>
                             <?php endif; ?>
+                            <?php if (isset($errors['user_type'])): ?><div class="field-error"><?= esc($errors['user_type']) ?></div><?php endif; ?>
                         </div>
                         <div class="col-md-4">
                             <label for="status" class="form-label">Status *</label>
-                            <select class="form-select" id="status" name="status" required>
+                            <select class="form-select <?= isset($errors['status']) ? 'is-invalid' : '' ?>" id="status" name="status" required>
                                 <option value="active" <?= old('status', $editUser['status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Active</option>
                                 <option value="inactive" <?= old('status', $editUser['status'] ?? '') === 'inactive' ? 'selected' : '' ?>>Inactive</option>
                                 <option value="suspended" <?= old('status', $editUser['status'] ?? '') === 'suspended' ? 'selected' : '' ?>>Suspended</option>
                             </select>
+                            <?php if (isset($errors['status'])): ?><div class="field-error"><?= esc($errors['status']) ?></div><?php endif; ?>
                         </div>
                         <?php if (!isset($editUser)): ?>
                             <div class="col-md-4">
                                 <label for="password" class="form-label">Password *</label>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <input type="password" class="form-control <?= isset($errors['password']) ? 'is-invalid' : '' ?>" id="password" name="password" required>
+                                <?php if (isset($errors['password'])): ?><div class="field-error"><?= esc($errors['password']) ?></div><?php endif; ?>
                             </div>
                         <?php else: ?>
                             <div class="col-md-4">
@@ -100,20 +103,23 @@
                             </div>
                             <div class="col-md-6">
                                 <label for="skills" class="form-label">Skills (comma separated)</label>
-                                <input type="text" class="form-control" id="skills_input" name="skills_input" 
+                                <input type="text" class="form-control <?= isset($errors['skills']) ? 'is-invalid' : '' ?>" id="skills_input" name="skills_input" 
                                        value="<?= isset($editUser) && $editUser['skills'] ? esc(implode(', ', json_decode($editUser['skills'], true))) : '' ?>" 
                                        placeholder="e.g., plumbing, electrical, carpentry">
                                 <small class="text-muted">Separate skills with commas</small>
+                                <?php if (isset($errors['skills'])): ?><div class="field-error"><?= esc($errors['skills']) ?></div><?php endif; ?>
                             </div>
                             <div class="col-md-3">
                                 <label for="experience_years" class="form-label">Years of Experience</label>
-                                <input type="number" class="form-control" id="experience_years" name="experience_years" 
+                                <input type="number" class="form-control <?= isset($errors['experience_years']) ? 'is-invalid' : '' ?>" id="experience_years" name="experience_years" 
                                        min="0" max="50" value="<?= esc(old('experience_years', $editUser['experience_years'] ?? 0)) ?>">
+                                <?php if (isset($errors['experience_years'])): ?><div class="field-error"><?= esc($errors['experience_years']) ?></div><?php endif; ?>
                             </div>
                             <div class="col-md-3">
                                 <label for="commission_rate" class="form-label">Commission Rate (%)</label>
-                                <input type="number" class="form-control" id="commission_rate" name="commission_rate" 
+                                <input type="number" class="form-control <?= isset($errors['commission_rate']) ? 'is-invalid' : '' ?>" id="commission_rate" name="commission_rate" 
                                        min="0" max="100" step="0.01" value="<?= esc(old('commission_rate', $editUser['commission_rate'] ?? 20.00)) ?>">
+                                <?php if (isset($errors['commission_rate'])): ?><div class="field-error"><?= esc($errors['commission_rate']) ?></div><?php endif; ?>
                             </div>
                         </div>
 

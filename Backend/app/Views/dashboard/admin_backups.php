@@ -17,20 +17,6 @@
         </div>
     </div>
 
-    <?php if (session()->has('success')): ?>
-        <div class="alert alert-success alert-dismissible fade show">
-            <i class="fas fa-check-circle"></i> <?= esc(session('success')) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
-
-    <?php if (session()->has('error')): ?>
-        <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle"></i> <?= esc(session('error')) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    <?php endif; ?>
-
     <div class="row g-4 mb-4">
         <div class="col-md-4">
             <div class="stat-card">
@@ -103,7 +89,7 @@
                                 <td><?= esc(date('Y-m-d H:i:s', (int) $backup['modified_at'])) ?></td>
                                 <td><?= esc(number_format(((int) $backup['size']) / 1024, 2)) ?> KB</td>
                                 <td>
-                                    <form action="<?= base_url('admin/backups/restore') ?>" method="post" class="d-inline" onsubmit="return confirm('Restore this backup? The current database will be replaced.');">
+                                    <form action="<?= base_url('admin/backups/restore') ?>" method="post" class="d-inline" data-confirm-title="Restore backup?" data-confirm-message="This will replace the current database with the selected backup." data-confirm-label="Restore backup" data-confirm-class="btn-warning">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="backup_file" value="<?= esc($backup['filename']) ?>">
                                         <button type="submit" class="btn btn-sm btn-warning">
