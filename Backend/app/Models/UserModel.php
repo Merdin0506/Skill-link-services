@@ -32,6 +32,9 @@ class UserModel extends Model
         'locked_until',
         'last_login_at',
         'password_changed_at',
+        'otp',
+        'otp_expire',
+        'otp_attempts',
     ];
 
     protected $useTimestamps = true;
