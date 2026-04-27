@@ -21,6 +21,20 @@ function registerAuthHandlers({ getBackendBaseUrls }) {
     });
   });
 
+  ipcMain.handle('auth:verifyOtp', async (_event, payload) => {
+    return requestJson(getBackendBaseUrls(), '/api/auth/verify-otp', {
+      method: 'POST',
+      body: payload || {}
+    });
+  });
+
+  ipcMain.handle('auth:resendOtp', async (_event, payload) => {
+    return requestJson(getBackendBaseUrls(), '/api/auth/resend-otp', {
+      method: 'POST',
+      body: payload || {}
+    });
+  });
+
   ipcMain.handle('auth:profile', async (_event, token) => {
     return requestJson(getBackendBaseUrls(), '/api/auth/profile', {
       method: 'GET',

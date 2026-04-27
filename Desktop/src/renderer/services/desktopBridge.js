@@ -11,6 +11,8 @@ function createUnavailableBridge() {
     pingBackend: unavailable,
     login: unavailable,
     register: unavailable,
+    verifyOtp: unavailable,
+    resendOtp: unavailable,
     getProfile: unavailable,
     logout: unavailable,
     getDashboardData: unavailable,

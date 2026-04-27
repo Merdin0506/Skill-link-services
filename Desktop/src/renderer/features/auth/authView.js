@@ -3,6 +3,21 @@ import { clearSession, saveSession } from '../../core/storage.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
 
+async function requestOtpVerification(email) {
+  const otp = window.prompt(`Enter the 6-digit OTP sent to ${email}`);
+  if (!otp) {
+    throw new Error('OTP verification was cancelled.');
+  }
+
+  const bridge = getDesktopBridge();
+  return bridge
+    ? bridge.verifyOtp({ email, otp: otp.trim() })
+    : requestJson('/api/auth/verify-otp', {
+        method: 'POST',
+        body: { email, otp: otp.trim() }
+      });
+}
+
 export function renderAuthView(onAuthenticated) {
   const authSection = getElementById('authSection');
   const loginForm = getElementById('loginForm');
@@ -57,8 +72,15 @@ export function renderAuthView(onAuthenticated) {
             method: 'POST',
             body: { email, password }
           });
-      const token = response?.data?.token;
-      const user = response?.data?.user;
+
+      let finalResponse = response;
+      if (response?.requires_otp) {
+        setLoginStatus('Verification code sent. Waiting for OTP...', 'success');
+        finalResponse = await requestOtpVerification(response?.data?.email || email);
+      }
+
+      const token = finalResponse?.data?.token;
+      const user = finalResponse?.data?.user;
 
       if (!token || !user) {
         throw new Error('Login response did not include user details or token.');

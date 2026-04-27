@@ -68,7 +68,7 @@ class InitialDataSeeder extends Seeder
         $adminUser = [
             'first_name' => 'Admin',
             'last_name' => 'User',
-            'email' => 'admin@skilllink.com',
+            'email' => 'skilllinkservices06@gmail.com',
             'password' => password_hash('admin123', PASSWORD_DEFAULT),
             'phone' => '+1234567890',
             'address' => 'Office Address',
@@ -185,7 +185,7 @@ class InitialDataSeeder extends Seeder
         $this->db->table('users')->insertBatch($customers);
 
         echo "Initial data seeded successfully!\n";
-        echo "Super Admin Login: admin@skilllink.com / admin123\n";
+        echo "Super Admin Login: skilllinkservices06@gmail.com / admin123\n";
         echo "Finance Login: finance@skilllink.com / finance123\n";
         echo "Worker Login: juan.santos@skilllink.com / worker123\n";
         echo "Customer Login: ana.cruz@email.com / customer123\n";

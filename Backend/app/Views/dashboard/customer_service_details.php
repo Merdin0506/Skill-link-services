@@ -10,6 +10,11 @@ $customCss = null;
             <i class="fas fa-arrow-left"></i> Back to Services
         </a>
     </div>
+    <style>
+        .leaflet-container {
+            font-family: inherit;
+        }
+    </style>
 
     <div class="row g-4">
         <div class="col-lg-5">
@@ -141,9 +146,27 @@ $customCss = null;
 
                         <div class="col-md-12">
                             <label for="location_address" class="form-label">Service Location <span class="text-danger">*</span></label>
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary js-use-location">
+                                    <i class="fas fa-location-crosshairs"></i> Use My Current Location
+                                </button>
+                                <a href="#" class="btn btn-sm btn-outline-secondary d-none js-location-preview" target="_blank" rel="noopener noreferrer">
+                                    <i class="fas fa-map-location-dot"></i> Preview on Map
+                                </a>
+                            </div>
                             <textarea class="form-control" id="location_address" name="location_address" rows="2"
                                       placeholder="Enter complete address where service will be performed"
-                                      required minlength="5"><?= old('location_address') ?></textarea>
+                                      required minlength="5"><?= esc(old('location_address', $user['address'] ?? '')) ?></textarea>
+                            <input type="hidden" id="latitude" name="latitude" value="<?= esc(old('latitude')) ?>">
+                            <input type="hidden" id="longitude" name="longitude" value="<?= esc(old('longitude')) ?>">
+                            <small class="text-muted d-block mt-2 js-location-status">Use your saved address or turn on location so we can help workers find you faster.</small>
+                            <div class="mt-3">
+                                <input type="text" class="form-control mb-2 js-map-search" placeholder="Search for a place or landmark on the map">
+                                <div class="border rounded overflow-hidden js-map-wrapper" style="height: 280px; background: #f8fafc;">
+                                    <div id="booking_location_map" style="height: 100%; width: 100%;"></div>
+                                </div>
+                                <small class="text-muted d-block mt-2">Drag the marker on the map to pinpoint the exact service location.</small>
+                            </div>
                         </div>
 
                         <div class="col-md-6">
@@ -192,8 +215,214 @@ $customCss = null;
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const bookingModal = document.getElementById('bookingModal');
+        const bookingForm = document.getElementById('bookingForm');
+        const locationTextarea = document.getElementById('location_address');
+        const latitudeInput = document.getElementById('latitude');
+        const longitudeInput = document.getElementById('longitude');
+        const previewLinks = document.querySelectorAll('.js-location-preview');
+        const locationStatus = document.querySelector('.js-location-status');
+        const searchInput = document.querySelector('.js-map-search');
+        const mapContainer = document.getElementById('booking_location_map');
+        const defaultAddress = <?= json_encode(old('location_address', $user['address'] ?? '')) ?>;
+        let map;
+        let marker;
+        let mapInitialized = false;
+        let suppressAddressSync = false;
+        let searchDebounceId = null;
+
+        function setLocationStatus(message, tone) {
+            if (!locationStatus) {
+                return;
+            }
+
+            locationStatus.className = 'text-muted d-block mt-2 js-location-status';
+            if (tone === 'error') {
+                locationStatus.classList.add('text-danger');
+            } else if (tone === 'success') {
+                locationStatus.classList.add('text-success');
+            }
+            locationStatus.textContent = message;
+        }
+
+        function updateMapPreview(latitude, longitude, address) {
+            const query = latitude && longitude ? `${latitude},${longitude}` : address;
+            const url = query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : '';
+
+            previewLinks.forEach((link) => {
+                if (!url) {
+                    link.classList.add('d-none');
+                    link.removeAttribute('href');
+                    return;
+                }
+
+                link.href = url;
+                link.classList.remove('d-none');
+            });
+        }
+
+        function setCoordinates(latitude, longitude) {
+            latitudeInput.value = latitude;
+            longitudeInput.value = longitude;
+            updateMapPreview(latitude, longitude, locationTextarea.value.trim());
+        }
+
+        function updateMarkerPosition(latitude, longitude) {
+            if (!marker) {
+                return;
+            }
+
+            const latLng = [Number(latitude), Number(longitude)];
+            marker.setLatLng(latLng);
+            map?.setView(latLng, 17);
+        }
+
+        async function reverseGeocode(latitude, longitude) {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`);
+            if (!response.ok) {
+                throw new Error('Reverse geocoding failed.');
+            }
+
+            const data = await response.json();
+            return data.display_name || `Pinned location near ${latitude}, ${longitude}`;
+        }
+
+        async function applyCoordinates(latitude, longitude, preferExistingAddress = false) {
+            setCoordinates(latitude, longitude);
+            updateMarkerPosition(latitude, longitude);
+
+            if (preferExistingAddress && locationTextarea.value.trim()) {
+                updateMapPreview(latitude, longitude, locationTextarea.value.trim());
+                return;
+            }
+
+            try {
+                suppressAddressSync = true;
+                locationTextarea.value = await reverseGeocode(latitude, longitude);
+                updateMapPreview(latitude, longitude, locationTextarea.value.trim());
+            } catch (error) {
+                suppressAddressSync = true;
+                locationTextarea.value = `Pinned location near ${latitude}, ${longitude}`;
+                updateMapPreview(latitude, longitude, locationTextarea.value.trim());
+            } finally {
+                suppressAddressSync = false;
+            }
+        }
+
+        async function geocodeAddress(address) {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(address)}`);
+            if (!response.ok) {
+                throw new Error('Address search failed.');
+            }
+
+            const data = await response.json();
+            if (!Array.isArray(data) || data.length === 0) {
+                throw new Error('No matching location found.');
+            }
+
+            return data[0];
+        }
+
+        function initializeLeafletMap() {
+            if (mapInitialized || typeof L === 'undefined' || !mapContainer) {
+                return;
+            }
+
+            const initialLat = Number(latitudeInput.value || 14.5995124);
+            const initialLng = Number(longitudeInput.value || 120.9842195);
+            const initialCenter = [initialLat, initialLng];
+
+            map = L.map(mapContainer, {
+                center: initialCenter,
+                zoom: latitudeInput.value && longitudeInput.value ? 17 : 13,
+                zoomControl: true
+            });
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            marker = L.marker(initialCenter, {
+                draggable: true
+            }).addTo(map);
+
+            marker.on('dragend', async function(event) {
+                const position = event.target.getLatLng();
+                const latitude = position.lat.toFixed(8);
+                const longitude = position.lng.toFixed(8);
+                await applyCoordinates(latitude, longitude);
+                setLocationStatus('Map pin updated. Please confirm the location before submitting.', 'success');
+            });
+
+            map.on('click', async function(event) {
+                const latitude = event.latlng.lat.toFixed(8);
+                const longitude = event.latlng.lng.toFixed(8);
+                await applyCoordinates(latitude, longitude);
+                setLocationStatus('Map pin updated. Please confirm the location before submitting.', 'success');
+            });
+
+            mapInitialized = true;
+            updateMapPreview(latitudeInput.value, longitudeInput.value, locationTextarea.value.trim());
+        }
+
+        function captureCurrentLocation() {
+            if (!navigator.geolocation) {
+                setLocationStatus('This browser does not support location access. Please enter your address manually.', 'error');
+                return;
+            }
+
+            setLocationStatus('Getting your current location...', null);
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const latitude = position.coords.latitude.toFixed(8);
+                const longitude = position.coords.longitude.toFixed(8);
+                await applyCoordinates(latitude, longitude);
+                setLocationStatus('Current location captured. Please review the address before submitting.', 'success');
+            }, () => {
+                setLocationStatus('Location access was denied. Please type your address manually or allow location access.', 'error');
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            });
+        }
+
+        document.querySelectorAll('.js-use-location').forEach((button) => {
+            button.addEventListener('click', captureCurrentLocation);
+        });
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchDebounceId);
+
+            const query = searchInput.value.trim();
+            if (query.length < 4) {
+                return;
+            }
+
+            searchDebounceId = window.setTimeout(async function() {
+                try {
+                    const result = await geocodeAddress(query);
+                    suppressAddressSync = true;
+                    locationTextarea.value = result.display_name || query;
+                    suppressAddressSync = false;
+                    await applyCoordinates(Number(result.lat).toFixed(8), Number(result.lon).toFixed(8), true);
+                    setLocationStatus('Map updated from your search result.', 'success');
+                } catch (error) {
+                    setLocationStatus('We could not find that location. Try a more complete address or landmark.', 'error');
+                }
+            }, 500);
+        });
+
+        locationTextarea.addEventListener('input', function() {
+            if (suppressAddressSync) {
+                return;
+            }
+
+            updateMapPreview(latitudeInput.value, longitudeInput.value, locationTextarea.value.trim());
+        });
 
         bookingModal.addEventListener('show.bs.modal', function(event) {
+            initializeLeafletMap();
             const button = event.relatedTarget;
             const serviceId = button.getAttribute('data-service-id');
             const serviceName = button.getAttribute('data-service-name');
@@ -209,8 +438,34 @@ $customCss = null;
             if (!titleInput.value) {
                 titleInput.value = serviceName;
             }
+
+            updateMapPreview(latitudeInput.value, longitudeInput.value, locationTextarea.value.trim());
+            if (mapInitialized) {
+                setTimeout(function() {
+                    map.invalidateSize();
+                    updateMarkerPosition(latitudeInput.value || 14.5995124, longitudeInput.value || 120.9842195);
+                }, 120);
+            }
         });
+
+        bookingModal.addEventListener('hidden.bs.modal', function() {
+            bookingForm.reset();
+            latitudeInput.value = '';
+            longitudeInput.value = '';
+            locationTextarea.value = defaultAddress;
+            searchInput.value = '';
+            setLocationStatus('Use your saved address or turn on location so we can help workers find you faster.', null);
+            updateMapPreview('', '', locationTextarea.value.trim());
+            if (mapInitialized) {
+                updateMarkerPosition(14.5995124, 120.9842195);
+                map.setView([14.5995124, 120.9842195], 13);
+            }
+        });
+
+        updateMapPreview(latitudeInput.value, longitudeInput.value, locationTextarea.value.trim());
     });
 </script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <?= view('layouts/page_footer') ?>

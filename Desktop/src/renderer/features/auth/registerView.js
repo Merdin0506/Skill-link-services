@@ -2,6 +2,21 @@ import { getElementById } from '../../core/dom.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
 
+async function requestOtpVerification(email) {
+  const otp = window.prompt(`Enter the 6-digit OTP sent to ${email}`);
+  if (!otp) {
+    throw new Error('OTP verification was cancelled.');
+  }
+
+  const bridge = getDesktopBridge();
+  return bridge
+    ? bridge.verifyOtp({ email, otp: otp.trim() })
+    : requestJson('/api/auth/verify-otp', {
+        method: 'POST',
+        body: { email, otp: otp.trim() }
+      });
+}
+
 export function renderRegisterView(onRegisterSuccess) {
   const registerSection = getElementById('registerSection');
   const authSection = getElementById('authSection');
@@ -112,8 +127,10 @@ export function renderRegisterView(onRegisterSuccess) {
             body: payload
           });
 
-      if (response?.user || response?.data?.user) {
-        setRegisterStatus('Registration successful! Logging in...', 'success');
+      if (response?.requires_otp) {
+        setRegisterStatus('Verification code sent. Waiting for OTP...', 'success');
+        await requestOtpVerification(response?.data?.email || payload.email);
+        setRegisterStatus('Registration verified. You can now log in.', 'success');
         setTimeout(() => {
           if (onRegisterSuccess) {
             onRegisterSuccess(response);

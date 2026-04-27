@@ -7,6 +7,8 @@ use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use PHPMailer\PHPMailer\Exception;
+use PHPMailer\PHPMailer\PHPMailer;
 
 class AuthController extends BaseController
 {
@@ -55,14 +57,18 @@ class AuthController extends BaseController
 
         try {
             $userId = $this->userModel->insert($data);
-            
-            $user = $this->userModel->find($userId);
-            unset($user['password']);
+            $otp = $this->issueOtpForUser((int) $userId);
+            if (! $this->sendOtpEmail($data['email'], $otp, 'register')) {
+                return $this->failServerError('Account created, but we could not send the verification code email.');
+            }
 
             return $this->respondCreated([
                 'status' => 'success',
-                'message' => 'Registration successful',
-                'data' => $user
+                'message' => 'Registration successful. Please verify the OTP sent to your email.',
+                'requires_otp' => true,
+                'data' => [
+                    'email' => $data['email'],
+                ],
             ]);
         } catch (\Exception $e) {
             return $this->fail('Registration failed: ' . $e->getMessage());
@@ -103,27 +109,108 @@ class AuthController extends BaseController
         }
 
         $this->userModel->clearFailedLogins((int) $user['id']);
-
-        $key = getenv('JWT_SECRET');
-        $payload = [
-            'iss' => 'skilllink_backend',
-            'sub' => $user['id'],
-            'iat' => time(),
-            'exp' => time() + (60 * 60 * 24), // 24 hours
-            'user_type' => $user['user_type']
-        ];
-
-        $token = JWT::encode($payload, $key, 'HS256');
-
-        unset($user['password']);
+        $otp = $this->issueOtpForUser((int) $user['id']);
+        if (! $this->sendOtpEmail($user['email'], $otp, 'login')) {
+            return $this->failServerError('We could not send the verification code email. Please try again.');
+        }
 
         return $this->respond([
             'status' => 'success',
-            'message' => 'Login successful',
+            'message' => 'Verification code sent. Please enter the OTP to complete login.',
+            'requires_otp' => true,
             'data' => [
-                'user' => $user,
-                'token' => $token
-            ]
+                'email' => $user['email'],
+            ],
+        ]);
+    }
+
+    public function verifyOtp()
+    {
+        $rules = [
+            'email' => 'required|valid_email',
+            'otp' => 'required|exact_length[6]|numeric',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = (string) $this->request->getVar('email');
+        $otpInput = (string) $this->request->getVar('otp');
+        $user = $this->userModel->where('email', $email)->first();
+
+        if (! $user) {
+            return $this->failNotFound('User not found');
+        }
+
+        if (($user['otp_attempts'] ?? 0) >= 3) {
+            return $this->fail('Max OTP attempts reached. Please request a new code.');
+        }
+
+        if (!empty($user['otp_expire']) && strtotime((string) $user['otp_expire']) < time()) {
+            return $this->fail('OTP has expired. Please request a new code.');
+        }
+
+        if (($user['otp'] ?? '') !== $otpInput || empty($user['otp'])) {
+            $newAttempts = ((int) ($user['otp_attempts'] ?? 0)) + 1;
+            $this->userModel->update((int) $user['id'], ['otp_attempts' => $newAttempts]);
+            return $this->fail('Invalid OTP code. Tries left: ' . max(0, 3 - $newAttempts));
+        }
+
+        $this->userModel->update((int) $user['id'], [
+            'otp' => null,
+            'otp_expire' => null,
+            'otp_attempts' => 0,
+            'email_verified_at' => $user['email_verified_at'] ?: date('Y-m-d H:i:s'),
+        ]);
+
+        $freshUser = $this->userModel->find((int) $user['id']);
+        unset($freshUser['password']);
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'Verification successful',
+            'data' => [
+                'user' => $freshUser,
+                'token' => $this->createApiToken((int) $freshUser['id'], (string) $freshUser['user_type']),
+            ],
+        ]);
+    }
+
+    public function resendOtp()
+    {
+        $rules = [
+            'email' => 'required|valid_email',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = (string) $this->request->getVar('email');
+        $user = $this->userModel->where('email', $email)->first();
+
+        if (! $user) {
+            return $this->failNotFound('User not found');
+        }
+
+        $otp = $this->issueOtpForUser((int) $user['id']);
+
+        try {
+            if (! $this->sendOtpEmail($email, $otp, 'resend')) {
+                return $this->failServerError('Failed to resend verification code.');
+            }
+        } catch (Exception $e) {
+            return $this->failServerError('Failed to resend verification code.');
+        }
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'A new verification code has been sent to your email.',
+            'requires_otp' => true,
+            'data' => [
+                'email' => $email,
+            ],
         ]);
     }
 
@@ -224,5 +311,170 @@ class AuthController extends BaseController
             'status' => 'success',
             'message' => 'Logout successful'
         ]);
+    }
+
+    private function issueOtpForUser(int $userId): string
+    {
+        $otp = sprintf('%06d', mt_rand(0, 999999));
+        $expire = date('Y-m-d H:i:s', strtotime('+5 minutes'));
+
+        $this->userModel->update($userId, [
+            'otp' => $otp,
+            'otp_expire' => $expire,
+            'otp_attempts' => 0,
+        ]);
+
+        return $otp;
+    }
+
+    private function sendOtpEmail(string $recipientEmail, string $otp, string $context): bool
+    {
+        if (!class_exists(PHPMailer::class)) {
+            log_message('error', 'PHPMailer is not installed.');
+            return false;
+        }
+
+        $smtpUser = $this->getEnvValue('SMTP_USER', 'email.SMTPUser');
+        $smtpPass = $this->normalizeSmtpPassword($this->getEnvValue('SMTP_PASS', 'email.SMTPPass'));
+        $fromName = $this->getEnvValue('SMTP_FROM_NAME', 'email.fromName') ?: 'SkillLink Services';
+
+        if (!$smtpUser || !$smtpPass) {
+            log_message('error', 'SMTP credentials are missing for OTP email sending.');
+            return false;
+        }
+
+        $mail = new PHPMailer(true);
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $smtpUser;
+        $mail->Password   = $smtpPass;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port       = 465;
+        $mail->CharSet    = 'UTF-8';
+        $mail->Timeout    = 10;
+        $mail->SMTPOptions = [
+            'ssl' => [
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true,
+            ],
+        ];
+
+        $mail->setFrom($smtpUser, $fromName);
+        $mail->addAddress($recipientEmail);
+        $mail->isHTML(true);
+        $mail->Subject = match ($context) {
+            'register' => 'Verify your SkillLink account',
+            'login' => 'SkillLink login verification code',
+            default => 'Your new SkillLink verification code',
+        };
+        $mail->Body = $this->generateOtpEmailMessage($otp, $recipientEmail, $context);
+        $mail->AltBody = "Your SkillLink verification code is {$otp}. It expires in 5 minutes.";
+
+        return $mail->send();
+    }
+
+    private function getEnvValue(string $primaryKey, ?string $fallbackKey = null): ?string
+    {
+        $value = getenv($primaryKey);
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
+        }
+
+        if ($fallbackKey !== null) {
+            $fallbackValue = getenv($fallbackKey);
+            if (is_string($fallbackValue) && trim($fallbackValue) !== '') {
+                return trim($fallbackValue);
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeSmtpPassword(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $normalized = preg_replace('/\s+/', '', $value);
+
+        return is_string($normalized) && $normalized !== '' ? $normalized : null;
+    }
+
+    private function generateOtpEmailMessage(string $otp, string $email, string $context): string
+    {
+        $apiKey = getenv('GEMINI_API_KEY');
+        if (empty($apiKey)) {
+            return $this->buildDefaultOtpEmail($otp, $context);
+        }
+
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
+        $action = $context === 'register' ? 'verifying a newly created SkillLink account' : 'logging into SkillLink Services';
+        $prompt = "Write a very short, professional and welcoming security email for a user with email $email who is $action.
+                   The 6-digit verification code is $otp.
+                   Mention it expires in 5 minutes.
+                   Keep it very concise (max 3 sentences).
+                   Use HTML with a short greeting and the <b> tag for the code.";
+
+        $data = [
+            'contents' => [
+                ['parts' => [['text' => $prompt]]],
+            ],
+        ];
+
+        try {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+
+            $response = curl_exec($ch);
+            if (curl_errno($ch)) {
+                return $this->buildDefaultOtpEmail($otp, $context);
+            }
+            curl_close($ch);
+
+            $result = json_decode($response, true);
+            $text = $result['candidates'][0]['content']['parts'][0]['text'] ?? $this->buildDefaultOtpEmail($otp, $context);
+
+            if (strpos($text, $otp) === false) {
+                return $this->buildDefaultOtpEmail($otp, $context);
+            }
+
+            return $text;
+        } catch (\Exception) {
+            return $this->buildDefaultOtpEmail($otp, $context);
+        }
+    }
+
+    private function buildDefaultOtpEmail(string $otp, string $context): string
+    {
+        $intro = $context === 'register'
+            ? 'Thanks for creating your SkillLink account.'
+            : 'We received a request to verify your SkillLink sign-in.';
+
+        return "<p>{$intro}</p><p>Your verification code is <b>{$otp}</b>.</p><p>This code expires in 5 minutes.</p>";
+    }
+
+    private function createApiToken(int $userId, string $userType): ?string
+    {
+        $key = getenv('JWT_SECRET');
+        if (!$key) {
+            return null;
+        }
+
+        $payload = [
+            'iss' => 'skilllink_backend',
+            'sub' => $userId,
+            'iat' => time(),
+            'exp' => time() + (60 * 60 * 24),
+            'user_type' => $userType,
+        ];
+
+        return JWT::encode($payload, $key, 'HS256');
     }
 }

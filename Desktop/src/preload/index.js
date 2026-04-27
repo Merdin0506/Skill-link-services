@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('desktopApp', {
   pingBackend: () => ipcRenderer.invoke('app:pingBackend'),
   login: (credentials) => ipcRenderer.invoke('auth:login', credentials),
   register: (payload) => ipcRenderer.invoke('auth:register', payload),
+  verifyOtp: (payload) => ipcRenderer.invoke('auth:verifyOtp', payload),
+  resendOtp: (payload) => ipcRenderer.invoke('auth:resendOtp', payload),
   getProfile: (token) => ipcRenderer.invoke('auth:profile', token),
   logout: (token) => ipcRenderer.invoke('auth:logout', token),
   getDashboardData: (token) => ipcRenderer.invoke('dashboard:data', token),

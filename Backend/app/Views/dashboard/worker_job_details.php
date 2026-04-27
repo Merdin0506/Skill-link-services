@@ -41,6 +41,28 @@
                         <span class="text-muted">Location</span>
                         <span class="text-end" style="max-width: 60%;"><?= esc($booking['location_address'] ?? 'N/A') ?></span>
                     </div>
+                    <?php
+                    $hasCoordinates = !empty($booking['latitude']) && !empty($booking['longitude']);
+                    $mapTarget = $hasCoordinates
+                        ? ($booking['latitude'] . ',' . $booking['longitude'])
+                        : ($booking['location_address'] ?? '');
+                    $mapsViewUrl = $mapTarget !== '' ? 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($mapTarget) : null;
+                    $mapsDirectionsUrl = $mapTarget !== '' ? 'https://www.google.com/maps/dir/?api=1&destination=' . rawurlencode($mapTarget) : null;
+                    ?>
+                    <?php if ($mapsViewUrl || $mapsDirectionsUrl): ?>
+                        <div class="mb-3 d-flex justify-content-end gap-2 flex-wrap">
+                            <?php if ($mapsViewUrl): ?>
+                                <a href="<?= esc($mapsViewUrl) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-secondary">
+                                    <i class="fas fa-map-marked-alt"></i> Open Map
+                                </a>
+                            <?php endif; ?>
+                            <?php if ($mapsDirectionsUrl): ?>
+                                <a href="<?= esc($mapsDirectionsUrl) ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-route"></i> Get Directions
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
                     <div class="mb-2 d-flex justify-content-between">
                         <span class="text-muted">Total Fee</span>
                         <strong class="text-primary">₱<?= number_format((float) ($booking['total_fee'] ?? 0), 2) ?></strong>
