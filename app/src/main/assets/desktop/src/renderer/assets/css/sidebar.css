@@ -1,0 +1,239 @@
+/* ============================================================================
+   SIDEBAR & DASHBOARD STYLESHEET - Screenshot Match Design
+   ============================================================================ */
+
+:root {
+    --primary-blue: #1e3c72;
+    --light-bg: #f8f9fc;
+    --card-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+body {
+    background-color: var(--light-bg);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* CLEAN SIDEBAR (DRAWER) */
+.sidebar {
+    background: #1e3c72;
+    width: 260px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 1000;
+    transition: all 0.3s;
+    box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+    color: white;
+}
+
+.sidebar .brand {
+    padding: 30px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.sidebar .brand i { font-size: 24px; color: #f6c23e; }
+.sidebar .brand h5 { font-size: 20px; font-weight: 800; margin: 0; }
+
+.sidebar-nav {
+    padding: 20px 10px;
+}
+
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    color: rgba(255,255,255,0.7);
+    text-decoration: none;
+    border-radius: 15px;
+    margin-bottom: 5px;
+    transition: all 0.2s;
+}
+
+.sidebar-nav a i {
+    width: 30px;
+    font-size: 18px;
+}
+
+.sidebar-nav a:hover, .sidebar-nav a.active {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+/* TOP NAVBAR (SCREENSHOT MATCH) */
+.topbar-modern {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.menu-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: #333;
+}
+
+.brand-text {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e3c72;
+}
+
+.logout-pill-btn {
+    border: 1px solid #e0e0e0;
+    padding: 7px 25px;
+    border-radius: 25px;
+    color: #333;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.logout-pill-btn:hover {
+    background: #f8f9fa;
+    border-color: #d0d0d0;
+}
+
+/* DASHBOARD MAIN WRAPPER */
+.main-content {
+    margin-left: 0; /* Default for mobile */
+    min-height: 100vh;
+}
+
+.page-content-wrapper {
+    padding: 20px;
+    background: #f8f9fc;
+}
+
+/* BLUE HEADER CARD (MATCHED TO SCREENSHOT) */
+.header-profile-card {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    border-radius: 25px;
+    padding: 30px;
+    color: white;
+    position: relative;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 25px rgba(30, 60, 114, 0.2);
+}
+
+.welcome-back {
+    font-size: 14px;
+    opacity: 0.8;
+    margin-bottom: 5px;
+}
+
+.user-full-name {
+    font-size: 26px;
+    font-weight: 800;
+    margin-bottom: 5px;
+}
+
+.user-email {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+.customer-badge {
+    position: absolute;
+    top: 30px;
+    right: 30px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 5px 15px;
+    border-radius: 15px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* OVERVIEW SECTION */
+.section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* DASHBOARD GRID */
+.stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2 Columns like screenshot */
+    gap: 15px;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    min-height: 150px;
+}
+
+/* TOP COLORED BORDERS */
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+}
+
+.card-blue::before { background: #1e3c72; }
+.card-orange::before { background: #f6c23e; }
+.card-green::before { background: #1cc88a; }
+.card-teal::before { background: #36b9cc; }
+
+.stat-icon-box {
+    width: 45px;
+    height: 45px;
+    background: #f1f4f9;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    color: #1e3c72;
+    font-size: 20px;
+}
+
+.stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #2d3436;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #636e72;
+    line-height: 1.2;
+}
+
+/* MOBILE RESPONSIVENESS */
+@media (max-width: 360px) {
+    .stat-grid {
+        grid-template-columns: 1fr;
+    }
+}

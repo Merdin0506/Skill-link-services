@@ -1,0 +1,26 @@
+[
+    {
+        "merged": "com.skilllink.android.app-merged_res-58:/mipmap_ic_launcher.xml.flat",
+        "source": "com.skilllink.android.app-main-60:/mipmap/ic_launcher.xml"
+    },
+    {
+        "merged": "com.skilllink.android.app-merged_res-58:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "com.skilllink.android.app-main-60:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.skilllink.android.app-merged_res-58:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "com.skilllink.android.app-main-60:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "com.skilllink.android.app-merged_res-58:/mipmap_ic_launcher_round.xml.flat",
+        "source": "com.skilllink.android.app-main-60:/mipmap/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.skilllink.android.app-merged_res-58:/drawable_ic_launcher_background.xml.flat",
+        "source": "com.skilllink.android.app-main-60:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.skilllink.android.app-merged_res-58:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "com.skilllink.android.app-main-60:/drawable/ic_launcher_foreground.xml"
+    }
+]
