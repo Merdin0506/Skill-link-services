@@ -44,6 +44,26 @@ function registerAuthHandlers({ getBackendBaseUrls }) {
     });
   });
 
+  ipcMain.handle('auth:updateProfile', async (_event, token, payload) => {
+    return requestJson(getBackendBaseUrls(), '/api/auth/profile', {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload || {}
+    });
+  });
+
+  ipcMain.handle('auth:changePassword', async (_event, token, payload) => {
+    return requestJson(getBackendBaseUrls(), '/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload || {}
+    });
+  });
+
   ipcMain.handle('auth:logout', async (_event, token) => {
     return requestJson(getBackendBaseUrls(), '/api/auth/logout', {
       method: 'POST',

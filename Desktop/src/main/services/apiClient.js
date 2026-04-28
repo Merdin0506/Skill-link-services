@@ -1,3 +1,5 @@
+const { NETWORK_TIMEOUT_MS } = require('../config/appConfig');
+
 function createHeaders(options = {}) {
   return {
     'Content-Type': 'application/json',
@@ -48,10 +50,17 @@ function parseErrorMessage(data, status) {
 
 async function requestOnce(baseUrl, endpoint, options = {}) {
   const url = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
+  const controller = new AbortController();
+  const timeoutMs = Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : NETWORK_TIMEOUT_MS;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
   const response = await fetch(url, {
     method: options.method || 'GET',
     headers: createHeaders(options),
-    body: options.body ? JSON.stringify(options.body) : undefined
+    body: options.body ? JSON.stringify(options.body) : undefined,
+    signal: controller.signal
+  }).finally(() => {
+    clearTimeout(timeoutId);
   });
 
   const text = await response.text();
@@ -81,6 +90,11 @@ async function requestJson(baseUrlOrUrls, endpoint, options = {}) {
       return await requestOnce(baseUrl, endpoint, options);
     } catch (error) {
       lastError = error;
+
+      if (error?.name === 'AbortError') {
+        lastError = new Error('The server took too long to respond. Please try again.');
+        continue;
+      }
 
       if (error instanceof TypeError) {
         lastError = new Error('We could not reach the server. Please make sure the backend is running.');

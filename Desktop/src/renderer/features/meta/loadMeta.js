@@ -17,10 +17,17 @@ export async function loadMeta() {
       return;
     }
 
-    const result = await bridge.pingBackend();
+    const [baseUrl, result] = await Promise.all([
+      bridge.getBackendBaseUrl().catch(() => BACKEND_BASE_URL),
+      bridge.pingBackend()
+    ]);
+
     if (result?.ok) {
-      updateText(metaElement, `Desktop ready | API ${result.baseUrl || BACKEND_BASE_URL}`);
+      updateText(metaElement, `Desktop ready | API ${result.baseUrl || baseUrl || BACKEND_BASE_URL}`);
+      return;
     }
+
+    updateText(metaElement, `Desktop ready | API ${baseUrl || BACKEND_BASE_URL}`);
   } catch (error) {
     updateText(metaElement, `Desktop ready | API ${BACKEND_BASE_URL}`);
     console.warn('Backend connection check failed:', error?.message || error);

@@ -1,12 +1,10 @@
 import { getElementById } from '../../core/dom.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
+import { requestOtpCode } from './otpDialog.js';
 
 async function requestOtpVerification(email) {
-  const otp = window.prompt(`Enter the 6-digit OTP sent to ${email}`);
-  if (!otp) {
-    throw new Error('OTP verification was cancelled.');
-  }
+  const otp = await requestOtpCode(email);
 
   const bridge = getDesktopBridge();
   return bridge

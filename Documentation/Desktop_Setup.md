@@ -8,6 +8,18 @@ Current behavior:
 - Electron frontend calls backend API endpoints.
 - Backend routes and API logic remain unchanged.
 
+Current Desktop capabilities:
+- Login and registration with OTP verification inside the app window
+- Profile update and password change
+- Role-based dashboard shell
+- Customer services view and booking creation
+- Customer bookings list with cancel/review actions
+- Worker jobs list with start/complete actions
+- Worker earnings view
+
+Current known gap:
+- Worker `Available Jobs` still needs a dedicated Backend listing endpoint for a complete native Desktop screen.
+
 ## Prerequisites
 - PHP 8.2+
 - Composer
@@ -78,6 +90,10 @@ PowerShell alternative:
 Use valid backend credentials.
 The desktop app authenticates against backend API endpoints and then loads the replicated dashboard UI.
 
+If login or registration requires OTP:
+- The Desktop app now opens an in-app verification dialog.
+- `window.prompt()` is no longer used for OTP entry.
+
 ## Optional Backend URL Override
 If your backend is not on 127.0.0.1:8080, set the environment variable before starting Electron:
 
@@ -120,6 +136,12 @@ Check:
 - Backend server is running.
 - User credentials are valid.
 - Backend returns JSON for API routes.
+
+### Dashboard does not appear after login
+Check:
+- The Desktop app was restarted after recent UI changes.
+- OTP verification completed successfully.
+- Backend `/api/auth/profile` and `/api/dashboard/stats` return valid authenticated responses.
 
 ### JWT class not found
 From Backend/:

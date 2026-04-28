@@ -2,6 +2,11 @@ const path = require('path');
 
 const DEFAULT_BACKEND_BASE_URL = process.env.SKILLLINK_API_BASE_URL || 'http://127.0.0.1:8080';
 const FALLBACK_BACKEND_BASE_URLS = ['http://127.0.0.1:8080', 'http://localhost:8080'];
+const NETWORK_TIMEOUT_MS = 12000;
+const BACKEND_ROUTES = {
+  LOGIN: '/auth/login',
+  DASHBOARD: '/dashboard'
+};
 
 function normalizeBaseUrl(url) {
   return (url || DEFAULT_BACKEND_BASE_URL).replace(/\/$/, '');
@@ -25,6 +30,10 @@ function getFallbackFilePath() {
 }
 
 module.exports = {
+  BACKEND_ROUTES,
+  DEFAULT_BACKEND_BASE_URL,
+  FALLBACK_BACKEND_BASE_URLS,
+  NETWORK_TIMEOUT_MS,
   getBackendBaseUrl,
   getBackendBaseUrls,
   getBackendUrl,

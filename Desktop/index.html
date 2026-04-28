@@ -13,6 +13,21 @@
   </head>
   <body>
     <main class="shell auth-layout">
+      <section class="auth-stage" id="authStage">
+        <aside class="auth-showcase">
+          <div class="auth-showcase__inner">
+            <div class="auth-showcase__badge">SkillLink Desktop</div>
+            <h2>Work smart. Book fast.</h2>
+            <p class="auth-showcase__lead">Service workflows in one focused desktop space.</p>
+
+            <div class="auth-showcase__footer">
+              <span class="auth-showcase__pulse"></span>
+              <p id="metaInfo">Desktop ready | API http://127.0.0.1:8080</p>
+            </div>
+          </div>
+        </aside>
+
+        <div class="auth-stage__forms">
       <!-- AUTH / LOGIN SECTION -->
       <section id="authSection" class="panel auth-card">
         <div class="logo-wrap">
@@ -20,8 +35,6 @@
           <h1>SkillLink</h1>
           <p class="subtitle">Connect with skilled professionals</p>
         </div>
-
-        <p class="meta" id="metaInfo">Desktop ready | API http://127.0.0.1:8080</p>
 
         <form id="loginForm" class="auth-form">
           <div class="field">
@@ -130,6 +143,8 @@
 
         <div class="auth-link">
           Already have an account? <button type="button" id="loginLink" data-auth-target="login">Login here</button>
+        </div>
+      </section>
         </div>
       </section>
 
