@@ -14,6 +14,7 @@ class DashboardAuth implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         $session = session();
+        $sessionTracker = service('sessiontracker');
 
         // Check if user is logged in
         if (!$session->has('user_id')) {
@@ -26,6 +27,11 @@ class DashboardAuth implements FilterInterface
 
         if (!in_array($userRole, $validRoles)) {
             return redirect()->to('/login')->with('error', 'Invalid user role');
+        }
+
+        if (!$sessionTracker->getCurrentSessionSummary()) {
+            $session->destroy();
+            return redirect()->to('/login')->with('error', 'Your session has expired. Please login again.');
         }
 
         // Store user info in request for use in controllers

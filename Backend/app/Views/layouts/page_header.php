@@ -401,7 +401,10 @@
             align-items: center;
             border-bottom: 1px solid #e8e8e8;
             margin-bottom: 30px;
-            border-radius: 10px;
+            border-radius: 10px 10px 0 0;
+            margin-left: -30px;
+            margin-right: -30px;
+            margin-top: -30px;
         }
 
         .welcome {
@@ -467,6 +470,60 @@
             font-size: 12px;
             margin-top: 30px;
         }
+
+        @media (max-width: 992px) {
+            .page-content {
+                padding: 20px;
+            }
+
+            .topbar {
+                margin-left: -20px;
+                margin-right: -20px;
+                margin-top: -20px;
+                padding: 15px 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+            }
+
+            .page-content {
+                padding: 15px;
+            }
+
+            .topbar {
+                margin-left: -15px;
+                margin-right: -15px;
+                margin-top: -15px;
+                border-radius: 0;
+                gap: 10px;
+            }
+
+            .user-profile {
+                width: 100%;
+                justify-content: space-between;
+                text-align: left;
+                gap: 10px;
+            }
+
+            .user-profile div {
+                min-width: 0;
+            }
+
+            .user-profile p {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 180px;
+            }
+
+            .card-body,
+            .card-header {
+                padding: 16px;
+            }
+        }
     </style>
 
     <link rel="stylesheet" href="<?= base_url('css/dashboard-table-unified.css') ?>">
@@ -480,6 +537,10 @@
     // Use passed variables if available, otherwise fall back to session
     $role = $role ?? session()->get('user_role') ?? 'customer';
     $user = $user ?? session()->get('user') ?? ['first_name' => '', 'last_name' => '', 'email' => ''];
+    $flashError = session('error');
+    $flashSuccess = session('success');
+    $validationErrors = session('errors');
+    $hasFlashMessages = !empty($flashError) || !empty($flashSuccess) || !empty($validationErrors);
     ?>
 
     <!-- Include Sidebar -->
@@ -507,7 +568,7 @@
             </div>
         </div>
 
-        <?php if (empty($suppressFlashMessages)): ?>
+        <?php if (empty($suppressFlashMessages) && $hasFlashMessages): ?>
             <div class="page-content">
                 <div class="skilllink-flash-stack">
                     <?= view('layouts/flash_messages') ?>

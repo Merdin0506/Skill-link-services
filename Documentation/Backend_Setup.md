@@ -43,6 +43,39 @@ database.default.password =
 JWT_SECRET = your-secret-key-change-this
 ```
 
+### Shared Team Environment Baseline
+For this project, the team should align on these local defaults unless someone has a reason to override them:
+
+- Backend URL: `http://localhost:8080`
+- Database name: `skilllink_services`
+- Database host: `localhost`
+- Database port: `3306`
+- Database driver: `MySQLi`
+- Session driver: `CodeIgniter\Session\Handlers\FileHandler`
+- Desktop API override variable: `SKILLLINK_API_BASE_URL=http://127.0.0.1:8080` when needed
+
+Recommended flow for each teammate:
+
+1. Copy `Backend/env.example` to `Backend/.env`.
+2. Keep shared defaults the same.
+3. Set only machine-specific or secret values locally:
+   - `database.default.username`
+   - `database.default.password`
+   - `encryption.key`
+   - `JWT_SECRET`
+   - `SMTP_USER`
+   - `SMTP_PASS`
+   - `GEMINI_API_KEY`
+4. If XAMPP is installed in a different directory, update:
+   - `backup.mysqlDumpBinary`
+   - `backup.mysqlBinary`
+
+Important:
+
+- Do not commit `Backend/.env`.
+- Do not commit real SMTP passwords, JWT secrets, encryption keys, or API keys.
+- `Backend/env.example` is the shared template that should stay safe for Git.
+
 ### 5. Database Migration
 ```bash
 php spark migrate

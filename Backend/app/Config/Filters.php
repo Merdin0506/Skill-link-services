@@ -18,6 +18,7 @@ use App\Filters\JWTAuthFilter;
 use App\Filters\RoleApiFilter;
 use App\Filters\PermissionFilter;
 use App\Filters\PermissionApiFilter;
+use App\Filters\SessionActivityFilter;
 
 class Filters extends BaseFilters
 {
@@ -46,6 +47,7 @@ class Filters extends BaseFilters
         'roleapi'       => RoleApiFilter::class,
         'permission'    => PermissionFilter::class,
         'permissionapi' => PermissionApiFilter::class,
+        'sessionactivity' => SessionActivityFilter::class,
     ];
 
     /**
@@ -88,6 +90,7 @@ class Filters extends BaseFilters
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
+            'sessionactivity' => ['except' => ['api/*']],
         ],
         'after' => [
             // 'honeypot',

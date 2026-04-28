@@ -15,10 +15,12 @@ class AuthController extends BaseController
     use ResponseTrait;
 
     protected $userModel;
+    protected $sessionTracker;
 
     public function __construct()
     {
         $this->userModel = new UserModel();
+        $this->sessionTracker = service('sessiontracker');
     }
 
     public function register()
@@ -166,13 +168,14 @@ class AuthController extends BaseController
 
         $freshUser = $this->userModel->find((int) $user['id']);
         unset($freshUser['password']);
+        $sessionKey = $this->sessionTracker->startApiSession($freshUser);
 
         return $this->respond([
             'status' => 'success',
             'message' => 'Verification successful',
             'data' => [
                 'user' => $freshUser,
-                'token' => $this->createApiToken((int) $freshUser['id'], (string) $freshUser['user_type']),
+                'token' => $this->createApiToken((int) $freshUser['id'], (string) $freshUser['user_type'], $sessionKey),
             ],
         ]);
     }
@@ -305,8 +308,7 @@ class AuthController extends BaseController
 
     public function logout()
     {
-        // In a real implementation, you might want to blacklist the token
-        // For now, we'll just return a success response
+        $this->sessionTracker->endApiSession($this->request->authSessionKey ?? null);
         return $this->respond([
             'status' => 'success',
             'message' => 'Logout successful'
@@ -460,7 +462,7 @@ class AuthController extends BaseController
         return "<p>{$intro}</p><p>Your verification code is <b>{$otp}</b>.</p><p>This code expires in 5 minutes.</p>";
     }
 
-    private function createApiToken(int $userId, string $userType): ?string
+    private function createApiToken(int $userId, string $userType, ?string $sessionKey = null): ?string
     {
         $key = getenv('JWT_SECRET');
         if (!$key) {
@@ -473,6 +475,7 @@ class AuthController extends BaseController
             'iat' => time(),
             'exp' => time() + (60 * 60 * 24),
             'user_type' => $userType,
+            'sid' => $sessionKey,
         ];
 
         return JWT::encode($payload, $key, 'HS256');

@@ -44,6 +44,7 @@ Then set at least:
 - app.baseURL = 'http://127.0.0.1:8080'
 - database.default.* values
 - JWT_SECRET value
+- encryption.key value
 
 ### 4. Prepare database schema
 From Backend/:
@@ -87,6 +88,15 @@ Notes:
 - Main-process API base URL uses SKILLLINK_API_BASE_URL if set.
 - Renderer fallback URL is currently set in Desktop/src/renderer/config/appConfig.js.
 - Best practice is to keep both pointing to the same backend host and port.
+
+## Team Environment Notes
+
+To keep the whole team on the same local environment:
+
+- Use `Backend/env.example` as the source of truth for shared backend defaults.
+- Keep the backend server on `127.0.0.1:8080` or `localhost:8080` unless there is a team-wide change.
+- If someone changes the backend port, they should also set `SKILLLINK_API_BASE_URL` before starting the desktop app.
+- Secrets stay only in each developer's local `Backend/.env`, never in Git.
 
 ## Quick Health Checklist
 Before launching desktop, verify:

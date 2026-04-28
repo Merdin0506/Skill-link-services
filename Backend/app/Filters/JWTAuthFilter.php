@@ -51,6 +51,20 @@ class JWTAuthFilter implements FilterInterface
                 ->setJSON(['status' => 'error', 'message' => 'Invalid or expired token.']);
         }
 
+        $sessionKey = isset($decoded->sid) && is_string($decoded->sid) ? $decoded->sid : null;
+        if (!$sessionKey) {
+            return service('response')
+                ->setStatusCode(401)
+                ->setJSON(['status' => 'error', 'message' => 'Session information is missing from the token.']);
+        }
+
+        $trackedSession = service('sessiontracker')->validateTrackedSession($sessionKey);
+        if (!$trackedSession) {
+            return service('response')
+                ->setStatusCode(401)
+                ->setJSON(['status' => 'error', 'message' => 'The session is no longer active. Please login again.']);
+        }
+
         $userModel = new UserModel();
         $user = $userModel->find($decoded->sub ?? null);
 
@@ -64,6 +78,10 @@ class JWTAuthFilter implements FilterInterface
         $request->authUser     = $user;
         $request->authUserId   = $user['id'];
         $request->authUserRole = $user['user_type'];
+        $request->authSession = $trackedSession;
+        $request->authSessionKey = $sessionKey;
+
+        service('sessiontracker')->touchApiSession($sessionKey, (int) $user['id']);
     }
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)

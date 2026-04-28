@@ -10,11 +10,13 @@ class Auth extends BaseController
 {
     protected $session;
     protected $userModel;
+    protected $sessionTracker;
 
     public function __construct()
     {
         $this->session = session();
         $this->userModel = new UserModel();
+        $this->sessionTracker = service('sessiontracker');
     }
 
     /**
@@ -299,8 +301,6 @@ class Auth extends BaseController
                 'email_verified_at' => $user['email_verified_at'] ?: date('Y-m-d H:i:s'),
             ]);
 
-            $token = $this->createApiToken((int) $user['id'], (string) $user['user_type']);
-
             $this->session->set([
                 'user_id' => $user['id'],
                 'role' => $user['user_type'],
@@ -315,8 +315,12 @@ class Auth extends BaseController
                     'user_type' => $user['user_type'],
                 ],
                 'logged_in' => true,
-                'api_token' => $token,
             ]);
+
+            $trackedSessionKey = $this->sessionTracker->startWebSession($user);
+            $token = $this->createApiToken((int) $user['id'], (string) $user['user_type'], $trackedSessionKey);
+            $this->session->set('tracked_session_key', $trackedSessionKey);
+            $this->session->set('api_token', $token);
 
             $this->session->remove('temp_user_id');
             $this->session->remove('temp_email');
@@ -494,7 +498,7 @@ class Auth extends BaseController
         return "<p>{$intro}</p><p>Your verification code is <b>{$otp}</b>.</p><p>This code expires in 5 minutes.</p>";
     }
 
-    private function createApiToken(int $userId, string $userType): ?string
+    private function createApiToken(int $userId, string $userType, ?string $sessionKey = null): ?string
     {
         if (!class_exists('Firebase\\JWT\\JWT')) {
             log_message('warning', 'JWT class is missing. Skipping API token generation for userId={userId}', [
@@ -519,6 +523,7 @@ class Auth extends BaseController
             'iat' => time(),
             'exp' => time() + (60 * 60 * 24),
             'user_type' => $userType,
+            'sid' => $sessionKey,
         ];
 
         return \Firebase\JWT\JWT::encode($payload, $key, 'HS256');
@@ -529,6 +534,7 @@ class Auth extends BaseController
      */
     public function logout()
     {
+        $this->sessionTracker->endWebSession();
         $this->session->destroy();
         return redirect()->to('/auth/login')->with('success', 'You have been logged out.');
     }

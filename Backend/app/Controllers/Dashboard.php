@@ -1183,12 +1183,18 @@ class Dashboard extends BaseController
 
     public function settings()
     {
+        $sessionTracker = service('sessiontracker');
+        $role = $this->session->get('user_role');
 
         $data = [
-            'role' => $this->session->get('user_role'),
+            'role' => $role,
             'user' => $this->getCurrentUser(),
             'baseUrl' => base_url(),
             'environment' => ENVIRONMENT,
+            'currentSession' => $sessionTracker->getCurrentSessionSummary(),
+            'myActiveSessions' => $sessionTracker->getActiveSessionsForUser((int) $this->session->get('user_id')),
+            'activeSessionCount' => in_array($role, ['super_admin', 'admin'], true) ? $sessionTracker->getActiveSessionCount() : null,
+            'recentActiveSessions' => in_array($role, ['super_admin', 'admin'], true) ? $sessionTracker->getActiveSessions(10) : [],
         ];
 
         return view('dashboard/settings', $data);
@@ -1718,4 +1724,3 @@ class Dashboard extends BaseController
             ->findAll();
     }
 }
-

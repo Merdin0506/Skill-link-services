@@ -30,6 +30,11 @@ The Dashboard Module provides a comprehensive role-based dashboard system for Sk
    - Provides JSON endpoints for dashboard data
    - Supports real-time analytics & updates
 
+5. **Session Tracking Integration**
+   - Dashboard-authenticated requests refresh tracked session activity
+   - Settings page exposes current session details
+   - Admin-facing monitoring can show recent active sessions
+
 ---
 
 ## Routes & Access Control
@@ -244,6 +249,7 @@ $user = $this->getCurrentUser();
 ✅ **Access Control** - Filter-based authorization
 ✅ **Sidebar Collapse** - Mobile-friendly collapsible navigation
 ✅ **Profile Management** - User profile & settings pages
+✅ **Session Visibility** - Current session and active session monitoring
 
 ---
 
