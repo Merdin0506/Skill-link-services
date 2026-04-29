@@ -69,15 +69,34 @@ class BookingModel extends Model
 
     public function createBooking($data)
     {
-        $data['booking_reference'] = $this->generateBookingReference();
-        $data['total_fee'] = $data['labor_fee'] + ($data['materials_fee'] ?? 0);
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        $bookingId = $this->insert($data);
-        if ($bookingId) {
-            $this->syncServiceRecordFromBooking((int) $bookingId);
+        try {
+            $data['booking_reference'] = $this->generateBookingReference();
+            $data['total_fee'] = $data['labor_fee'] + ($data['materials_fee'] ?? 0);
+
+            $bookingId = $this->insert($data);
+            if (!$bookingId) {
+                throw new \Exception('Failed to insert booking record');
+            }
+
+            if (!$this->syncServiceRecordFromBooking((int) $bookingId)) {
+                throw new \Exception('Failed to sync service record');
+            }
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Transaction failed');
+            }
+
+            return $bookingId;
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'createBooking Transaction failed: ' . $e->getMessage());
+            return false;
         }
-
-        return $bookingId;
     }
 
     public function getBookingWithDetails($bookingId)
@@ -147,73 +166,129 @@ class BookingModel extends Model
 
     public function assignWorker($bookingId, $workerId, $assignedBy)
     {
-        $userModel = new UserModel();
-        $worker = $userModel->find($workerId);
-        $booking = $this->find($bookingId);
-        
-        if (!$worker || !$booking) {
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        try {
+            $userModel = new UserModel();
+            $worker = $userModel->find($workerId);
+            $booking = $this->find($bookingId);
+            
+            if (!$worker || !$booking) {
+                throw new \Exception('Worker or booking not found');
+            }
+
+            $commissionAmount = $booking['labor_fee'] * ($worker['commission_rate'] / 100);
+            $workerEarnings = $booking['labor_fee'] - $commissionAmount;
+
+            $updated = $this->update($bookingId, [
+                'worker_id' => $workerId,
+                'status' => 'assigned',
+                'assigned_at' => date('Y-m-d H:i:s'),
+                'commission_amount' => $commissionAmount,
+                'worker_earnings' => $workerEarnings
+            ]);
+
+            if (!$updated) {
+                throw new \Exception('Failed to update booking status');
+            }
+
+            if (!$this->syncServiceRecordFromBooking((int) $bookingId)) {
+                throw new \Exception('Failed to sync service record');
+            }
+
+            $db->transComplete();
+            return (bool) $db->transStatus();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'assignWorker Transaction failed: ' . $e->getMessage());
             return false;
         }
-
-        $commissionAmount = $booking['labor_fee'] * ($worker['commission_rate'] / 100);
-        $workerEarnings = $booking['labor_fee'] - $commissionAmount;
-
-        $updated = $this->update($bookingId, [
-            'worker_id' => $workerId,
-            'status' => 'assigned',
-            'assigned_at' => date('Y-m-d H:i:s'),
-            'commission_amount' => $commissionAmount,
-            'worker_earnings' => $workerEarnings
-        ]);
-
-        if ($updated) {
-            $this->syncServiceRecordFromBooking((int) $bookingId);
-        }
-
-        return $updated;
     }
 
     public function startBooking($bookingId)
     {
-        $updated = $this->update($bookingId, [
-            'status' => 'in_progress',
-            'started_at' => date('Y-m-d H:i:s')
-        ]);
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        if ($updated) {
-            $this->syncServiceRecordFromBooking((int) $bookingId);
+        try {
+            $updated = $this->update($bookingId, [
+                'status' => 'in_progress',
+                'started_at' => date('Y-m-d H:i:s')
+            ]);
+
+            if (!$updated) {
+                throw new \Exception('Failed to update booking status to in_progress');
+            }
+
+            if (!$this->syncServiceRecordFromBooking((int) $bookingId)) {
+                throw new \Exception('Failed to sync service record');
+            }
+
+            $db->transComplete();
+            return (bool) $db->transStatus();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'startBooking Transaction failed: ' . $e->getMessage());
+            return false;
         }
-
-        return $updated;
     }
 
     public function completeBooking($bookingId)
     {
-        $updated = $this->update($bookingId, [
-            'status' => 'completed',
-            'completed_at' => date('Y-m-d H:i:s')
-        ]);
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        if ($updated) {
-            $this->syncServiceRecordFromBooking((int) $bookingId);
+        try {
+            $updated = $this->update($bookingId, [
+                'status' => 'completed',
+                'completed_at' => date('Y-m-d H:i:s')
+            ]);
+
+            if (!$updated) {
+                throw new \Exception('Failed to update booking status to completed');
+            }
+
+            if (!$this->syncServiceRecordFromBooking((int) $bookingId)) {
+                throw new \Exception('Failed to sync service record');
+            }
+
+            $db->transComplete();
+            return (bool) $db->transStatus();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'completeBooking Transaction failed: ' . $e->getMessage());
+            return false;
         }
-
-        return $updated;
     }
 
     public function cancelBooking($bookingId, $reason = null)
     {
-        $data = ['status' => 'cancelled'];
-        if ($reason) {
-            $data['notes'] = $reason;
-        }
-        $updated = $this->update($bookingId, $data);
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        if ($updated) {
-            $this->syncServiceRecordFromBooking((int) $bookingId);
-        }
+        try {
+            $data = ['status' => 'cancelled'];
+            if ($reason) {
+                $data['notes'] = $reason;
+            }
+            $updated = $this->update($bookingId, $data);
 
-        return $updated;
+            if (!$updated) {
+                throw new \Exception('Failed to update booking status to cancelled');
+            }
+
+            if (!$this->syncServiceRecordFromBooking((int) $bookingId)) {
+                throw new \Exception('Failed to sync service record');
+            }
+
+            $db->transComplete();
+            return (bool) $db->transStatus();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'cancelBooking Transaction failed: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**

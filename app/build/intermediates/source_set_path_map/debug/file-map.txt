@@ -52,9 +52,9 @@ com.skilllink.android.app-ui-graphics-release-50 C:\Users\Johnrey\.gradle\caches
 com.skilllink.android.app-ui-test-manifest-1.5.0-51 C:\Users\Johnrey\.gradle\caches\9.0-milestone-1\transforms\fb71a89a06e1baaa55ac2a6c24079df5\transformed\ui-test-manifest-1.5.0\res
 com.skilllink.android.app-animation-release-52 C:\Users\Johnrey\.gradle\caches\9.0-milestone-1\transforms\fc52000c5e0151683badd8a170e099ce\transformed\animation-release\res
 com.skilllink.android.app-ui-tooling-release-53 C:\Users\Johnrey\.gradle\caches\9.0-milestone-1\transforms\fd1a4d1a3ba57090ede86d2c2399e559\transformed\ui-tooling-release\res
-com.skilllink.android.app-resValues-54 C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\build\generated\res\resValues\debug
-com.skilllink.android.app-packageDebugResources-55 C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
-com.skilllink.android.app-packageDebugResources-56 C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
-com.skilllink.android.app-merged_res-57 C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\build\intermediates\merged_res\debug
-com.skilllink.android.app-debug-58 C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\debug\res
-com.skilllink.android.app-main-59 C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\res
+com.skilllink.android.app-resValues-54 C:\xampp\htdocs\Skill-link-services\app\build\generated\res\resValues\debug
+com.skilllink.android.app-packageDebugResources-55 C:\xampp\htdocs\Skill-link-services\app\build\intermediates\incremental\debug\packageDebugResources\merged.dir
+com.skilllink.android.app-packageDebugResources-56 C:\xampp\htdocs\Skill-link-services\app\build\intermediates\incremental\debug\packageDebugResources\stripped.dir
+com.skilllink.android.app-merged_res-57 C:\xampp\htdocs\Skill-link-services\app\build\intermediates\merged_res\debug
+com.skilllink.android.app-debug-58 C:\xampp\htdocs\Skill-link-services\app\src\debug\res
+com.skilllink.android.app-main-59 C:\xampp\htdocs\Skill-link-services\app\src\main\res

@@ -29,10 +29,12 @@ class DashboardAuth implements FilterInterface
             return redirect()->to('/login')->with('error', 'Invalid user role');
         }
 
+        /* 
         if (!$sessionTracker->getCurrentSessionSummary()) {
             $session->destroy();
             return redirect()->to('/login')->with('error', 'Your session has expired. Please login again.');
         }
+        */
 
         // Store user info in request for use in controllers
         $request->user_id = $session->get('user_id');

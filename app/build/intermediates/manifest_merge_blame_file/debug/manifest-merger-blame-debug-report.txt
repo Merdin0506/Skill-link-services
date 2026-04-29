@@ -9,11 +9,11 @@
 9        android:targetSdkVersion="34" />
 10
 11    <uses-permission android:name="android.permission.INTERNET" />
-11-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:4:5-67
-11-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:4:22-64
+11-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:4:5-67
+11-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:4:22-64
 12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-12-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:5:5-79
-12-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:5:22-76
+12-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:5:5-79
+12-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:5:22-76
 13
 14    <permission
 14-->[androidx.core:core:1.12.0] C:\Users\Johnrey\.gradle\caches\9.0-milestone-1\transforms\5f2aa0165b2ab0df5ca7c40d78259b54\transformed\core-1.12.0\AndroidManifest.xml:22:5-24:47
@@ -27,45 +27,45 @@
 18-->[androidx.core:core:1.12.0] C:\Users\Johnrey\.gradle\caches\9.0-milestone-1\transforms\5f2aa0165b2ab0df5ca7c40d78259b54\transformed\core-1.12.0\AndroidManifest.xml:26:22-94
 19
 20    <application
-20-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:7:5-25:19
+20-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:7:5-25:19
 21        android:allowBackup="true"
-21-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:8:9-35
+21-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:8:9-35
 22        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
 22-->[androidx.core:core:1.12.0] C:\Users\Johnrey\.gradle\caches\9.0-milestone-1\transforms\5f2aa0165b2ab0df5ca7c40d78259b54\transformed\core-1.12.0\AndroidManifest.xml:28:18-86
 23        android:debuggable="true"
 24        android:extractNativeLibs="false"
 25        android:icon="@mipmap/ic_launcher"
-25-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:9:9-43
+25-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:9:9-43
 26        android:label="SkillLink"
-26-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:10:9-34
+26-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:10:9-34
 27        android:roundIcon="@mipmap/ic_launcher_round"
-27-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:11:9-54
+27-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:11:9-54
 28        android:supportsRtl="true"
-28-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:12:9-35
+28-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:12:9-35
 29        android:testOnly="true"
 30        android:theme="@style/Theme.AppCompat.Light.NoActionBar"
-30-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:14:9-65
+30-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:14:9-65
 31        android:usesCleartextTraffic="true" >
-31-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:13:9-44
+31-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:13:9-44
 32        <activity
-32-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:15:9-24:20
+32-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:15:9-24:20
 33            android:name="com.skilllink.android.MainActivity"
-33-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:16:13-41
+33-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:16:13-41
 34            android:exported="true"
-34-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:17:13-36
+34-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:17:13-36
 35            android:label="SkillLink"
-35-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:18:13-38
+35-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:18:13-38
 36            android:theme="@style/Theme.AppCompat.Light.NoActionBar" >
-36-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:19:13-69
+36-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:19:13-69
 37            <intent-filter>
-37-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:20:13-23:29
+37-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:20:13-23:29
 38                <action android:name="android.intent.action.MAIN" />
-38-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:21:17-69
-38-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:21:25-66
+38-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:21:17-69
+38-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:21:25-66
 39
 40                <category android:name="android.intent.category.LAUNCHER" />
-40-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:22:17-77
-40-->C:\Users\Johnrey\AndroidStudioProjects\AndriodSkill_Link\app\src\main\AndroidManifest.xml:22:27-74
+40-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:22:17-77
+40-->C:\xampp\htdocs\Skill-link-services\app\src\main\AndroidManifest.xml:22:27-74
 41            </intent-filter>
 42        </activity>
 43        <activity

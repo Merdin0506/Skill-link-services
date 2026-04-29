@@ -87,7 +87,7 @@ class Cookie extends BaseConfig
      *
      * @var ''|'Lax'|'None'|'Strict'
      */
-    public string $samesite = 'Lax';
+    public string $samesite = '';
 
     /**
      * --------------------------------------------------------------------------

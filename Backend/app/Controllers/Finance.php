@@ -283,24 +283,41 @@ class Finance extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $paymentData = [
-            'booking_id' => $bookingId,
-            'payment_type' => 'customer_payment',
-            'payment_method' => $this->request->getPost('payment_method'),
-            'amount' => (float) $this->request->getPost('amount'),
-            'payment_date' => date('Y-m-d'),
-            'status' => 'completed',
-            'paid_by' => $booking['customer_id'],
-            'notes' => $this->request->getPost('notes'),
-            'processed_by' => $this->session->get('user_id'),
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        if ($this->paymentModel->insert($paymentData)) {
+        try {
+            $paymentData = [
+                'booking_id' => $bookingId,
+                'payment_type' => 'customer_payment',
+                'payment_method' => $this->request->getPost('payment_method'),
+                'amount' => (float) $this->request->getPost('amount'),
+                'payment_date' => date('Y-m-d'),
+                'status' => 'completed',
+                'paid_by' => $booking['customer_id'],
+                'notes' => $this->request->getPost('notes'),
+                'processed_by' => $this->session->get('user_id'),
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            if (!$this->paymentModel->insert($paymentData)) {
+                throw new \Exception('Failed to record payment');
+            }
+
+            // You could also update booking status or other related records here
+            // ensuring consistency across the database.
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Transaction failed');
+            }
+
             return redirect()->to('/finance/payments')->with('success', 'Payment recorded successfully');
-        } else {
-            return redirect()->back()->withInput()->with('error', 'Failed to record payment');
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
 
@@ -361,27 +378,41 @@ class Finance extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $payoutNotes = $this->request->getPost('notes') ?? '';
-        
-        $payoutData = [
-            'booking_id' => $bookingId,
-            'payment_reference' => $this->paymentModel->generatePaymentReference('WORK'),
-            'payment_type' => 'worker_payout',
-            'payment_method' => $this->request->getPost('payment_method'),
-            'amount' => (float) $this->request->getPost('amount'),
-            'payment_date' => date('Y-m-d'),
-            'status' => 'completed',
-            'paid_to' => $booking['worker_id'],
-            'notes' => $payoutNotes,
-            'processed_by' => $this->session->get('user_id')
-        ];
+        $db = \Config\Database::connect();
+        $db->transStart();
 
-        if ($this->paymentModel->insert($payoutData, false)) {
+        try {
+            $payoutNotes = $this->request->getPost('notes') ?? '';
+            
+            $payoutData = [
+                'booking_id' => $bookingId,
+                'payment_reference' => $this->paymentModel->generatePaymentReference('WORK'),
+                'payment_type' => 'worker_payout',
+                'payment_method' => $this->request->getPost('payment_method'),
+                'amount' => (float) $this->request->getPost('amount'),
+                'payment_date' => date('Y-m-d'),
+                'status' => 'completed',
+                'paid_to' => $booking['worker_id'],
+                'notes' => $payoutNotes,
+                'processed_by' => $this->session->get('user_id')
+            ];
+
+            if (!$this->paymentModel->insert($payoutData, false)) {
+                $errors = $this->paymentModel->errors();
+                throw new \Exception('Failed to record payout: ' . implode(', ', $errors));
+            }
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Transaction failed');
+            }
+
             return redirect()->to('/finance/payouts')->with('success', 'Worker payout recorded successfully');
-        } else {
-            $errors = $this->paymentModel->errors();
-            log_message('error', 'Payout insert failed: ' . json_encode($errors));
-            return redirect()->back()->withInput()->with('error', 'Failed to record payout: ' . implode(', ', $errors));
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', 'Payout storage error: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
     }
 
