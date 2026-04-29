@@ -4,6 +4,7 @@ namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
 use App\Models\BookingModel;
+use App\Models\PaymentModel;
 use App\Models\ServiceModel;
 use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
@@ -13,12 +14,14 @@ class BookingsController extends BaseController
     use ResponseTrait;
 
     protected $bookingModel;
+    protected $paymentModel;
     protected $serviceModel;
     protected $userModel;
 
     public function __construct()
     {
         $this->bookingModel = new BookingModel();
+        $this->paymentModel = new PaymentModel();
         $this->serviceModel = new ServiceModel();
         $this->userModel = new UserModel();
     }
@@ -66,6 +69,17 @@ class BookingsController extends BaseController
         return $this->respond([
             'status' => 'success',
             'data' => $booking
+        ]);
+    }
+
+    public function availableJobs()
+    {
+        $limit = $this->getPositiveIntParam('limit', 50);
+        $bookings = array_slice($this->bookingModel->getPendingBookings(), 0, $limit);
+
+        return $this->respond([
+            'status' => 'success',
+            'data' => $bookings
         ]);
     }
 
@@ -180,12 +194,68 @@ class BookingsController extends BaseController
         }
     }
 
-    public function startBooking($id = null)
+    public function acceptBooking($id = null)
     {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $userRole = (string) ($this->request->authUserRole ?? '');
+
+        if ($userId <= 0) {
+            return $this->failUnauthorized('Authenticated user not found');
+        }
+
+        if (!in_array($userRole, ['worker', 'admin', 'super_admin'], true)) {
+            return $this->failForbidden('You do not have permission to accept this booking');
+        }
+
         $booking = $this->bookingModel->find($id);
 
         if (!$booking) {
             return $this->failNotFound('Booking not found');
+        }
+
+        if (($booking['status'] ?? '') !== 'pending') {
+            return $this->fail('This job is no longer available');
+        }
+
+        $worker = $this->userModel->find($userId);
+        if (!$worker || ($worker['status'] ?? '') !== 'active') {
+            return $this->fail('Worker account not active');
+        }
+
+        if (($worker['user_type'] ?? '') !== 'worker' && !in_array($userRole, ['admin', 'super_admin'], true)) {
+            return $this->fail('Only worker accounts can be assigned to jobs');
+        }
+
+        try {
+            $success = $this->bookingModel->assignWorker((int) $id, $userId, $userId);
+
+            if (!$success) {
+                return $this->fail('Failed to accept job');
+            }
+
+            $updatedBooking = $this->bookingModel->getBookingWithDetails($id);
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Job accepted successfully',
+                'data' => $updatedBooking
+            ]);
+        } catch (\Exception $e) {
+            return $this->fail('Failed to accept job: ' . $e->getMessage());
+        }
+    }
+
+    public function startBooking($id = null)
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $booking = $this->bookingModel->find($id);
+
+        if (!$booking) {
+            return $this->failNotFound('Booking not found');
+        }
+
+        if ((int) ($booking['worker_id'] ?? 0) !== $userId) {
+            return $this->failForbidden('This is not your assigned job');
         }
 
         if ($booking['status'] !== 'assigned') {
@@ -212,10 +282,15 @@ class BookingsController extends BaseController
 
     public function completeBooking($id = null)
     {
+        $userId = (int) ($this->request->authUserId ?? 0);
         $booking = $this->bookingModel->find($id);
 
         if (!$booking) {
             return $this->failNotFound('Booking not found');
+        }
+
+        if ((int) ($booking['worker_id'] ?? 0) !== $userId) {
+            return $this->failForbidden('This is not your assigned job');
         }
 
         if ($booking['status'] !== 'in_progress') {
@@ -236,6 +311,101 @@ class BookingsController extends BaseController
                 return $this->fail('Failed to complete booking');
             }
         } catch (\Exception $e) {
+            return $this->fail('Failed to complete booking: ' . $e->getMessage());
+        }
+    }
+
+    public function completeBookingWithPayment($id = null)
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $booking = $this->bookingModel->find($id);
+
+        if (!$booking) {
+            return $this->failNotFound('Booking not found');
+        }
+
+        if ((int) ($booking['worker_id'] ?? 0) !== $userId) {
+            return $this->failForbidden('This is not your assigned job');
+        }
+
+        if (($booking['status'] ?? '') !== 'in_progress') {
+            return $this->fail('Job must be started before completing');
+        }
+
+        $existingPayment = $this->paymentModel
+            ->where('booking_id', (int) $id)
+            ->where('payment_type', 'customer_payment')
+            ->first();
+
+        if ($existingPayment) {
+            return $this->fail('Customer payment already exists for this booking');
+        }
+
+        $rules = [
+            'amount_collected' => 'required|numeric|greater_than[0]|less_than_equal_to[' . $booking['total_fee'] . ']',
+            'payment_method' => 'required|in_list[cash,gcash,paymaya,bank_transfer]',
+            'payment_notes' => 'permit_empty|string|max_length[500]'
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $db = db_connect();
+        $db->transStart();
+
+        try {
+            $completed = $this->bookingModel->completeBooking((int) $id);
+
+            if (!$completed) {
+                $db->transRollback();
+                return $this->fail('Failed to complete job');
+            }
+
+            $paymentNotes = trim((string) ($this->request->getVar('payment_notes') ?? ''));
+            $notes = $paymentNotes !== ''
+                ? $paymentNotes . ' (Collected by worker on-site)'
+                : 'Collected by worker on-site';
+
+            $paymentData = [
+                'booking_id' => (int) $id,
+                'payment_reference' => $this->paymentModel->generatePaymentReference('CUST'),
+                'payment_type' => 'customer_payment',
+                'payment_method' => $this->request->getVar('payment_method'),
+                'amount' => (float) $this->request->getVar('amount_collected'),
+                'payment_date' => date('Y-m-d H:i:s'),
+                'status' => 'completed',
+                'paid_by' => (int) ($booking['customer_id'] ?? 0),
+                'notes' => $notes,
+                'processed_by' => $userId
+            ];
+
+            if (!$this->paymentModel->insert($paymentData, false)) {
+                $db->transRollback();
+                return $this->fail('Failed to record payment: ' . implode(', ', $this->paymentModel->errors()));
+            }
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                return $this->fail('Transaction failed');
+            }
+
+            $updatedBooking = $this->bookingModel->getBookingWithDetails($id);
+            $payment = $this->paymentModel->where('booking_id', (int) $id)
+                ->where('payment_reference', $paymentData['payment_reference'])
+                ->first();
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Job completed and payment recorded successfully',
+                'data' => [
+                    'booking' => $updatedBooking,
+                    'payment' => $payment,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            $db->transRollback();
             return $this->fail('Failed to complete booking: ' . $e->getMessage());
         }
     }

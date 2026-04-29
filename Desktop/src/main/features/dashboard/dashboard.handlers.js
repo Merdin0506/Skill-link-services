@@ -37,6 +37,35 @@ function registerDashboardHandlers({ getBackendBaseUrls }) {
       }
     });
   });
+
+  ipcMain.handle('dashboard:availableJobs', async (_event, token, limit = 50) => {
+    const query = new URLSearchParams({ limit: String(limit) });
+    return requestJson(getBackendBaseUrls(), `/api/bookings/available?${query.toString()}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+  });
+
+  ipcMain.handle('dashboard:acceptJob', async (_event, token, bookingId) => {
+    return requestJson(getBackendBaseUrls(), `/api/bookings/${bookingId}/accept`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+  });
+
+  ipcMain.handle('dashboard:completeJobWithPayment', async (_event, token, bookingId, payload) => {
+    return requestJson(getBackendBaseUrls(), `/api/bookings/${bookingId}/complete-with-payment`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload || {}
+    });
+  });
 }
 
 module.exports = {

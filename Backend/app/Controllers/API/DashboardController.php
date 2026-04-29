@@ -30,15 +30,10 @@ class DashboardController extends ResourceController
      */
     private function checkUserRole($allowedRoles = [])
     {
-        if (!$this->session->has('user_id')) {
+        $user = $this->request->authUser ?? null;
+
+        if (!$user || !isset($user['id'])) {
             return $this->failUnauthorized('User not authenticated');
-        }
-
-        $userId = $this->session->get('user_id');
-        $user = $this->userModel->find($userId);
-
-        if (!$user) {
-            return $this->failUnauthorized('User not found');
         }
 
         if (!empty($allowedRoles) && !in_array($user['user_type'], $allowedRoles)) {

@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('desktopApp', {
   getDashboardData: (token) => ipcRenderer.invoke('dashboard:data', token),
   getDashboardStats: (token) => ipcRenderer.invoke('dashboard:stats', token),
   getDashboardAnalytics: (token) => ipcRenderer.invoke('dashboard:analytics', token),
-  getDashboardBookings: (token, limit) => ipcRenderer.invoke('dashboard:bookings', token, limit)
+  getDashboardBookings: (token, limit) => ipcRenderer.invoke('dashboard:bookings', token, limit),
+  getAvailableJobs: (token, limit) => ipcRenderer.invoke('dashboard:availableJobs', token, limit),
+  acceptJob: (token, bookingId) => ipcRenderer.invoke('dashboard:acceptJob', token, bookingId),
+  completeJobWithPayment: (token, bookingId, payload) => ipcRenderer.invoke('dashboard:completeJobWithPayment', token, bookingId, payload)
 });

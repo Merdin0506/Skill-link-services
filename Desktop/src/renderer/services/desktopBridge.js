@@ -23,6 +23,9 @@ function createUnavailableBridge() {
     getDashboardStats: unavailable,
     getDashboardAnalytics: unavailable,
     getDashboardBookings: unavailable,
+    getAvailableJobs: unavailable,
+    acceptJob: unavailable,
+    completeJobWithPayment: unavailable,
   };
 }
 

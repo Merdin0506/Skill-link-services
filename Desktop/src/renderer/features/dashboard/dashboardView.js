@@ -457,7 +457,7 @@ function createBookingsView(state) {
                   <td>${formatDate(booking.scheduled_date || booking.created_at)}</td>
                   <td>${formatCurrency(booking.total_fee ?? (Number(booking.labor_fee || 0) + Number(booking.materials_fee || 0)))}</td>
                   <td class="desktop-table-actions">
-                    ${getBookingActionButtons(booking, state.role)}
+                    ${getBookingActionButtons(booking, state.role, state.currentRoute)}
                   </td>
                 </tr>
               `).join('') : `
@@ -542,9 +542,13 @@ function createEarningsView(state) {
   `;
 }
 
-function getBookingActionButtons(booking, role) {
+function getBookingActionButtons(booking, role, route) {
   const status = String(booking.status || '');
   const actions = [];
+
+  if (role === 'worker' && route === 'available-jobs' && status === 'pending') {
+    actions.push(`<button type="button" class="ghost-button table-action" data-booking-action="accept" data-booking-id="${booking.id}">Accept</button>`);
+  }
 
   if (role === 'customer' && ['pending', 'assigned'].includes(status)) {
     actions.push(`<button type="button" class="ghost-button table-action" data-booking-action="cancel" data-booking-id="${booking.id}">Cancel</button>`);
@@ -619,6 +623,45 @@ function createReviewForm(bookingId, workerId) {
   `;
 }
 
+function createCompleteJobForm(booking) {
+  const totalFee = Number(booking.total_fee ?? (Number(booking.labor_fee || 0) + Number(booking.materials_fee || 0)));
+
+  return `
+    <div class="card desktop-card mt-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-cash-register"></i> Complete Job and Record Payment
+      </div>
+      <div class="card-body desktop-card-body">
+        <form id="completeJobForm" class="desktop-form-grid">
+          <input type="hidden" name="booking_id" value="${booking.id}" />
+          <div class="form-row">
+            <div class="field">
+              <label for="complete_amount_collected">Amount Collected</label>
+              <input id="complete_amount_collected" name="amount_collected" type="number" min="0.01" step="0.01" max="${totalFee}" value="${totalFee}" required />
+            </div>
+            <div class="field">
+              <label for="complete_payment_method">Payment Method</label>
+              <select id="complete_payment_method" name="payment_method" required>
+                <option value="cash">Cash</option>
+                <option value="gcash">GCash</option>
+                <option value="paymaya">PayMaya</option>
+                <option value="bank_transfer">Bank Transfer</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="complete_payment_notes">Payment Notes</label>
+            <textarea id="complete_payment_notes" name="payment_notes" placeholder="Optional notes about the payment collected."></textarea>
+          </div>
+          <div class="desktop-form-actions">
+            <button id="completeJobSubmitButton" type="submit" class="action-button">Complete and Record Payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
 function createPlaceholderView(route, role) {
   const title = getViewTitle(route, role);
 
@@ -634,6 +677,10 @@ function createPlaceholderView(route, role) {
       </div>
     </div>
   `;
+}
+
+function findBookingById(state, bookingId) {
+  return (state.routeBookings || []).find((booking) => String(booking.id) === String(bookingId)) || null;
 }
 
 function renderDashboardHome(contentElement, state) {
@@ -735,6 +782,10 @@ function updateInlineStatus(message, type = null) {
 
 async function performAuthenticatedRequest(session, bridge, endpoint, options = {}, bridgeMethod = null, bridgePayload = null) {
   if (bridge && bridgeMethod && typeof bridge[bridgeMethod] === 'function') {
+    if (Array.isArray(bridgePayload)) {
+      return bridge[bridgeMethod](session.token, ...bridgePayload);
+    }
+
     return bridge[bridgeMethod](session.token, bridgePayload);
   }
 
@@ -872,19 +923,8 @@ async function renderRoute(state, session, bridge) {
   }
 
   if (state.currentRoute === 'available-jobs') {
-    contentElement.innerHTML = `
-      <div class="card desktop-card">
-        <div class="card-header desktop-card-header">
-          <i class="fas fa-briefcase"></i> Available Jobs
-        </div>
-        <div class="card-body desktop-card-body">
-          <div class="chart-placeholder desktop-placeholder-card">
-            The Desktop route is ready, but the Backend still needs a worker-safe endpoint for listing all currently available jobs. The worker action endpoints already exist for starting and completing assigned work.
-          </div>
-        </div>
-      </div>
-    `;
-    updateInlineStatus('', null);
+    contentElement.innerHTML = createBookingsView(state);
+    bindBookingsView(state, session, bridge);
     return;
   }
 
@@ -1047,6 +1087,20 @@ async function ensureRouteData(state, session, bridge) {
     return;
   }
 
+  if (state.currentRoute === 'available-jobs') {
+    const availableJobsResponse = await performAuthenticatedRequest(
+      session,
+      bridge,
+      '/api/bookings/available?limit=50',
+      { method: 'GET' },
+      'getAvailableJobs',
+      50
+    );
+
+    state.routeBookings = availableJobsResponse?.data || [];
+    return;
+  }
+
   if (state.currentRoute === 'earnings' && state.role === 'worker') {
     const earningsResponse = await performAuthenticatedRequest(session, bridge, `/api/payments/worker-earnings/${state.profile.id}`, { method: 'GET' });
     state.earningsData = earningsResponse?.data || { total_earnings: 0, payouts: [] };
@@ -1155,9 +1209,35 @@ function bindBookingsView(state, session, bridge) {
         return;
       }
 
+      if (action === 'complete') {
+        const booking = findBookingById(state, bookingId);
+        const panel = getElementById('bookingReviewPanel');
+        if (panel && booking) {
+          panel.innerHTML = createCompleteJobForm(booking);
+          bindCompleteJobForm(state, session, bridge);
+        }
+        return;
+      }
+
       button.disabled = true;
 
       try {
+        if (action === 'accept') {
+          await performAuthenticatedRequest(
+            session,
+            bridge,
+            `/api/bookings/${bookingId}/accept`,
+            {
+              method: 'PUT'
+            },
+            'acceptJob',
+            bookingId
+          );
+
+          state.currentRoute = 'my-jobs';
+          setActiveNav('my-jobs');
+        }
+
         if (action === 'cancel') {
           await performAuthenticatedRequest(session, bridge, `/api/bookings/${bookingId}/cancel`, {
             method: 'PUT',
@@ -1167,12 +1247,6 @@ function bindBookingsView(state, session, bridge) {
 
         if (action === 'start') {
           await performAuthenticatedRequest(session, bridge, `/api/bookings/${bookingId}/start`, {
-            method: 'PUT'
-          });
-        }
-
-        if (action === 'complete') {
-          await performAuthenticatedRequest(session, bridge, `/api/bookings/${bookingId}/complete`, {
             method: 'PUT'
           });
         }
@@ -1229,6 +1303,49 @@ function bindReviewForm(state, session, bridge) {
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = 'Submit Review';
+    }
+  };
+}
+
+function bindCompleteJobForm(state, session, bridge) {
+  const form = getElementById('completeJobForm');
+  const submitButton = getElementById('completeJobSubmitButton');
+  if (!form || !submitButton) {
+    return;
+  }
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    submitButton.disabled = true;
+    submitButton.textContent = 'Completing...';
+
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const bookingId = payload.booking_id;
+    delete payload.booking_id;
+
+    try {
+      const response = await performAuthenticatedRequest(
+        session,
+        bridge,
+        `/api/bookings/${bookingId}/complete-with-payment`,
+        {
+          method: 'POST',
+          body: payload
+        },
+        'completeJobWithPayment',
+        [bookingId, payload]
+      );
+
+      getElementById('bookingReviewPanel').innerHTML = '';
+      updateInlineStatus(response?.message || 'Job completed and payment recorded successfully.', 'success');
+      setStatus('Job completed and payment recorded successfully.', 'success');
+      await renderRoute(state, session, bridge);
+    } catch (error) {
+      updateInlineStatus(error.message || 'Failed to complete job.', 'error');
+      setStatus(error.message || 'Failed to complete job.', 'error');
+    } finally {
+      submitButton.disabled = false;
+      submitButton.textContent = 'Complete and Record Payment';
     }
   };
 }

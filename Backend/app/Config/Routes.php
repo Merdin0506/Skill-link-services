@@ -172,7 +172,10 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 // ─────────────────────────────────────────────────────────────────────────────
 
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:worker,admin,super_admin', 'permissionapi']], function ($routes) {
+    $routes->get('bookings/available', 'BookingsController::availableJobs');
+    $routes->put('bookings/(:num)/accept', 'BookingsController::acceptBooking/$1');
     $routes->put('bookings/(:num)/start', 'BookingsController::startBooking/$1');
+    $routes->post('bookings/(:num)/complete-with-payment', 'BookingsController::completeBookingWithPayment/$1');
     $routes->put('bookings/(:num)/complete', 'BookingsController::completeBooking/$1');
     $routes->get('payments/worker-earnings/(:num)', 'PaymentsController::workerEarnings/$1');
 });
