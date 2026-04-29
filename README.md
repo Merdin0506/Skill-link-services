@@ -56,6 +56,10 @@ cp env.example .env
 # Edit the .env file with your database credentials
 ```
 
+Use `Backend/env.example` as the team-shared baseline. Keep `Backend/.env`
+local and untracked, and do not commit real secrets such as encryption keys,
+JWT secrets, SMTP passwords, or API keys.
+
 ### 4. Database Setup
 
 ```bash
