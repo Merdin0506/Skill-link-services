@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Libraries\ActivityLogger;
 use App\Models\UserModel;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -11,12 +12,14 @@ class Auth extends BaseController
     protected $session;
     protected $userModel;
     protected $sessionTracker;
+    protected ActivityLogger $activityLogger;
 
     public function __construct()
     {
         $this->session = session();
         $this->userModel = new UserModel();
         $this->sessionTracker = service('sessiontracker');
+        $this->activityLogger = new ActivityLogger();
     }
 
     /**
@@ -69,6 +72,10 @@ class Auth extends BaseController
                 'passwordLength' => strlen($password),
                 'errors' => json_encode($errors),
             ]);
+            $this->activityLogger->record('auth', 'login_attempt', 'validation_failed', null, null, [
+                'email' => $email,
+                'errors' => $errors,
+            ], 'web');
 
             return redirect()->back()
                 ->withInput()
@@ -84,6 +91,11 @@ class Auth extends BaseController
             ]);
 
             if ($user && $this->userModel->isLocked($user)) {
+                $this->activityLogger->record('auth', 'login_attempt', 'locked', null, (int) $user['id'], [
+                    'email' => $email,
+                    'locked_until' => $user['locked_until'] ?? null,
+                ], 'web');
+
                 return redirect()->back()
                     ->withInput()
                     ->with('error', 'Too many login tries for now. Please wait a bit and try again.');
@@ -97,6 +109,10 @@ class Auth extends BaseController
                 log_message('notice', 'Login failed: invalid credentials. email={email}', [
                     'email' => $email,
                 ]);
+                $this->activityLogger->record('auth', 'login_attempt', 'failed', null, $user ? (int) $user['id'] : null, [
+                    'email' => $email,
+                    'reason' => 'invalid_credentials',
+                ], 'web');
 
                 return redirect()->back()
                     ->withInput()
@@ -108,6 +124,11 @@ class Auth extends BaseController
                     'email' => $email,
                     'status' => (string) ($user['status'] ?? 'null'),
                 ]);
+                $this->activityLogger->record('auth', 'login_attempt', 'blocked', null, (int) $user['id'], [
+                    'email' => $email,
+                    'reason' => 'inactive_account',
+                    'status' => (string) ($user['status'] ?? 'null'),
+                ], 'web');
 
                 return redirect()->back()
                     ->withInput()
@@ -118,9 +139,6 @@ class Auth extends BaseController
 
             $otp = sprintf("%06d", mt_rand(0, 999999));
             $expire = date("Y-m-d H:i:s", strtotime("+5 minutes"));
-            
-            // Log for debugging
-            log_message('debug', 'Generating OTP for user: ' . $user['email'] . ' code: ' . $otp);
 
             try {
                 $this->userModel->update($user['id'], [
@@ -186,6 +204,11 @@ class Auth extends BaseController
         $validation->setRules($rules);
 
         if (!$validation->withRequest($this->request)->run()) {
+            $this->activityLogger->record('account', 'user_registration', 'validation_failed', null, null, [
+                'email' => $this->request->getPost('email'),
+                'errors' => $validation->getErrors(),
+            ], 'web');
+
             return redirect()->back()
                 ->withInput()
                 ->with('errors', $validation->getErrors());
@@ -225,6 +248,9 @@ class Auth extends BaseController
                     ->withInput()
                     ->with('error', 'We could not create your account. Please try again.');
             }
+            $this->activityLogger->record('account', 'user_registered', 'success', (int) $userId, (int) $userId, [
+                'created_fields' => $this->activityLogger->changedFields([], $postData, array_keys($postData)),
+            ], 'web');
 
             $otp = sprintf("%06d", mt_rand(0, 999999));
             $expire = date("Y-m-d H:i:s", strtotime("+5 minutes"));
@@ -281,15 +307,26 @@ class Auth extends BaseController
         $user = $this->userModel->find($userId);
 
         if (!$user) {
+            $this->activityLogger->record('auth', 'otp_verification', 'failed', null, null, [
+                'reason' => 'missing_user',
+            ], 'web');
             return redirect()->to('/auth/login');
         }
 
         // Security Checks
         if (($user['otp_attempts'] ?? 0) >= 3) {
+            $this->activityLogger->record('auth', 'otp_verification', 'blocked', null, (int) $user['id'], [
+                'email' => $user['email'] ?? null,
+                'reason' => 'max_attempts',
+            ], 'web');
             return redirect()->to('/auth/login')->with('error', 'Max attempts reached. Please login again.');
         }
 
         if ($user['otp_expire'] && strtotime((string) $user['otp_expire']) < time()) {
+            $this->activityLogger->record('auth', 'otp_verification', 'failed', null, (int) $user['id'], [
+                'email' => $user['email'] ?? null,
+                'reason' => 'expired_otp',
+            ], 'web');
             return redirect()->to('/auth/login')->with('error', 'OTP has expired. Please login again.');
         }
 
@@ -321,6 +358,10 @@ class Auth extends BaseController
             $token = $this->createApiToken((int) $user['id'], (string) $user['user_type'], $trackedSessionKey);
             $this->session->set('tracked_session_key', $trackedSessionKey);
             $this->session->set('api_token', $token);
+            $this->activityLogger->record('auth', 'login_attempt', 'success', (int) $user['id'], (int) $user['id'], [
+                'email' => $user['email'],
+                'session_type' => 'web',
+            ], 'web', $trackedSessionKey);
 
             $this->session->remove('temp_user_id');
             $this->session->remove('temp_email');
@@ -329,6 +370,11 @@ class Auth extends BaseController
         } else {
             $newAttempts = ($user['otp_attempts'] ?? 0) + 1;
             $this->userModel->update($userId, ['otp_attempts' => $newAttempts]);
+            $this->activityLogger->record('auth', 'otp_verification', 'failed', null, (int) $user['id'], [
+                'email' => $user['email'] ?? null,
+                'reason' => 'invalid_otp',
+                'attempts' => $newAttempts,
+            ], 'web');
 
             return redirect()->back()->with('error', 'Invalid OTP code. Tries left: ' . (3 - $newAttempts));
         }
@@ -534,6 +580,11 @@ class Auth extends BaseController
      */
     public function logout()
     {
+        $userId = $this->session->get('user_id');
+        $trackedSessionKey = $this->session->get('tracked_session_key');
+        $this->activityLogger->record('auth', 'logout', 'success', is_numeric($userId) ? (int) $userId : null, is_numeric($userId) ? (int) $userId : null, [
+            'session_type' => 'web',
+        ], 'web', is_string($trackedSessionKey) ? $trackedSessionKey : null);
         $this->sessionTracker->endWebSession();
         $this->session->destroy();
         return redirect()->to('/auth/login')->with('success', 'You have been logged out.');

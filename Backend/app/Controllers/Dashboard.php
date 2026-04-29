@@ -2,7 +2,9 @@
 
 namespace App\Controllers;
 
+use App\Libraries\ActivityLogger;
 use App\Libraries\DatabaseBackupManager;
+use App\Models\ActivityLogModel;
 use App\Models\UserModel;
 use App\Models\BookingModel;
 use App\Models\PaymentModel;
@@ -16,6 +18,7 @@ class Dashboard extends BaseController
     protected $paymentModel;
     protected $reviewModel;
     protected $session;
+    protected ActivityLogger $activityLogger;
 
     public function __construct()
     {
@@ -24,6 +27,7 @@ class Dashboard extends BaseController
         $this->paymentModel = new PaymentModel();
         $this->reviewModel = new ReviewModel();
         $this->session = session();
+        $this->activityLogger = new ActivityLogger();
         
         // Load dashboard helper
         helper('dashboard');
@@ -135,9 +139,13 @@ class Dashboard extends BaseController
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
         }
 
-        if ($this->userModel->insert($userData) === false) {
+        $createdUserId = $this->userModel->insert($userData);
+        if ($createdUserId === false) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
         }
+        $this->activityLogger->record('account', 'user_created', 'success', $this->currentUserId(), (int) $createdUserId, [
+            'created_fields' => $this->activityLogger->changedFields([], $userData, array_keys($userData)),
+        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User created successfully.');
     }
@@ -218,6 +226,9 @@ class Dashboard extends BaseController
         if ($this->userModel->update((int) $id, $userData) === false) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
         }
+        $this->activityLogger->record('account', 'user_updated', 'success', $this->currentUserId(), (int) $id, [
+            'changed_fields' => $this->activityLogger->changedFields($targetUser, $userData, array_keys($userData)),
+        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User updated successfully.');
     }
@@ -244,6 +255,10 @@ class Dashboard extends BaseController
         if ($this->userModel->delete((int) $id) === false) {
             return redirect()->to('/admin/users')->with('error', 'Failed to delete user.');
         }
+        $this->activityLogger->record('account', 'user_archived', 'success', $this->currentUserId(), (int) $id, [
+            'target_email' => $targetUser['email'] ?? null,
+            'target_role' => $targetUser['user_type'] ?? null,
+        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User archived successfully.');
     }
@@ -264,6 +279,10 @@ class Dashboard extends BaseController
         if ($restored === false) {
             return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Failed to restore user.');
         }
+        $this->activityLogger->record('account', 'user_restored', 'success', $this->currentUserId(), (int) $id, [
+            'target_email' => $targetUser['email'] ?? null,
+            'target_role' => $targetUser['user_type'] ?? null,
+        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User restored successfully.');
     }
@@ -284,6 +303,11 @@ class Dashboard extends BaseController
         if ($this->userModel->delete((int) $id, true) === false) {
             return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Failed to permanently delete user.');
         }
+        $this->activityLogger->record('account', 'user_permanently_deleted', 'success', $this->currentUserId(), null, [
+            'target_user_id' => (int) $id,
+            'target_email' => $targetUser['email'] ?? null,
+            'target_role' => $targetUser['user_type'] ?? null,
+        ], 'web');
 
         return redirect()->to('/admin/users?show_deleted=1')->with('success', 'User permanently deleted.');
     }
@@ -340,6 +364,9 @@ class Dashboard extends BaseController
         if ($this->userModel->update($userId, $userData) === false) {
             return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
         }
+        $this->activityLogger->record('account', 'profile_updated', 'success', (int) $userId, (int) $userId, [
+            'changed_fields' => $this->activityLogger->changedFields($currentUser, $userData, array_keys($userData)),
+        ], 'web');
 
         // Update session data
         $this->session->set('user_name', $userData['first_name'] . ' ' . $userData['last_name']);
@@ -393,6 +420,9 @@ class Dashboard extends BaseController
         if ($this->userModel->update($userId, ['password' => $newPassword]) === false) {
             return redirect()->back()->withInput()->with('error', 'We could not update your password right now. Please try again.');
         }
+        $this->activityLogger->record('account', 'password_changed', 'success', (int) $userId, (int) $userId, [
+            'method' => 'self_service',
+        ], 'web');
 
         return redirect()->to('/profile')->with('success', 'Password changed successfully.');
     }
@@ -422,6 +452,9 @@ class Dashboard extends BaseController
 
         // Soft delete by setting status to inactive
         $this->userModel->update($userId, ['status' => 'inactive', 'email' => 'deleted_' . time() . '_' . $currentUser['email']]);
+        $this->activityLogger->record('account', 'account_deleted_by_owner', 'success', (int) $userId, (int) $userId, [
+            'target_email' => $currentUser['email'] ?? null,
+        ], 'web');
 
         // Logout user
         $this->session->destroy();
@@ -1184,7 +1217,10 @@ class Dashboard extends BaseController
     public function settings()
     {
         $sessionTracker = service('sessiontracker');
+        $activityLogModel = new ActivityLogModel();
         $role = $this->session->get('user_role');
+        $userId = (int) $this->session->get('user_id');
+        $isAdmin = in_array($role, ['super_admin', 'admin'], true);
 
         $data = [
             'role' => $role,
@@ -1192,9 +1228,11 @@ class Dashboard extends BaseController
             'baseUrl' => base_url(),
             'environment' => ENVIRONMENT,
             'currentSession' => $sessionTracker->getCurrentSessionSummary(),
-            'myActiveSessions' => $sessionTracker->getActiveSessionsForUser((int) $this->session->get('user_id')),
-            'activeSessionCount' => in_array($role, ['super_admin', 'admin'], true) ? $sessionTracker->getActiveSessionCount() : null,
-            'recentActiveSessions' => in_array($role, ['super_admin', 'admin'], true) ? $sessionTracker->getActiveSessions(10) : [],
+            'myActiveSessions' => $sessionTracker->getActiveSessionsForUser($userId),
+            'activeSessionCount' => $isAdmin ? $sessionTracker->getActiveSessionCount() : null,
+            'recentActiveSessions' => $isAdmin ? $sessionTracker->getActiveSessions(10) : [],
+            'myActivityLogs' => $activityLogModel->getRecentForUser($userId, 15),
+            'recentActivityLogs' => $isAdmin ? $activityLogModel->getRecentWithUsers(25) : [],
         ];
 
         return view('dashboard/settings', $data);
@@ -1260,6 +1298,13 @@ class Dashboard extends BaseController
         }
 
         return $user;
+    }
+
+    private function currentUserId(): ?int
+    {
+        $userId = $this->session->get('user_id');
+
+        return is_numeric($userId) ? (int) $userId : null;
     }
 
     /**

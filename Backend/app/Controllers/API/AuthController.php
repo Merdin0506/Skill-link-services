@@ -3,6 +3,7 @@
 namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
+use App\Libraries\ActivityLogger;
 use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
 use Firebase\JWT\JWT;
@@ -16,11 +17,13 @@ class AuthController extends BaseController
 
     protected $userModel;
     protected $sessionTracker;
+    protected ActivityLogger $activityLogger;
 
     public function __construct()
     {
         $this->userModel = new UserModel();
         $this->sessionTracker = service('sessiontracker');
+        $this->activityLogger = new ActivityLogger();
     }
 
     public function register()
@@ -36,6 +39,10 @@ class AuthController extends BaseController
         ];
 
         if (!$this->validate($rules)) {
+            $this->activityLogger->record('account', 'user_registration', 'validation_failed', null, null, [
+                'email' => $this->request->getVar('email'),
+                'errors' => $this->validator->getErrors(),
+            ], 'api');
             return $this->fail($this->validator->getErrors());
         }
 
@@ -59,6 +66,9 @@ class AuthController extends BaseController
 
         try {
             $userId = $this->userModel->insert($data);
+            $this->activityLogger->record('account', 'user_registered', 'success', (int) $userId, (int) $userId, [
+                'created_fields' => $this->activityLogger->changedFields([], $data, array_keys($data)),
+            ], 'api');
             $otp = $this->issueOtpForUser((int) $userId);
             if (! $this->sendOtpEmail($data['email'], $otp, 'register')) {
                 return $this->failServerError('Account created, but we could not send the verification code email.');
@@ -94,19 +104,36 @@ class AuthController extends BaseController
         $user = $this->userModel->where('email', $email)->first();
 
         if (!$user) {
+            $this->activityLogger->record('auth', 'login_attempt', 'failed', null, null, [
+                'email' => $email,
+                'reason' => 'invalid_credentials',
+            ], 'api');
             return $this->fail('Invalid credentials');
         }
 
         if ($this->userModel->isLocked($user)) {
+            $this->activityLogger->record('auth', 'login_attempt', 'locked', null, (int) $user['id'], [
+                'email' => $email,
+                'locked_until' => $user['locked_until'] ?? null,
+            ], 'api');
             return $this->fail('Account is temporarily locked due to multiple failed login attempts');
         }
 
         if (!password_verify($password, $user['password'])) {
             $this->userModel->recordFailedLogin((int) $user['id']);
+            $this->activityLogger->record('auth', 'login_attempt', 'failed', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'invalid_credentials',
+            ], 'api');
             return $this->fail('Invalid credentials');
         }
 
         if ($user['status'] !== 'active') {
+            $this->activityLogger->record('auth', 'login_attempt', 'blocked', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'inactive_account',
+                'status' => $user['status'],
+            ], 'api');
             return $this->fail('Account is not active');
         }
 
@@ -142,20 +169,37 @@ class AuthController extends BaseController
         $user = $this->userModel->where('email', $email)->first();
 
         if (! $user) {
+            $this->activityLogger->record('auth', 'otp_verification', 'failed', null, null, [
+                'email' => $email,
+                'reason' => 'missing_user',
+            ], 'api');
             return $this->failNotFound('User not found');
         }
 
         if (($user['otp_attempts'] ?? 0) >= 3) {
+            $this->activityLogger->record('auth', 'otp_verification', 'blocked', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'max_attempts',
+            ], 'api');
             return $this->fail('Max OTP attempts reached. Please request a new code.');
         }
 
         if (!empty($user['otp_expire']) && strtotime((string) $user['otp_expire']) < time()) {
+            $this->activityLogger->record('auth', 'otp_verification', 'failed', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'expired_otp',
+            ], 'api');
             return $this->fail('OTP has expired. Please request a new code.');
         }
 
         if (($user['otp'] ?? '') !== $otpInput || empty($user['otp'])) {
             $newAttempts = ((int) ($user['otp_attempts'] ?? 0)) + 1;
             $this->userModel->update((int) $user['id'], ['otp_attempts' => $newAttempts]);
+            $this->activityLogger->record('auth', 'otp_verification', 'failed', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'invalid_otp',
+                'attempts' => $newAttempts,
+            ], 'api');
             return $this->fail('Invalid OTP code. Tries left: ' . max(0, 3 - $newAttempts));
         }
 
@@ -169,6 +213,10 @@ class AuthController extends BaseController
         $freshUser = $this->userModel->find((int) $user['id']);
         unset($freshUser['password']);
         $sessionKey = $this->sessionTracker->startApiSession($freshUser);
+        $this->activityLogger->record('auth', 'login_attempt', 'success', (int) $freshUser['id'], (int) $freshUser['id'], [
+            'email' => $freshUser['email'],
+            'session_type' => 'api',
+        ], 'api', $sessionKey);
 
         return $this->respond([
             'status' => 'success',
@@ -270,6 +318,9 @@ class AuthController extends BaseController
         $this->userModel->update($userId, $data);
         $user = $this->userModel->find($userId);
         unset($user['password']);
+        $this->activityLogger->record('account', 'profile_updated', 'success', (int) $userId, (int) $userId, [
+            'changed_fields' => $this->activityLogger->changedFields($this->request->authUser ?? [], $data, array_keys($data)),
+        ], 'api', $this->request->authSessionKey ?? null);
 
         return $this->respond([
             'status'  => 'success',
@@ -299,6 +350,9 @@ class AuthController extends BaseController
         }
 
         $this->userModel->changePassword($userId, $this->request->getVar('new_password'));
+        $this->activityLogger->record('account', 'password_changed', 'success', (int) $userId, (int) $userId, [
+            'method' => 'self_service',
+        ], 'api', $this->request->authSessionKey ?? null);
 
         return $this->respond([
             'status'  => 'success',
@@ -308,6 +362,10 @@ class AuthController extends BaseController
 
     public function logout()
     {
+        $userId = $this->request->authUserId ?? null;
+        $this->activityLogger->record('auth', 'logout', 'success', is_numeric($userId) ? (int) $userId : null, is_numeric($userId) ? (int) $userId : null, [
+            'session_type' => 'api',
+        ], 'api', $this->request->authSessionKey ?? null);
         $this->sessionTracker->endApiSession($this->request->authSessionKey ?? null);
         return $this->respond([
             'status' => 'success',

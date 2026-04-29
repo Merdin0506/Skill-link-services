@@ -3,6 +3,7 @@
 namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
+use App\Libraries\ActivityLogger;
 use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
 
@@ -11,10 +12,12 @@ class UsersController extends BaseController
     use ResponseTrait;
 
     protected $userModel;
+    protected ActivityLogger $activityLogger;
 
     public function __construct()
     {
         $this->userModel = new UserModel();
+        $this->activityLogger = new ActivityLogger();
     }
 
     public function index()
@@ -191,6 +194,9 @@ class UsersController extends BaseController
             $this->userModel->update($id, $data);
             $updatedUser = $this->userModel->find($id);
             unset($updatedUser['password']);
+            $this->activityLogger->record('account', 'user_updated', 'success', $this->currentActorId(), (int) $id, [
+                'changed_fields' => $this->activityLogger->changedFields($user, $data, array_keys($data)),
+            ], 'api', $this->request->authSessionKey ?? null);
 
             return $this->respond([
                 'status' => 'success',
@@ -218,6 +224,10 @@ class UsersController extends BaseController
 
         try {
             $this->userModel->delete($id);
+            $this->activityLogger->record('account', 'user_archived', 'success', $this->currentActorId(), (int) $id, [
+                'target_email' => $user['email'] ?? null,
+                'target_role' => $user['user_type'] ?? null,
+            ], 'api', $this->request->authSessionKey ?? null);
 
             return $this->respond([
                 'status' => 'success',
@@ -317,6 +327,10 @@ class UsersController extends BaseController
             $success = $this->userModel->updateProfileImage($id, $this->request->getVar('profile_image'));
 
             if ($success) {
+                $this->activityLogger->record('account', 'profile_image_updated', 'success', $this->currentActorId(), (int) $id, [
+                    'profile_image' => $this->request->getVar('profile_image'),
+                ], 'api', $this->request->authSessionKey ?? null);
+
                 return $this->respond([
                     'status' => 'success',
                     'message' => 'Profile image updated successfully'
@@ -327,5 +341,19 @@ class UsersController extends BaseController
         } catch (\Exception $e) {
             return $this->fail('Failed to update profile image: ' . $e->getMessage());
         }
+    }
+
+    private function getPositiveIntParam(string $name, int $default): int
+    {
+        $value = (int) $this->request->getVar($name);
+
+        return $value > 0 ? $value : $default;
+    }
+
+    private function currentActorId(): ?int
+    {
+        $userId = $this->request->authUserId ?? null;
+
+        return is_numeric($userId) ? (int) $userId : null;
     }
 }

@@ -1,3 +1,45 @@
+<?php
+    $formatActivityText = static function (?string $value): string {
+        $value = (string) $value;
+        return ucwords(str_replace('_', ' ', $value));
+    };
+
+    $formatActivityUser = static function (array $log, string $prefix): string {
+        $name = trim((string) ($log[$prefix . '_first_name'] ?? '') . ' ' . (string) ($log[$prefix . '_last_name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        return (string) ($log[$prefix . '_email'] ?? 'Unknown');
+    };
+
+    $formatActivityDetails = static function (array $details): string {
+        if (empty($details)) {
+            return '-';
+        }
+
+        if (isset($details['reason'])) {
+            return ucwords(str_replace('_', ' ', (string) $details['reason']));
+        }
+
+        if (isset($details['changed_fields']) && is_array($details['changed_fields'])) {
+            $fields = array_keys($details['changed_fields']);
+            return $fields ? implode(', ', array_map(static fn ($field) => ucwords(str_replace('_', ' ', (string) $field)), $fields)) : '-';
+        }
+
+        if (isset($details['created_fields']) && is_array($details['created_fields'])) {
+            $fields = array_keys($details['created_fields']);
+            return $fields ? 'Created: ' . implode(', ', array_map(static fn ($field) => ucwords(str_replace('_', ' ', (string) $field)), $fields)) : '-';
+        }
+
+        if (isset($details['method'])) {
+            return ucwords(str_replace('_', ' ', (string) $details['method']));
+        }
+
+        return 'Details available';
+    };
+?>
+
 <?= view('layouts/page_header', ['pageTitle' => 'Settings']) ?>
 
     <!-- Page Content -->
@@ -98,6 +140,96 @@
                                         <td><?= esc($trackedSession['last_activity_at'] ?? '-') ?></td>
                                         <td><?= esc($trackedSession['ip_address'] ?? '-') ?></td>
                                         <td><?= esc($trackedSession['device_label'] ?? '-') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <i class="fas fa-history"></i> My Account Activity
+            </div>
+            <div class="card-body">
+                <?php if (!empty($myActivityLogs)): ?>
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>When</th>
+                                    <th>Category</th>
+                                    <th>Action</th>
+                                    <th>Result</th>
+                                    <th>Source</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($myActivityLogs as $activityLog): ?>
+                                    <tr>
+                                        <td><?= esc($activityLog['created_at'] ?? '-') ?></td>
+                                        <td><?= esc($formatActivityText($activityLog['event_type'] ?? '-')) ?></td>
+                                        <td><?= esc($formatActivityText($activityLog['action'] ?? '-')) ?></td>
+                                        <td>
+                                            <?php
+                                                $outcome = (string) ($activityLog['outcome'] ?? '-');
+                                                $badgeClass = $outcome === 'success' ? 'bg-success' : (in_array($outcome, ['failed', 'blocked', 'locked', 'validation_failed'], true) ? 'bg-danger' : 'bg-secondary');
+                                            ?>
+                                            <span class="badge <?= esc($badgeClass) ?>"><?= esc($formatActivityText($outcome)) ?></span>
+                                        </td>
+                                        <td><?= esc(strtoupper((string) ($activityLog['source'] ?? '-'))) ?></td>
+                                        <td><?= esc($formatActivityDetails($activityLog['details'] ?? [])) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <p class="mb-0 text-muted">No account activity has been recorded yet.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <?php if (!empty($recentActivityLogs)): ?>
+            <div class="card mt-4">
+                <div class="card-header">
+                    <i class="fas fa-clipboard-list"></i> Recent System Activity
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>When</th>
+                                    <th>Actor</th>
+                                    <th>Target</th>
+                                    <th>Category</th>
+                                    <th>Action</th>
+                                    <th>Result</th>
+                                    <th>Source</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($recentActivityLogs as $activityLog): ?>
+                                    <tr>
+                                        <td><?= esc($activityLog['created_at'] ?? '-') ?></td>
+                                        <td><?= esc($formatActivityUser($activityLog, 'actor')) ?></td>
+                                        <td><?= esc($formatActivityUser($activityLog, 'target')) ?></td>
+                                        <td><?= esc($formatActivityText($activityLog['event_type'] ?? '-')) ?></td>
+                                        <td><?= esc($formatActivityText($activityLog['action'] ?? '-')) ?></td>
+                                        <td>
+                                            <?php
+                                                $outcome = (string) ($activityLog['outcome'] ?? '-');
+                                                $badgeClass = $outcome === 'success' ? 'bg-success' : (in_array($outcome, ['failed', 'blocked', 'locked', 'validation_failed'], true) ? 'bg-danger' : 'bg-secondary');
+                                            ?>
+                                            <span class="badge <?= esc($badgeClass) ?>"><?= esc($formatActivityText($outcome)) ?></span>
+                                        </td>
+                                        <td><?= esc(strtoupper((string) ($activityLog['source'] ?? '-'))) ?></td>
+                                        <td><?= esc($formatActivityDetails($activityLog['details'] ?? [])) ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
