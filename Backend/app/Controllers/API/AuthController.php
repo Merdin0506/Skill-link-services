@@ -64,12 +64,27 @@ class AuthController extends BaseController
             $data['commission_rate'] = 20.00; // Default commission rate
         }
 
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
         try {
             $userId = $this->userModel->insert($data);
+            if ($userId === false) {
+                throw new \Exception('Failed to insert user record.');
+            }
+
             $this->activityLogger->record('account', 'user_registered', 'success', (int) $userId, (int) $userId, [
                 'created_fields' => $this->activityLogger->changedFields([], $data, array_keys($data)),
             ], 'api');
+
             $otp = $this->issueOtpForUser((int) $userId);
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
             if (! $this->sendOtpEmail($data['email'], $otp, 'register')) {
                 return $this->failServerError('Account created, but we could not send the verification code email.');
             }
@@ -83,6 +98,7 @@ class AuthController extends BaseController
                 ],
             ]);
         } catch (\Exception $e) {
+            $db->transRollback();
             return $this->fail('Registration failed: ' . $e->getMessage());
         }
     }
@@ -315,18 +331,36 @@ class AuthController extends BaseController
             $data['experience_years'] = $this->request->getVar('experience_years');
         }
 
-        $this->userModel->update($userId, $data);
-        $user = $this->userModel->find($userId);
-        unset($user['password']);
-        $this->activityLogger->record('account', 'profile_updated', 'success', (int) $userId, (int) $userId, [
-            'changed_fields' => $this->activityLogger->changedFields($this->request->authUser ?? [], $data, array_keys($data)),
-        ], 'api', $this->request->authSessionKey ?? null);
+        $db = \Config\Database::connect();
+        $db->transBegin();
 
-        return $this->respond([
-            'status'  => 'success',
-            'message' => 'Profile updated successfully',
-            'data'    => $user,
-        ]);
+        try {
+            if ($this->userModel->update($userId, $data) === false) {
+                throw new \Exception('Failed to update user profile.');
+            }
+
+            $user = $this->userModel->find($userId);
+            unset($user['password']);
+
+            $this->activityLogger->record('account', 'profile_updated', 'success', (int) $userId, (int) $userId, [
+                'changed_fields' => $this->activityLogger->changedFields($this->request->authUser ?? [], $data, array_keys($data)),
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status'  => 'success',
+                'message' => 'Profile updated successfully',
+                'data'    => $user,
+            ]);
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return $this->fail('Profile update failed: ' . $e->getMessage());
+        }
     }
 
     public function changePassword()
@@ -349,15 +383,32 @@ class AuthController extends BaseController
             return $this->fail('Current password is incorrect');
         }
 
-        $this->userModel->changePassword($userId, $this->request->getVar('new_password'));
-        $this->activityLogger->record('account', 'password_changed', 'success', (int) $userId, (int) $userId, [
-            'method' => 'self_service',
-        ], 'api', $this->request->authSessionKey ?? null);
+        $db = \Config\Database::connect();
+        $db->transBegin();
 
-        return $this->respond([
-            'status'  => 'success',
-            'message' => 'Password changed successfully',
-        ]);
+        try {
+            if ($this->userModel->changePassword($userId, $this->request->getVar('new_password')) === false) {
+                throw new \Exception('Failed to update password.');
+            }
+
+            $this->activityLogger->record('account', 'password_changed', 'success', (int) $userId, (int) $userId, [
+                'method' => 'self_service',
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status'  => 'success',
+                'message' => 'Password changed successfully',
+            ]);
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return $this->fail('Password change failed: ' . $e->getMessage());
+        }
     }
 
     public function logout()

@@ -120,8 +120,11 @@ class Bookings extends BaseController
         }
 
         try {
-            $this->bookingModel->update($id, ['status' => 'cancelled']);
-            return redirect()->back()->with('success', 'Booking cancelled successfully');
+            if ($this->bookingModel->cancelBooking($id)) {
+                return redirect()->back()->with('success', 'Booking cancelled successfully');
+            } else {
+                return redirect()->back()->with('error', 'Failed to cancel booking');
+            }
         } catch (\Exception $e) {
             log_message('error', 'Booking cancellation error: ' . $e->getMessage());
             return redirect()->back()->with('error', 'Failed to cancel booking');

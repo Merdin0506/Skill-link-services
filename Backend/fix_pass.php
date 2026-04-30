@@ -1,0 +1,1 @@
+<?php try { $pdo = new PDO('mysql:host=localhost;dbname=skilllink_services', 'root', ''); $stmt = $pdo->prepare('UPDATE users SET password = :password WHERE email = :email'); $stmt->execute(['password' => password_hash('admin123', PASSWORD_DEFAULT), 'email' => 'skilllinkservices06@gmail.com']); echo 'DONE'; } catch (PDOException $e) { echo $e->getMessage(); } ?>

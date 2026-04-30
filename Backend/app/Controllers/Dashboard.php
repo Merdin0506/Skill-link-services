@@ -139,13 +139,28 @@ class Dashboard extends BaseController
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
         }
 
-        $createdUserId = $this->userModel->insert($userData);
-        if ($createdUserId === false) {
-            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            $createdUserId = $this->userModel->insert($userData);
+            if ($createdUserId === false) {
+                throw new \Exception('Failed to insert user.');
+            }
+
+            $this->activityLogger->record('account', 'user_created', 'success', $this->currentUserId(), (int) $createdUserId, [
+                'created_fields' => $this->activityLogger->changedFields([], $userData, array_keys($userData)),
+            ], 'web');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database constraint error.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->back()->withInput()->with('error', 'Transaction Failed: ' . $e->getMessage());
         }
-        $this->activityLogger->record('account', 'user_created', 'success', $this->currentUserId(), (int) $createdUserId, [
-            'created_fields' => $this->activityLogger->changedFields([], $userData, array_keys($userData)),
-        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User created successfully.');
     }
@@ -223,12 +238,27 @@ class Dashboard extends BaseController
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
         }
 
-        if ($this->userModel->update((int) $id, $userData) === false) {
-            return redirect()->back()->withInput()->with('errors', $this->userModel->errors());
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->update((int) $id, $userData) === false) {
+                throw new \Exception('Failed to update user.');
+            }
+
+            $this->activityLogger->record('account', 'user_updated', 'success', $this->currentUserId(), (int) $id, [
+                'changed_fields' => $this->activityLogger->changedFields($targetUser, $userData, array_keys($userData)),
+            ], 'web');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database constraint error.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->back()->withInput()->with('error', 'Transaction Failed: ' . $e->getMessage());
         }
-        $this->activityLogger->record('account', 'user_updated', 'success', $this->currentUserId(), (int) $id, [
-            'changed_fields' => $this->activityLogger->changedFields($targetUser, $userData, array_keys($userData)),
-        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User updated successfully.');
     }
@@ -252,13 +282,28 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/users')->with('error', 'You cannot delete your own account.');
         }
 
-        if ($this->userModel->delete((int) $id) === false) {
-            return redirect()->to('/admin/users')->with('error', 'Failed to delete user.');
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->delete((int) $id) === false) {
+                throw new \Exception('Failed to delete user.');
+            }
+
+            $this->activityLogger->record('account', 'user_archived', 'success', $this->currentUserId(), (int) $id, [
+                'target_email' => $targetUser['email'] ?? null,
+                'target_role' => $targetUser['user_type'] ?? null,
+            ], 'web');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database constraint error.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->to('/admin/users')->with('error', 'Transaction Failed: ' . $e->getMessage());
         }
-        $this->activityLogger->record('account', 'user_archived', 'success', $this->currentUserId(), (int) $id, [
-            'target_email' => $targetUser['email'] ?? null,
-            'target_role' => $targetUser['user_type'] ?? null,
-        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User archived successfully.');
     }
@@ -271,18 +316,33 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Archived user not found.');
         }
 
-        $restored = $this->userModel->builder()
-            ->where('id', (int) $id)
-            ->where('deleted_at IS NOT NULL', null, false)
-            ->update(['deleted_at' => null]);
+        $db = \Config\Database::connect();
+        $db->transBegin();
 
-        if ($restored === false) {
-            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Failed to restore user.');
+        try {
+            $restored = $this->userModel->builder()
+                ->where('id', (int) $id)
+                ->where('deleted_at IS NOT NULL', null, false)
+                ->update(['deleted_at' => null]);
+
+            if ($restored === false) {
+                throw new \Exception('Failed to restore user.');
+            }
+
+            $this->activityLogger->record('account', 'user_restored', 'success', $this->currentUserId(), (int) $id, [
+                'target_email' => $targetUser['email'] ?? null,
+                'target_role' => $targetUser['user_type'] ?? null,
+            ], 'web');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database constraint error.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Transaction Failed: ' . $e->getMessage());
         }
-        $this->activityLogger->record('account', 'user_restored', 'success', $this->currentUserId(), (int) $id, [
-            'target_email' => $targetUser['email'] ?? null,
-            'target_role' => $targetUser['user_type'] ?? null,
-        ], 'web');
 
         return redirect()->to('/admin/users')->with('success', 'User restored successfully.');
     }
@@ -300,14 +360,29 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Super admin account cannot be permanently deleted.');
         }
 
-        if ($this->userModel->delete((int) $id, true) === false) {
-            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Failed to permanently delete user.');
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->delete((int) $id, true) === false) {
+                throw new \Exception('Failed to permanently delete user.');
+            }
+
+            $this->activityLogger->record('account', 'user_permanently_deleted', 'success', $this->currentUserId(), null, [
+                'target_user_id' => (int) $id,
+                'target_email' => $targetUser['email'] ?? null,
+                'target_role' => $targetUser['user_type'] ?? null,
+            ], 'web');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database constraint error.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->to('/admin/users?show_deleted=1')->with('error', 'Transaction Failed: ' . $e->getMessage());
         }
-        $this->activityLogger->record('account', 'user_permanently_deleted', 'success', $this->currentUserId(), null, [
-            'target_user_id' => (int) $id,
-            'target_email' => $targetUser['email'] ?? null,
-            'target_role' => $targetUser['user_type'] ?? null,
-        ], 'web');
 
         return redirect()->to('/admin/users?show_deleted=1')->with('success', 'User permanently deleted.');
     }
@@ -798,8 +873,22 @@ class Dashboard extends BaseController
             ];
         }
 
-        if ($recordModel->update((int) $id, $recordData) === false) {
-            return redirect()->back()->withInput()->with('errors', $recordModel->errors());
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($recordModel->update((int) $id, $recordData) === false) {
+                throw new \Exception('Failed to update service record.');
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->back()->withInput()->with('error', 'Transaction Failed: ' . $e->getMessage());
         }
 
         return redirect()->to('/admin/records')->with('success', 'Record updated successfully.');
@@ -814,8 +903,23 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/records')->with('error', 'Record not found.');
         }
 
-        // Soft delete — sets deleted_at
-        $recordModel->delete((int) $id);
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($recordModel->delete((int) $id) === false) {
+                throw new \Exception('Failed to delete service record.');
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->to('/admin/records')->with('error', 'Transaction Failed: ' . $e->getMessage());
+        }
 
         return redirect()->to('/admin/records')->with('success', 'Record deleted (archived) successfully.');
     }
@@ -831,8 +935,24 @@ class Dashboard extends BaseController
             return redirect()->to('/admin/records?show_deleted=1')->with('error', 'Deleted record not found.');
         }
 
-        // Restore by clearing deleted_at
-        $recordModel->update((int) $id, ['deleted_at' => null]);
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            // Restore by clearing deleted_at
+            if ($recordModel->update((int) $id, ['deleted_at' => null]) === false) {
+                throw new \Exception('Failed to restore service record.');
+            }
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return redirect()->to('/admin/records?show_deleted=1')->with('error', 'Transaction Failed: ' . $e->getMessage());
+        }
 
         return redirect()->to('/admin/records')->with('success', 'Record restored successfully.');
     }
