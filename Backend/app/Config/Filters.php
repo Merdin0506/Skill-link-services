@@ -14,6 +14,12 @@ use CodeIgniter\Filters\PerformanceMetrics;
 use CodeIgniter\Filters\SecureHeaders;
 use App\Filters\DashboardAuth;
 use App\Filters\SecurityFilter;
+use App\Filters\PermissionFilter;
+use App\Filters\PermissionApiFilter;
+use App\Filters\RoleFilter;
+use App\Filters\RoleApiFilter;
+use App\Filters\JWTAuthFilter;
+use App\Filters\SessionActivityFilter;
 
 class Filters extends BaseFilters
 {
@@ -37,7 +43,13 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'dashboardauth' => DashboardAuth::class,
-        'security'     => SecurityFilter::class,
+        'security'      => SecurityFilter::class,
+        'permission'    => PermissionFilter::class,
+        'permissionapi' => PermissionApiFilter::class,
+        'role'          => RoleFilter::class,
+        'roleapi'       => RoleApiFilter::class,
+        'jwtauth'       => JWTAuthFilter::class,
+        'sessionactivity' => SessionActivityFilter::class,
     ];
 
     /**
