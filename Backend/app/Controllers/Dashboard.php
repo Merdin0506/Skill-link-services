@@ -1355,7 +1355,60 @@ class Dashboard extends BaseController
             'recentActivityLogs' => $isAdmin ? $activityLogModel->getRecentWithUsers(25) : [],
         ];
 
-        return view('dashboard/settings', $data);
+        return view('dashboard/admin_dashboard', $data);
+    }
+
+    /**
+     * Get security data for admin dashboard
+     */
+    public function getSecurityData()
+    {
+        try {
+            $securityController = new SecurityController();
+            return $securityController->getDashboardData();
+        } catch (\Exception $e) {
+            // Fallback to mock data if database is not available
+            return [
+                'total_events' => 0,
+                'failed_logins' => 0,
+                'successful_logins' => 0,
+                'blocked_ips' => 0,
+                'unread_notifications' => 0,
+                'critical_alerts' => 0,
+                'recent_events' => [],
+                'recent_notifications' => [],
+                'error' => 'Database connection failed: ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Refresh security data via AJAX
+     */
+    public function refreshSecurityData()
+    {
+        // Check if it's an AJAX request
+        if (!$this->request || !$this->request->isAJAX()) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Invalid request method'
+            ]);
+        }
+        
+        try {
+            $securityData = $this->getSecurityData();
+            
+            return $this->response->setJSON([
+                'status' => 'success',
+                'data' => $securityData,
+                'timestamp' => time()
+            ]);
+        } catch (\Exception $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to refresh security data: ' . $e->getMessage()
+            ]);
+        }
     }
 
     /**
@@ -1375,6 +1428,7 @@ class Dashboard extends BaseController
                 $data['stats'] = $this->getAdminStats();
                 $data['recentBookings'] = $this->getAllRecentBookings(10);
                 $data['analytics'] = $this->getSystemAnalytics();
+                $data['securityData'] = $this->getSecurityData();
                 break;
 
             case 'worker':

@@ -26,6 +26,7 @@ $routes->get('logout', 'Auth::logout');
 // ─────────────────────────────────────────────────────────────────────────────
 
 $routes->get('dashboard', 'Dashboard::index', ['filter' => ['dashboardauth', 'permission']]);
+$routes->post('dashboard/refresh-security-data', 'Dashboard::refreshSecurityData', ['filter' => ['dashboardauth', 'permission']]);
 
 $routes->group('profile', ['filter' => ['dashboardauth', 'permission']], function ($routes) {
     $routes->get('/', 'Dashboard::profile');

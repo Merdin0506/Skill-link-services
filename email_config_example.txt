@@ -1,0 +1,26 @@
+# Email Configuration Example
+# Add these settings to app/Config/Email.php for SMTP:
+
+# Gmail SMTP Example:
+public string $protocol = 'smtp';
+public string $SMTPHost = 'smtp.gmail.com';
+public string $SMTPUser = 'your-email@gmail.com';
+public string $SMTPPass = 'your-app-password';
+public string $SMTPPort = 587;
+public string $SMTPCrypto = 'tls';
+
+# Outlook/Hotmail Example:
+public string $protocol = 'smtp';
+public string $SMTPHost = 'smtp-mail.outlook.com';
+public string $SMTPUser = 'your-email@outlook.com';
+public string $SMTPPass = 'your-password';
+public string $SMTPPort = 587;
+public string $SMTPCrypto = 'tls';
+
+# Local SMTP Server Example:
+public string $protocol = 'smtp';
+public string $SMTPHost = 'localhost';
+public string $SMTPUser = '';
+public string $SMTPPass = '';
+public string $SMTPPort = 25;
+public string $SMTPCrypto = '';

@@ -13,12 +13,7 @@ use CodeIgniter\Filters\PageCache;
 use CodeIgniter\Filters\PerformanceMetrics;
 use CodeIgniter\Filters\SecureHeaders;
 use App\Filters\DashboardAuth;
-use App\Filters\RoleFilter;
-use App\Filters\JWTAuthFilter;
-use App\Filters\RoleApiFilter;
-use App\Filters\PermissionFilter;
-use App\Filters\PermissionApiFilter;
-use App\Filters\SessionActivityFilter;
+use App\Filters\SecurityFilter;
 
 class Filters extends BaseFilters
 {
@@ -42,12 +37,7 @@ class Filters extends BaseFilters
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
         'dashboardauth' => DashboardAuth::class,
-        'role'          => RoleFilter::class,
-        'jwtauth'       => JWTAuthFilter::class,
-        'roleapi'       => RoleApiFilter::class,
-        'permission'    => PermissionFilter::class,
-        'permissionapi' => PermissionApiFilter::class,
-        'sessionactivity' => SessionActivityFilter::class,
+        'security'     => SecurityFilter::class,
     ];
 
     /**
@@ -65,7 +55,6 @@ class Filters extends BaseFilters
      */
     public array $required = [
         'before' => [
-            'cors',       // Allow API preflight and cross-origin desktop requests
             'forcehttps', // Force Global Secure Requests
             'pagecache',  // Web Page Caching
         ],
@@ -87,14 +76,14 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
+            'security',    // Apply security filter globally
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
-            'sessionactivity' => ['except' => ['api/*']],
         ],
         'after' => [
             // 'honeypot',
-            // 'secureheaders',
+            'secureheaders',
         ],
     ];
 
@@ -123,8 +112,6 @@ class Filters extends BaseFilters
      * @var array<string, array<string, list<string>>>
      */
     public array $filters = [
-        // Route-level filters are now configured directly on route groups in Config/Routes.php.
-        // The global dashboardauth entry is kept only for the plain /dashboard route.
-        'dashboardauth' => ['before' => ['dashboard', 'profile', 'profile/*', 'settings', 'bookings/*']],
+        'dashboardauth' => ['before' => ['dashboard/*', 'admin/*', 'worker/*', 'customer/*', 'finance/*']],
     ];
 }

@@ -3,6 +3,8 @@
 namespace App\Controllers;
 
 use App\Libraries\ActivityLogger;
+use App\Libraries\AuditLogger;
+use App\Controllers\SecurityController;
 use App\Models\UserModel;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -76,6 +78,18 @@ class Auth extends BaseController
                 'email' => $email,
                 'errors' => $errors,
             ], 'web');
+            
+            // Also log to security events system
+            $securityController = new SecurityController();
+            $securityController->logEvent(
+                'login_failed',
+                'medium',
+                'Login validation failed: ' . json_encode($errors),
+                null,
+                $email,
+                $this->request->getIPAddress(),
+                $this->request->getUserAgent()
+            );
 
             return redirect()->back()
                 ->withInput()
@@ -109,6 +123,18 @@ class Auth extends BaseController
                 log_message('notice', 'Login failed: invalid credentials. email={email}', [
                     'email' => $email,
                 ]);
+                
+                // Also log to security events system
+                $securityController = new SecurityController();
+                $securityController->logEvent(
+                    'login_failed',
+                    'medium',
+                    'Invalid credentials - login attempt failed',
+                    null,
+                    $email,
+                    $this->request->getIPAddress(),
+                    $this->request->getUserAgent()
+                );
                 $this->activityLogger->record('auth', 'login_attempt', 'failed', null, $user ? (int) $user['id'] : null, [
                     'email' => $email,
                     'reason' => 'invalid_credentials',
