@@ -83,7 +83,7 @@ class BlockedIPModel extends Model
             $builder->where('is_active', true);
         }
         
-        return $builder->orderBy('created_at', 'DESC')->findAll();
+        return $builder->orderBy('created_at', 'DESC')->get()->getResultArray();
     }
     
     /**

@@ -10,7 +10,7 @@
             <span>Dashboard</span>
         </a>
         
-        <?php if (in_array($role, ['admin', 'super_admin'], true)): ?>
+        <?php if (isset($role) && in_array($role, ['admin', 'super_admin'], true)): ?>
             <a href="<?= base_url('admin/users') ?>" class="<?= (strpos(current_url(), '/admin/users') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-users"></i>
                 <span>Users</span>
@@ -31,7 +31,7 @@
                 <i class="fas fa-file-invoice"></i>
                 <span>Service Records</span>
             </a>
-        <?php elseif ($role === 'worker'): ?>
+        <?php elseif (isset($role) && $role === 'worker'): ?>
             <a href="<?= base_url('worker/available-jobs') ?>" class="<?= (strpos(current_url(), '/worker/available-jobs') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-briefcase"></i>
                 <span>Available Jobs</span>
@@ -44,7 +44,7 @@
                 <i class="fas fa-wallet"></i>
                 <span>Earnings</span>
             </a>
-        <?php elseif ($role === 'customer'): ?>
+        <?php elseif (isset($role) && $role === 'customer'): ?>
             <a href="<?= base_url('customer/bookings') ?>" class="<?= (strpos(current_url(), '/customer/bookings') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-calendar-check"></i>
                 <span>My Bookings</span>
@@ -57,7 +57,7 @@
                 <i class="fas fa-credit-card"></i>
                 <span>Payments</span>
             </a>
-        <?php elseif ($role === 'finance'): ?>
+        <?php elseif (isset($role) && $role === 'finance'): ?>
             <a href="<?= base_url('finance/payments') ?>" class="<?= (strpos(current_url(), '/finance/payments') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-money-bill-wave"></i>
                 <span>Payments</span>

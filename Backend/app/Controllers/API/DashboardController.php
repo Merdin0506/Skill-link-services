@@ -491,4 +491,11 @@ class DashboardController extends ResourceController
             'recentBookings' => $this->bookingModel->limit(10)->orderBy('created_at', 'DESC')->find()
         ];
     }
+
+    private function getPositiveIntParam(string $name, int $default): int
+    {
+        $value = (int) $this->request->getVar($name);
+
+        return $value > 0 ? $value : $default;
+    }
 }
