@@ -28,6 +28,14 @@ class RoleFilter implements FilterInterface
 
         if (!in_array($userRole, $arguments, true)) {
             $this->logUnauthorized($request, 'Role check denied access.');
+            // Redirect user back to their last allowed page where they had permission, if available.
+            $session = session();
+            $last = $session->get('last_allowed_page') ?? '/dashboard';
+            // Ensure we only redirect within the app (simple sanity check)
+            if (is_string($last) && strpos($last, '/') === 0) {
+                return redirect()->to($last)->with('error', 'You do not have permission to access that page.');
+            }
+
             return redirect()->to('/dashboard')->with('error', 'You do not have permission to access that page.');
         }
     }

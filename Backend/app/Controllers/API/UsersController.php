@@ -60,8 +60,9 @@ class UsersController extends BaseController
 
         unset($user['password']);
 
-        // Add additional data based on user type
-        if ($user['user_type'] === 'worker') {
+        // Add additional data based on user type only for admins
+        $callerRole = $this->request->authUserRole ?? null;
+        if ($user['user_type'] === 'worker' && ($callerRole === 'admin' || $callerRole === 'super_admin')) {
             $user['average_rating'] = $this->userModel->getWorkerRating($id);
             $user['total_earnings'] = $this->userModel->getWorkerEarnings($id);
         }
@@ -84,10 +85,13 @@ class UsersController extends BaseController
             $workers = $this->userModel->getWorkers($status);
         }
 
-        // Remove passwords and add ratings
+        // Remove passwords and add ratings only if caller is admin
+        $callerRole = $this->request->authUserRole ?? null;
         foreach ($workers as &$worker) {
             unset($worker['password']);
-            $worker['average_rating'] = $this->userModel->getWorkerRating($worker['id']);
+            if ($callerRole === 'admin' || $callerRole === 'super_admin') {
+                $worker['average_rating'] = $this->userModel->getWorkerRating($worker['id']);
+            }
         }
 
         return $this->respond([

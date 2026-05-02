@@ -107,8 +107,8 @@
                     </div>
 
                     <div class="d-flex gap-2 justify-content-center">
-                        <button type="submit" class="btn btn-success btn-lg px-5" onclick="return confirm('⚠️ CONFIRM:\n\n✓ Have you collected ₱<?= number_format($booking['total_fee'], 2) ?> from the customer?\n✓ Is the job completed?\n✓ Is the payment information correct?\n\nClick OK to complete job and record payment.');">
-                            <i class="fas fa-check-double"></i> Yes, I Collected Payment - Complete Job Now
+                        <button type="submit" class="btn btn-success btn-lg px-5" onclick="return confirm('⚠️ CONFIRM:\n\n✓ Have you collected ₱<?= number_format($booking['total_fee'], 2) ?> from the customer?\n✓ Is the job completed?\n✓ Is the payment information correct?\n\nClick OK to mark the job as done and record payment.');">
+                                    <i class="fas fa-check-double"></i> Done
                         </button>
                         <a href="<?= base_url('worker/my-jobs') ?>" class="btn btn-outline-secondary btn-lg">
                             <i class="fas fa-times"></i> Cancel

@@ -39,6 +39,7 @@
                 <div class="stat-label">Total Earnings</div>
             </div>
         </div>
+        <?php if (session()->get('user_type') === 'admin' || session()->get('user_type') === 'super_admin'): ?>
         <div class="col-md-3 col-sm-6 mb-3">
             <div class="stat-card">
                 <i class="fas fa-star stat-icon" style="color: #ffc107;"></i>
@@ -46,6 +47,7 @@
                 <div class="stat-label">Average Rating</div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 
     <!-- Analytics -->

@@ -39,12 +39,6 @@ class SecurityController extends BaseController
         // Add additional data for API
         $dashboardData['top_threats'] = $this->securityEventModel->getTopSuspiciousIPs(5, 24);
         $dashboardData['recent_alerts'] = $this->securityNotificationModel->getActionRequiredNotifications();
-
-        // Backwards compatibility: some front-end pages expect `recent_notifications`
-        // while this API previously returned `recent_alerts`. Provide both keys.
-        if (empty($dashboardData['recent_notifications']) && !empty($dashboardData['recent_alerts'])) {
-            $dashboardData['recent_notifications'] = $dashboardData['recent_alerts'];
-        }
         
         return $this->respond([
             'status' => 'success',
@@ -58,10 +52,8 @@ class SecurityController extends BaseController
     public function events()
     {
         $request = service('request');
-        $page = (int) ($request->getVar('page') ?? 1);
-        $limit = (int) ($request->getVar('limit') ?? 50);
-        if ($page < 1) $page = 1;
-        if ($limit < 1) $limit = 50;
+        $page = $request->getVar('page') ?? 1;
+        $limit = $request->getVar('limit') ?? 50;
         $eventType = $request->getVar('event_type');
         $severity = $request->getVar('severity');
         $startDate = $request->getVar('start_date');
@@ -120,10 +112,8 @@ class SecurityController extends BaseController
     public function notifications()
     {
         $request = service('request');
-        $page = (int) ($request->getVar('page') ?? 1);
-        $limit = (int) ($request->getVar('limit') ?? 20);
-        if ($page < 1) $page = 1;
-        if ($limit < 1) $limit = 20;
+        $page = $request->getVar('page') ?? 1;
+        $limit = $request->getVar('limit') ?? 20;
         $type = $request->getVar('type');
         $priority = $request->getVar('priority');
         $unread = $request->getVar('unread');

@@ -292,8 +292,9 @@ class AuthController extends BaseController
 
         unset($user['password']);
 
-        // Add additional data based on user type
-        if ($user['user_type'] === 'worker') {
+        // Add additional data based on user type only for admin callers
+        $callerRole = $this->request->authUserRole ?? null;
+        if ($user['user_type'] === 'worker' && ($callerRole === 'admin' || $callerRole === 'super_admin')) {
             $user['average_rating'] = $this->userModel->getWorkerRating($userId);
             $user['total_earnings'] = $this->userModel->getWorkerEarnings($userId);
         }

@@ -19,6 +19,10 @@
                 <i class="fas fa-calendar-check"></i>
                 <span>Bookings</span>
             </a>
+            <a href="<?= base_url('admin/rates') ?>" class="<?= (strpos(current_url(), '/admin/rates') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-star"></i>
+                <span>Rates</span>
+            </a>
             <a href="<?= base_url('admin/payments') ?>" class="<?= (strpos(current_url(), '/admin/payments') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-credit-card"></i>
                 <span>Payments</span>

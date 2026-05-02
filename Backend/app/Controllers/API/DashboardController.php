@@ -193,7 +193,7 @@ class DashboardController extends ResourceController
             'in_progress_bookings' => $this->bookingModel->where('worker_id', $userId)->where('status', 'in_progress')->countAllResults(),
             'completed_jobs' => $this->bookingModel->where('worker_id', $userId)->where('status', 'completed')->countAllResults(),
             'total_earnings' => $this->getWorkerEarnings($userId),
-            'average_rating' => $this->getAverageRating($userId),
+            // Do not expose average rating to workers (Admin-only data)
         ];
     }
 

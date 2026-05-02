@@ -170,11 +170,14 @@ class BookingModel extends Model
         $db->transStart();
 
         try {
+            log_message('debug', 'assignWorker entered: booking=' . var_export($bookingId, true) . ' worker=' . var_export($workerId, true) . ' assignedBy=' . var_export($assignedBy, true));
+
             $userModel = new UserModel();
             $worker = $userModel->find($workerId);
             $booking = $this->find($bookingId);
             
             if (!$worker || !$booking) {
+                log_message('debug', 'assignWorker missing worker or booking: workerFound=' . var_export((bool) $worker, true) . ' bookingFound=' . var_export((bool) $booking, true));
                 throw new \Exception('Worker or booking not found');
             }
 
@@ -190,15 +193,19 @@ class BookingModel extends Model
             ]);
 
             if (!$updated) {
+                log_message('debug', 'assignWorker update returned false for booking ' . $bookingId);
                 throw new \Exception('Failed to update booking status');
             }
 
             if (!$this->syncServiceRecordFromBooking((int) $bookingId)) {
+                log_message('debug', 'assignWorker syncServiceRecordFromBooking returned false for booking ' . $bookingId);
                 throw new \Exception('Failed to sync service record');
             }
 
             $db->transComplete();
-            return (bool) $db->transStatus();
+            $status = (bool) $db->transStatus();
+            log_message('debug', 'assignWorker transaction status for booking ' . $bookingId . ': ' . var_export($status, true));
+            return $status;
         } catch (\Exception $e) {
             $db->transRollback();
             log_message('error', 'assignWorker Transaction failed: ' . $e->getMessage());

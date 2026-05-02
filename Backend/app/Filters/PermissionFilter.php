@@ -102,6 +102,7 @@ class PermissionFilter implements FilterInterface
         if (str_contains($path, 'update')
             || str_contains($path, 'edit')
             || str_contains($path, 'change-password')
+            || str_contains($path, 'accept')
             || str_contains($path, 'cancel')
             || str_contains($path, 'assign')
             || str_contains($path, 'restore')

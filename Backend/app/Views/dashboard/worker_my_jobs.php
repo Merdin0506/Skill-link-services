@@ -10,7 +10,7 @@
 
         <div class="alert alert-primary">
             <i class="fas fa-info-circle"></i> <strong>Job Workflow:</strong> 
-            Accept Job → Start Job → <strong>Complete & Collect Payment from Customer</strong> → Get Paid by Finance
+            Accept Job → Start Job → <strong>Done</strong> → Get Paid by Finance
         </div>
 
         <div class="card">
@@ -67,8 +67,8 @@
                                         <a href="<?= base_url('worker/complete-job-form/' . ($row['id'] ?? 0)) ?>" 
                                            class="btn btn-success btn-sm" 
                                            onclick="event.stopPropagation();"
-                                           title="Complete job and record payment collected from customer">
-                                            <i class="fas fa-check-circle"></i> Complete & Collect Payment
+                                           title="Mark job as done and record payment collected from customer">
+                                            <i class="fas fa-check-circle"></i> Done
                                         </a>
                                     <?php elseif ($row['status'] === 'completed'): ?>
                                         <span class="badge bg-success"><i class="fas fa-check"></i> Done</span>

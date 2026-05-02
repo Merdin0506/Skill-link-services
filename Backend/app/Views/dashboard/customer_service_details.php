@@ -38,6 +38,7 @@ $customCss = null;
 
                     <hr>
 
+                    <?php if (session()->get('user_type') === 'admin' || session()->get('user_type') === 'super_admin'): ?>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <span class="text-muted">Average Rating</span>
                         <strong><?= number_format((float) ($reviewStats['average_rating'] ?? 0), 1) ?>/5</strong>
@@ -50,6 +51,7 @@ $customCss = null;
                         <span class="text-muted">Total Bookings</span>
                         <strong><?= (int) ($reviewStats['total_bookings'] ?? 0) ?></strong>
                     </div>
+                    <?php endif; ?>
 
                     <button class="btn btn-primary w-100"
                             data-bs-toggle="modal"
@@ -70,34 +72,41 @@ $customCss = null;
                     <i class="fas fa-star"></i> Customer Reviews
                 </div>
                 <div class="card-body">
-                    <?php if (!empty($reviews)): ?>
-                        <?php foreach ($reviews as $review): ?>
-                            <div class="border rounded p-3 mb-3">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div>
-                                        <h6 class="mb-1"><?= esc(($review['customer_first_name'] ?? 'Customer') . ' ' . ($review['customer_last_name'] ?? '')) ?></h6>
-                                        <small class="text-muted">
-                                            Worker: <?= esc(($review['worker_first_name'] ?? 'N/A') . ' ' . ($review['worker_last_name'] ?? '')) ?>
-                                        </small>
+                    <?php if (session()->get('user_type') === 'admin' || session()->get('user_type') === 'super_admin'): ?>
+                        <?php if (!empty($reviews)): ?>
+                            <?php foreach ($reviews as $review): ?>
+                                <div class="border rounded p-3 mb-3">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h6 class="mb-1"><?= esc(($review['customer_first_name'] ?? 'Customer') . ' ' . ($review['customer_last_name'] ?? '')) ?></h6>
+                                            <small class="text-muted">
+                                                Worker: <?= esc(($review['worker_first_name'] ?? 'N/A') . ' ' . ($review['worker_last_name'] ?? '')) ?>
+                                            </small>
+                                        </div>
+                                        <small class="text-muted"><?= date('M d, Y', strtotime($review['created_at'] ?? date('Y-m-d'))) ?></small>
                                     </div>
-                                    <small class="text-muted"><?= date('M d, Y', strtotime($review['created_at'] ?? date('Y-m-d'))) ?></small>
-                                </div>
 
-                                <div class="mb-2 text-warning">
-                                    <?php $rating = (int) ($review['rating'] ?? 0); ?>
-                                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                                        <i class="<?= $i <= $rating ? 'fas fa-star' : 'far fa-star' ?>"></i>
-                                    <?php endfor; ?>
-                                    <span class="text-dark ms-2"><?= $rating ?>/5</span>
-                                </div>
+                                    <div class="mb-2 text-warning">
+                                        <?php $rating = (int) ($review['rating'] ?? 0); ?>
+                                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                                            <i class="<?= $i <= $rating ? 'fas fa-star' : 'far fa-star' ?>"></i>
+                                        <?php endfor; ?>
+                                        <span class="text-dark ms-2"><?= $rating ?>/5</span>
+                                    </div>
 
-                                <p class="mb-0 text-muted"><?= esc($review['comment'] ?? 'No comment provided.') ?></p>
+                                    <p class="mb-0 text-muted"><?= esc($review['comment'] ?? 'No comment provided.') ?></p>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="text-center text-muted py-5">
+                                <i class="fas fa-comments fa-3x mb-3 opacity-25"></i>
+                                <p class="mb-0">No reviews for this service yet.</p>
                             </div>
-                        <?php endforeach; ?>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div class="text-center text-muted py-5">
-                            <i class="fas fa-comments fa-3x mb-3 opacity-25"></i>
-                            <p class="mb-0">No reviews for this service yet.</p>
+                            <i class="fas fa-lock fa-3x mb-3 opacity-25"></i>
+                            <p class="mb-0">Access Denied — reviews are private.</p>
                         </div>
                     <?php endif; ?>
                 </div>

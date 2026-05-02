@@ -5,6 +5,7 @@ namespace App\Controllers\API;
 use App\Controllers\BaseController;
 use App\Models\ReviewModel;
 use App\Models\BookingModel;
+use App\Models\SecurityEventModel;
 use CodeIgniter\API\ResponseTrait;
 
 class ReviewsController extends BaseController
@@ -20,8 +21,45 @@ class ReviewsController extends BaseController
         $this->bookingModel = new BookingModel();
     }
 
+    /**
+     * Ensure the current API caller is an admin; otherwise log and return 403.
+     * Returns null when allowed, or a Response object when denied.
+     */
+    private function ensureAdminView()
+    {
+        $role = $this->request->authUserRole ?? null;
+        if ($role !== 'admin' && $role !== 'super_admin') {
+            // Log attempt
+            try {
+                (new SecurityEventModel())->insert([
+                    'user_id' => $this->request->authUserId ?? null,
+                    'email' => is_array($this->request->authUser ?? null) ? ($this->request->authUser['email'] ?? null) : null,
+                    'event_type' => 'unauthorized_access_ratings',
+                    'severity' => 'medium',
+                    'ip_address' => $this->request->getIPAddress(),
+                    'user_agent' => method_exists($this->request, 'getUserAgent') ? (string) $this->request->getUserAgent() : 'unknown',
+                    'request_uri' => $this->request->getUri()->getPath(),
+                    'request_method' => $this->request->getMethod(),
+                    'details' => 'Attempted access to ratings by non-admin',
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+            } catch (\Throwable $e) {
+                // ignore logging failures
+            }
+
+            return service('response')
+                ->setStatusCode(403)
+                ->setJSON(['status' => 'error', 'message' => 'You do not have permission to view ratings.']);
+        }
+
+        return null;
+    }
+
     public function index()
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         $workerId = $this->request->getVar('worker_id');
         $serviceId = $this->request->getVar('service_id');
         $status = $this->request->getVar('status') ?? 'published';
@@ -45,6 +83,9 @@ class ReviewsController extends BaseController
 
     public function show($id = null)
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         $review = $this->reviewModel->getReviewWithDetails($id);
 
         if (!$review) {
@@ -116,6 +157,9 @@ class ReviewsController extends BaseController
 
     public function workerRating($workerId = null)
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         if (!$workerId) {
             return $this->fail('Worker ID is required');
         }
@@ -136,6 +180,9 @@ class ReviewsController extends BaseController
 
     public function topWorkers()
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         $limit = $this->getPositiveIntParam('limit', 10);
         $minReviews = $this->request->getVar('min_reviews') ?? 5;
 
@@ -202,6 +249,9 @@ class ReviewsController extends BaseController
 
     public function statistics()
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         $totalReviews = $this->reviewModel->where('status', 'published')->countAllResults();
         $averageRating = $this->reviewModel
             ->select('AVG(rating) as average')
@@ -224,6 +274,9 @@ class ReviewsController extends BaseController
 
     public function recentReviews()
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         $limit = $this->getPositiveIntParam('limit', 10);
         $reviews = $this->reviewModel->getRecentReviews($limit);
 
@@ -235,6 +288,9 @@ class ReviewsController extends BaseController
 
     public function flaggedReviews()
     {
+        if ($resp = $this->ensureAdminView()) {
+            return $resp;
+        }
         $reviews = $this->reviewModel->getFlaggedReviews();
 
         return $this->respond([

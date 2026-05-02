@@ -1,66 +1,288 @@
-<?= $this->extend('layouts/security_base') ?>
-
-<?= $this->section('content') ?>
-    <!-- Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2><i class="fas fa-list"></i> Audit Logs</h2>
-            <p class="text-muted mb-0">Complete security event history and audit trail</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Logs - Security System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary-color) 0%, #34495e 100%);
+            color: white;
+            position: fixed;
+            width: 250px;
+            z-index: 1000;
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 2px 10px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .sidebar .nav-link i {
+            width: 20px;
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .filter-card {
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .event-row {
+            border-left: 4px solid;
+            background: white;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        .event-row:hover {
+            transform: translateX(5px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .event-row.critical {
+            border-left-color: var(--danger-color);
+        }
+        
+        .event-row.high {
+            border-left-color: var(--warning-color);
+        }
+        
+        .event-row.medium {
+            border-left-color: var(--secondary-color);
+        }
+        
+        .event-row.low {
+            border-left-color: var(--success-color);
+        }
+        
+        .severity-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .severity-high {
+            background-color: #fd7e14;
+            color: white;
+        }
+        
+        .severity-medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .severity-low {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .event-type-badge {
+            background-color: #6c757d;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 8px;
+        }
+        
+        .pagination {
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .search-box {
+            position: relative;
+        }
+        
+        .search-box i {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6c757d;
+        }
+        
+        .search-box input {
+            padding-left: 35px;
+        }
+        
+        .export-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="p-3">
+            <h4 class="text-center">
+                <i class="fas fa-shield-alt"></i> Security
+            </h4>
         </div>
-        <div>
-            <button class="btn btn-outline-primary me-2" onclick="refreshLogs()">
-                <i class="fas fa-sync-alt"></i> Refresh
-            </button>
-        </div>
-    </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link" href="/security/dashboard">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="/security/audit-logs">
+                    <i class="fas fa-list"></i> Audit Logs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/security/notifications">
+                    <i class="fas fa-bell"></i> Notifications
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/security/reports">
+                    <i class="fas fa-chart-bar"></i> Reports
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/security/blocked-ips">
+                    <i class="fas fa-ban"></i> Blocked IPs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="/security/settings">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-    <!-- Filters -->
-    <div class="card filter-card">
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3">
-                    <label class="form-label">Search</label>
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" class="form-control" id="searchInput" placeholder="Search events...">
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Event Type</label>
-                    <select class="form-select" id="eventTypeFilter">
-                        <option value="">All Types</option>
-                        <option value="login_success">Login Success</option>
-                        <option value="login_failed">Login Failed</option>
-                        <option value="logout">Logout</option>
-                        <option value="unauthorized_access">Unauthorized Access</option>
-                        <option value="suspicious_activity">Suspicious Activity</option>
-                        <option value="sql_injection_attempt">SQL Injection</option>
-                        <option value="xss_attempt">XSS Attempt</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Severity</label>
-                    <select class="form-select" id="severityFilter">
-                        <option value="">All Severities</option>
-                        <option value="critical">Critical</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Start Date</label>
-                    <input type="datetime-local" class="form-control" id="startDate">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">End Date</label>
-                    <input type="datetime-local" class="form-control" id="endDate">
-                </div>
-                <div class="col-md-1">
-                    <label class="form-label">&nbsp;</label>
-                    <button class="btn btn-primary w-100" onclick="applyFilters()">
-                        <i class="fas fa-filter"></i> Filter
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="fas fa-list"></i> Audit Logs</h2>
+                <p class="text-muted mb-0">Complete security event history and audit trail</p>
+            </div>
+            <div>
+                <button class="btn btn-outline-primary me-2" onclick="refreshLogs()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="fas fa-download"></i> Export
                     </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="#" onclick="exportLogs('json')">Export JSON</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="exportLogs('csv')">Export CSV</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="printLogs()">Print</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card filter-card">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Search</label>
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="form-control" id="searchInput" placeholder="Search events...">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Event Type</label>
+                        <select class="form-select" id="eventTypeFilter">
+                            <option value="">All Types</option>
+                            <option value="login_success">Login Success</option>
+                            <option value="login_failed">Login Failed</option>
+                            <option value="logout">Logout</option>
+                            <option value="unauthorized_access">Unauthorized Access</option>
+                            <option value="suspicious_activity">Suspicious Activity</option>
+                            <option value="sql_injection_attempt">SQL Injection</option>
+                            <option value="xss_attempt">XSS Attempt</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Severity</label>
+                        <select class="form-select" id="severityFilter">
+                            <option value="">All Severities</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Start Date</label>
+                        <input type="datetime-local" class="form-control" id="startDate">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">End Date</label>
+                        <input type="datetime-local" class="form-control" id="endDate">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label">&nbsp;</label>
+                        <button class="btn btn-primary w-100" onclick="applyFilters()">
+                            <i class="fas fa-filter"></i> Filter
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -125,10 +347,10 @@
                     end_date: document.getElementById('endDate').value
                 });
                 
-                const response = await fetch(`/dashboard/security-events?${params}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                const response = await fetch(`/api/security/events?${params}`, {
+                    headers: apiToken ? {
+                        'Authorization': `Bearer ${apiToken}`
+                    } : {}
                 });
                 const result = await response.json();
                 
@@ -266,16 +488,16 @@
             }
             
             try {
-                const response = await fetch(`/dashboard/security/block-ip`, {
+                const response = await fetch(`/api/security/block-ip`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'Content-Type': 'application/json',
+                        ...(apiToken ? { 'Authorization': `Bearer ${apiToken}` } : {})
                     },
-                    body: new URLSearchParams({
+                    body: JSON.stringify({
                         ip_address: ipAddress,
                         reason: 'Manual block from audit logs'
-                    }).toString()
+                    })
                 });
                 
                 const result = await response.json();
@@ -292,45 +514,52 @@
             }
         }
         
+        // Export logs
+        async function exportLogs(format) {
+            const params = new URLSearchParams({
+                format: format,
+                search: document.getElementById('searchInput').value,
+                event_type: document.getElementById('eventTypeFilter').value,
+                severity: document.getElementById('severityFilter').value,
+                start_date: document.getElementById('startDate').value,
+                end_date: document.getElementById('endDate').value
+            });
+
+            try {
+                const response = await fetch(`/api/security/events/export?${params}`, {
+                    headers: apiToken ? {
+                        'Authorization': `Bearer ${apiToken}`
+                    } : {}
+                });
+
+                const result = await response.json();
+                if (!response.ok || result.status !== 'success') {
+                    throw new Error(result.message || 'Unable to export logs');
+                }
+
+                const payload = JSON.stringify(result.data, null, 2);
+                const blob = new Blob([payload], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `security-events-${format}-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error exporting logs:', error);
+            }
+        }
+        
+        // Print logs
+        function printLogs() {
+            window.print();
+        }
+        
         // Scroll to top
         function scrollToTop() {
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function formatDateRange(startDate, endDate) {
-            return `${startDate} to ${endDate}`;
-        }
-
-        function showExportNotice(message) {
-            let notice = document.getElementById('exportNotice');
-            if (!notice) {
-                notice = document.createElement('div');
-                notice.id = 'exportNotice';
-                notice.style.position = 'fixed';
-                notice.style.top = '16px';
-                notice.style.right = '16px';
-                notice.style.zIndex = '100000';
-                notice.style.background = '#1e3c72';
-                notice.style.color = '#fff';
-                notice.style.padding = '10px 14px';
-                notice.style.borderRadius = '8px';
-                notice.style.boxShadow = '0 10px 30px rgba(0,0,0,0.18)';
-                notice.style.fontSize = '13px';
-                notice.style.maxWidth = '340px';
-                document.body.appendChild(notice);
-            }
-
-            notice.textContent = message;
-            notice.style.opacity = '1';
-            notice.style.transform = 'translateY(0)';
-            clearTimeout(window.exportNoticeTimer);
-            window.exportNoticeTimer = setTimeout(() => {
-                if (notice) {
-                    notice.style.opacity = '0';
-                    notice.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => notice.remove(), 350);
-                }
-            }, 2500);
         }
         
         // Format date
@@ -362,5 +591,5 @@
             }
         });
     </script>
-
-<?= $this->endSection() ?>
+</body>
+</html>

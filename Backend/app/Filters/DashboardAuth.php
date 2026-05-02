@@ -43,6 +43,18 @@ class DashboardAuth implements FilterInterface
 
     public function after(RequestInterface $request, ResponseInterface $response, $arguments = null)
     {
-        // Do nothing
+        // Track last allowed page for the logged-in user to support safe redirects
+        try {
+            $session = session();
+            if ($session->has('user_id')) {
+                $path = $request->getUri()->getPath();
+                // Keep only web dashboard paths
+                if (strpos($path, '/api') === false) {
+                    $session->set('last_allowed_page', $path ?: '/dashboard');
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore session failures
+        }
     }
 }

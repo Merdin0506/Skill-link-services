@@ -26,11 +26,14 @@ class WorkerActions extends BaseController
      */
     public function acceptJob($bookingId = null)
     {
+        // Debug logging: record incoming accept attempts
+        log_message('debug', 'acceptJob called for booking: ' . var_export($bookingId, true));
 
         $workerId = (int) $this->session->get('user_id');
         $booking = $this->bookingModel->find($bookingId);
 
         if (!$booking) {
+            log_message('debug', 'acceptJob: booking not found for id ' . var_export($bookingId, true));
             return redirect()->back()->with('error', 'Booking not found');
         }
 
@@ -47,11 +50,15 @@ class WorkerActions extends BaseController
 
         try {
             // Use the assignWorker method which calculates earnings
+            log_message('debug', "acceptJob: attempting assignWorker booking={$bookingId} worker={$workerId}");
             $success = $this->bookingModel->assignWorker($bookingId, $workerId, $workerId);
+            log_message('debug', 'acceptJob: assignWorker result: ' . var_export($success, true));
             
             if ($success) {
+                log_message('debug', 'acceptJob: success redirecting to my-jobs for booking ' . $bookingId);
                 return redirect()->to('/worker/my-jobs')->with('success', 'Job accepted successfully! Reference: ' . $booking['booking_reference']);
             } else {
+                log_message('debug', 'acceptJob: assignWorker returned false for booking ' . $bookingId);
                 return redirect()->back()->with('error', 'Failed to accept job. Please try again.');
             }
         } catch (\Exception $e) {

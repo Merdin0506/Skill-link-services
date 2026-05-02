@@ -27,16 +27,9 @@ $routes->get('logout', 'Auth::logout');
 
 $routes->get('dashboard', 'Dashboard::index', ['filter' => ['dashboardauth', 'permission']]);
 $routes->post('dashboard/refresh-security-data', 'Dashboard::refreshSecurityData', ['filter' => ['dashboardauth', 'permission']]);
-$routes->get('dashboard/security-events', 'Dashboard::securityEvents', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
-$routes->post('dashboard/security/block-ip', 'Dashboard::securityBlockIp', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
-$routes->get('dashboard/security-events/export', 'Dashboard::securityEventsExport', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/dashboard', 'SecurityController::dashboard', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/audit-logs', 'SecurityController::auditLogs', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
-$routes->get('security/notifications', 'SecurityController::notifications', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/reports', 'SecurityController::reports', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
-$routes->get('security/blocked-ips', 'SecurityController::blockedIps', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
-$routes->post('security/unblock-ip/(:num)', 'SecurityController::unblockIp/$1', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
-$routes->get('security/settings', 'SecurityController::settings', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 
 $routes->group('profile', ['filter' => ['dashboardauth', 'permission']], function ($routes) {
     $routes->get('/', 'Dashboard::profile');
@@ -68,6 +61,7 @@ $routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin',
     $routes->get('backups', 'Dashboard::backups');
     $routes->post('backups/create', 'Dashboard::backupCreate');
     $routes->post('backups/restore', 'Dashboard::backupRestore');
+    $routes->get('rates', 'Dashboard::rates');
     $routes->get('records', 'Dashboard::records');
     $routes->get('records/edit/(:num)', 'Dashboard::recordEdit/$1');
     $routes->post('records/update/(:num)', 'Dashboard::recordUpdate/$1');
@@ -159,12 +153,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('services/popular', 'ServicesController::popular');
     $routes->get('services/category/(:segment)', 'ServicesController::byCategory/$1');
     $routes->get('services/(:num)', 'ServicesController::show/$1');
-    $routes->get('reviews', 'ReviewsController::index');
-    $routes->get('reviews/(:num)', 'ReviewsController::show/$1');
-    $routes->get('reviews/worker/(:num)', 'ReviewsController::workerRating/$1');
-    $routes->get('reviews/top-workers', 'ReviewsController::topWorkers');
-    $routes->get('reviews/recent', 'ReviewsController::recentReviews');
-    $routes->get('reviews/can-review', 'ReviewsController::canReview');
 });
 
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin', 'permissionapi']], function ($routes) {
@@ -249,4 +237,9 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->put('reviews/(:num)/status', 'ReviewsController::updateStatus/$1');
     $routes->get('reviews/flagged', 'ReviewsController::flaggedReviews');
     $routes->get('reviews/statistics', 'ReviewsController::statistics');
+    $routes->get('reviews', 'ReviewsController::index');
+    $routes->get('reviews/(:num)', 'ReviewsController::show/$1');
+    $routes->get('reviews/worker/(:num)', 'ReviewsController::workerRating/$1');
+    $routes->get('reviews/top-workers', 'ReviewsController::topWorkers');
+    $routes->get('reviews/recent', 'ReviewsController::recentReviews');
 });

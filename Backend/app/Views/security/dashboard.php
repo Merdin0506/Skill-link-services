@@ -1,38 +1,276 @@
-<?= $this->extend('layouts/security_base') ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Dashboard - SkillLink</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --dark-bg: #1a1a1a;
+            --dark-sidebar: #2c3e50;
+            --light-bg: #f8f9fa;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+        }
+        
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--dark-sidebar) 0%, #34495e 100%);
+            color: white;
+            position: fixed;
+            width: 250px;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 5px;
+            margin: 2px 10px;
+            transition: all 0.3s;
+        }
+        
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .sidebar .nav-link i {
+            width: 20px;
+            margin-right: 10px;
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .stat-card {
+            border-radius: 10px;
+            border: none;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            overflow: hidden;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .stat-card .card-body {
+            padding: 20px;
+        }
+        
+        .stat-card .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            margin-bottom: 15px;
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: var(--danger-color);
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .alert-item {
+            border-left: 4px solid;
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            background: white;
+        }
+        
+        .alert-item.critical {
+            border-left-color: var(--danger-color);
+        }
+        
+        .alert-item.high {
+            border-left-color: var(--warning-color);
+        }
+        
+        .alert-item.medium {
+            border-left-color: var(--secondary-color);
+        }
+        
+        .alert-item.low {
+            border-left-color: var(--success-color);
+        }
+        
+        .event-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.3s;
+        }
+        
+        .event-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .event-item:last-child {
+            border-bottom: none;
+        }
+        
+        .severity-badge {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .severity-high {
+            background-color: #fd7e14;
+            color: white;
+        }
+        
+        .severity-medium {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        
+        .severity-low {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin: 20px 0;
+        }
+        
+        .top-header {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1001;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="p-3">
+            <h4 class="text-center">
+                <i class="fas fa-shield-alt"></i> Security
+            </h4>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item">
+                <a class="nav-link active" href="#dashboard">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#events">
+                    <i class="fas fa-list"></i> Audit Logs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#notifications">
+                    <i class="fas fa-bell"></i> Notifications
+                    <span class="notification-badge" id="notificationCount">0</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#reports">
+                    <i class="fas fa-chart-bar"></i> Reports
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#blocked-ips">
+                    <i class="fas fa-ban"></i> Blocked IPs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#settings">
+                    <i class="fas fa-cog"></i> Settings
+                </a>
+            </li>
+        </ul>
+    </nav>
 
-<?= $this->section('content') ?>
-    <!-- Top Header -->
-    <div class="top-header">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h2><i class="fas fa-shield-alt"></i> Security Dashboard</h2>
-                <p class="text-muted mb-0">Real-time security monitoring and threat detection</p>
-            </div>
-            <div class="col-md-6 text-end">
-                <button class="btn btn-outline-primary me-2" onclick="refreshDashboard()">
-                    <i class="fas fa-sync-alt"></i> Refresh
-                </button>
-                <?php if (($securityNavActive ?? '') === 'reports'): ?>
-                <div class="dropdown d-inline-block">
-                    <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                        <i class="fas fa-download"></i> Export
-                    </button>
-                    <ul class="dropdown-menu p-3" style="min-width: 280px;">
-                        <li class="mb-2">
-                            <label class="form-label mb-1">Start Date</label>
-                            <input type="date" class="form-control form-control-sm" id="reportStartDate">
-                        </li>
-                        <li class="mb-2">
-                            <label class="form-label mb-1">End Date</label>
-                            <input type="date" class="form-control form-control-sm" id="reportEndDate">
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportReport('json'); return false;">Export JSON</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="exportReport('pdf'); return false;">Export PDF</a></li>
-                        <li><a class="dropdown-item" href="#" onclick="printReport(); return false;">Print Report</a></li>
-                    </ul>
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Header -->
+        <div class="top-header">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h2><i class="fas fa-shield-alt"></i> Security Dashboard</h2>
+                    <p class="text-muted mb-0">Real-time security monitoring and threat detection</p>
                 </div>
-                <?php endif; ?>
+                <div class="col-md-6 text-end">
+                    <button class="btn btn-outline-primary me-2" onclick="refreshDashboard()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <div class="dropdown d-inline-block">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="exportReport('json')">Export JSON</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="exportReport('pdf')">Export PDF</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="printReport()">Print Report</a></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -139,10 +377,13 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
     <script>
+        const apiToken = <?= json_encode($apiToken ?? '') ?>;
         let securityChart = null;
         
         // Initialize dashboard
@@ -153,26 +394,18 @@
             setInterval(loadDashboard, 30000);
         });
         
-        // Load dashboard data from the shared dashboard endpoint so both
-        // main dashboard and security page use the same source of truth.
+        // Load dashboard data
         async function loadDashboard() {
             try {
-                const response = await fetch('/dashboard/refresh-security-data', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                const response = await fetch('/api/security/dashboard', {
+                    headers: apiToken ? {
+                        'Authorization': `Bearer ${apiToken}`
+                    } : {}
                 });
-
-                console.log('Dashboard response status:', response.status);
                 const result = await response.json();
-                console.log('Dashboard result:', result);
+                
                 if (result.status === 'success') {
-                    console.log('Dashboard data loaded:', result.data);
                     updateDashboard(result.data);
-                } else {
-                    console.error('Failed to load dashboard:', result.message || result);
                 }
             } catch (error) {
                 console.error('Error loading dashboard:', error);
@@ -181,51 +414,24 @@
         
         // Update dashboard with data
         function updateDashboard(data) {
-            // Defensive DOM updates (some IDs may not exist on this view)
-            const setText = (id, value) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = value;
-            };
-
-            // Update statistics safely
-            setText('totalEvents', data.total_events || 0);
-            setText('failedLogins', data.failed_logins || 0);
-            setText('blockedIPs', data.blocked_ips || 0);
-            setText('unreadNotifications', data.unread_notifications || 0);
-            setText('notificationCount', data.unread_notifications || 0);
-
+            // Update statistics
+            document.getElementById('totalEvents').textContent = data.total_events || 0;
+            document.getElementById('failedLogins').textContent = data.failed_logins || 0;
+            document.getElementById('blockedIPs').textContent = data.blocked_ips || 0;
+            document.getElementById('unreadNotifications').textContent = data.unread_notifications || 0;
+            document.getElementById('notificationCount').textContent = data.unread_notifications || 0;
+            
             // Update recent alerts
-            try {
-                updateRecentAlerts(data.recent_notifications || []);
-            } catch (e) {
-                console.warn('updateRecentAlerts failed', e);
-            }
-
+            updateRecentAlerts(data.recent_notifications || []);
+            
             // Update recent events
-            try {
-                updateRecentEvents(data.recent_events || []);
-            } catch (e) {
-                console.warn('updateRecentEvents failed', e);
-            }
-
+            updateRecentEvents(data.recent_events || []);
+            
             // Update top threats
-            try {
-                updateTopThreats(data.top_threats || []);
-            } catch (e) {
-                console.warn('updateTopThreats failed', e);
-            }
-
+            updateTopThreats(data.top_threats || []);
+            
             // Update chart
-            try {
-                updateChart(data.chart_data || []);
-            } catch (e) {
-                console.warn('updateChart failed', e);
-            }
-
-            // Optional debug panel: show raw JSON when ?debug=1 is present
-            if (new URLSearchParams(window.location.search).get('debug') === '1') {
-                showDebugJSON(data);
-            }
+            updateChart(data.chart_data || []);
         }
         
         // Update recent alerts
@@ -359,19 +565,10 @@
         // Export report
         async function exportReport(format) {
             try {
-                const startDate = document.getElementById('reportStartDate')?.value || '';
-                const endDate = document.getElementById('reportEndDate')?.value || '';
-
-                const params = new URLSearchParams({
-                    format,
-                    start_date: startDate,
-                    end_date: endDate,
-                });
-
-                const response = await fetch(`/dashboard/security-events/export?${params}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                const response = await fetch(`/api/security/report?format=${format}`, {
+                    headers: apiToken ? {
+                        'Authorization': `Bearer ${apiToken}`
+                    } : {}
                 });
 
                 const result = await response.json();
@@ -379,71 +576,11 @@
                     throw new Error(result.message || 'Unable to export report');
                 }
 
-                // Real PDF export using jsPDF + autoTable
-                if (format === 'pdf') {
-                    const jsPDFCtor = window.jspdf && window.jspdf.jsPDF ? window.jspdf.jsPDF : null;
-                    if (!jsPDFCtor) {
-                        throw new Error('PDF library failed to load');
-                    }
-
-                    const doc = new jsPDFCtor({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-                    const events = Array.isArray(result.data?.events) ? result.data.events : [];
-                    const generatedAt = result.data?.exported_at || new Date().toLocaleString();
-                    const meta = result.data?.meta || {};
-                    const rangeStart = meta?.date_range?.start || 'All available data';
-                    const rangeEnd = meta?.date_range?.end || 'All available data';
-
-                    showExportNotice(`Exporting PDF report for ${formatDateRange(rangeStart, rangeEnd)}...`);
-
-                    doc.setFontSize(16);
-                    doc.text('SkillLink Security Report', 40, 40);
-                    doc.setFontSize(10);
-                    doc.text(`Generated: ${generatedAt}`, 40, 58);
-                    doc.text(`Date Range: ${rangeStart} to ${rangeEnd}`, 40, 74);
-                    doc.text(`Total Events: ${events.length}`, 40, 90);
-
-                    const rows = events.map((event) => [
-                        formatEventType(event.event_type || 'n/a'),
-                        event.severity || 'n/a',
-                        event.email || 'Unknown',
-                        event.ip_address || 'n/a',
-                        event.created_at || 'n/a',
-                        event.details || ''
-                    ]);
-
-                    doc.autoTable({
-                        startY: 106,
-                        head: [['Event', 'Severity', 'User/Email', 'IP Address', 'Created At', 'Details']],
-                        body: rows,
-                        styles: { fontSize: 8, cellPadding: 4 },
-                        headStyles: { fillColor: [30, 60, 114] },
-                        columnStyles: {
-                            0: { cellWidth: 85 },
-                            1: { cellWidth: 60 },
-                            2: { cellWidth: 140 },
-                            3: { cellWidth: 80 },
-                            4: { cellWidth: 110 },
-                            5: { cellWidth: 210 }
-                        }
-                    });
-
-                    const fileStart = (rangeStart === 'All available data' ? 'all' : String(rangeStart).slice(0, 10)).replace(/[^0-9A-Za-z_-]/g, '-');
-                    const fileEnd = (rangeEnd === 'All available data' ? 'all' : String(rangeEnd).slice(0, 10)).replace(/[^0-9A-Za-z_-]/g, '-');
-                    doc.save(`security-report-${fileStart}-to-${fileEnd}.pdf`);
-                    return;
-                }
-
-                const payload = JSON.stringify(result.data, null, 2);
-                const blob = new Blob([payload], { type: 'application/json' });
+                const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                const ext = format || 'json';
-                const jsonMeta = result.data?.meta || {};
-                const jsonStartDate = jsonMeta?.date_range?.start || 'All available data';
-                const jsonEndDate = jsonMeta?.date_range?.end || 'All available data';
-                showExportNotice(`Exporting JSON report for ${formatDateRange(jsonStartDate, jsonEndDate)}...`);
-                link.download = `security-report-${new Date().toISOString().slice(0, 10)}.${ext}`;
+                link.download = `security-report-${format}-${new Date().toISOString().slice(0, 10)}.json`;
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
@@ -457,65 +594,6 @@
         function printReport() {
             window.print();
         }
-
-        function formatDateRange(startDate, endDate) {
-            return `${startDate} to ${endDate}`;
-        }
-
-        function showExportNotice(message) {
-            let notice = document.getElementById('exportNotice');
-            if (!notice) {
-                notice = document.createElement('div');
-                notice.id = 'exportNotice';
-                notice.style.position = 'fixed';
-                notice.style.top = '16px';
-                notice.style.right = '16px';
-                notice.style.zIndex = '100000';
-                notice.style.background = '#1e3c72';
-                notice.style.color = '#fff';
-                notice.style.padding = '10px 14px';
-                notice.style.borderRadius = '8px';
-                notice.style.boxShadow = '0 10px 30px rgba(0,0,0,0.18)';
-                notice.style.fontSize = '13px';
-                notice.style.maxWidth = '340px';
-                document.body.appendChild(notice);
-            }
-
-            notice.textContent = message;
-            notice.style.opacity = '1';
-            notice.style.transform = 'translateY(0)';
-            clearTimeout(window.exportNoticeTimer);
-            window.exportNoticeTimer = setTimeout(() => {
-                if (notice) {
-                    notice.style.opacity = '0';
-                    notice.style.transition = 'opacity 0.3s ease';
-                    setTimeout(() => notice.remove(), 350);
-                }
-            }, 2500);
-        }
-        
-        // Debug helper: render returned JSON on-page when ?debug=1 is set
-        function showDebugJSON(data) {
-            let panel = document.getElementById('securityDebug');
-            if (!panel) {
-                panel = document.createElement('pre');
-                panel.id = 'securityDebug';
-                panel.style.position = 'fixed';
-                panel.style.right = '12px';
-                panel.style.bottom = '12px';
-                panel.style.width = '420px';
-                panel.style.maxHeight = '60vh';
-                panel.style.overflow = 'auto';
-                panel.style.background = 'rgba(0,0,0,0.85)';
-                panel.style.color = '#fff';
-                panel.style.padding = '12px';
-                panel.style.zIndex = 99999;
-                panel.style.fontSize = '12px';
-                panel.style.borderRadius = '6px';
-                document.body.appendChild(panel);
-            }
-            panel.textContent = JSON.stringify(data, null, 2);
-        }
         
         // Format date
         function formatDate(dateString) {
@@ -528,5 +606,5 @@
             return eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
         }
     </script>
-
-<?= $this->endSection() ?>
+</body>
+</html>

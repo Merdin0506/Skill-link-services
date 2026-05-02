@@ -1,6 +1,10 @@
 <?= view('layouts/page_header', ['pageTitle' => 'Job Details']) ?>
 
 <div class="page-content">
+    <?php
+        $isAdmin = session()->get('user_type') === 'admin' || session()->get('user_type') === 'super_admin';
+        $leftClass = $isAdmin ? 'col-lg-5' : 'col-lg-8 offset-lg-2';
+    ?>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-0"><i class="fas fa-briefcase"></i> Job Details</h3>
         <a href="<?= base_url(($booking['status'] ?? '') === 'pending' ? 'worker/available-jobs' : 'worker/my-jobs') ?>" class="btn btn-outline-secondary">
@@ -9,7 +13,7 @@
     </div>
 
     <div class="row g-4">
-        <div class="col-lg-5">
+        <div class="<?= $leftClass ?>">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span><i class="fas fa-file-alt"></i> <?= esc($booking['booking_reference'] ?? 'N/A') ?></span>
@@ -74,7 +78,7 @@
 
                     <div class="d-flex gap-2 flex-wrap">
                         <?php if (($booking['status'] ?? '') === 'pending'): ?>
-                            <form action="<?= base_url('worker/accept-job/' . ($booking['id'] ?? 0)) ?>" method="POST" data-confirm-message="Accept this job?" data-confirm-label="Accept job" data-confirm-class="btn-success">
+                            <form action="<?= base_url('worker/accept-job/' . ($booking['id'] ?? 0)) ?>" method="POST">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-success">
                                     <i class="fas fa-check"></i> Accept Job
@@ -89,7 +93,7 @@
                             </form>
                         <?php elseif (($booking['status'] ?? '') === 'in_progress'): ?>
                             <a href="<?= base_url('worker/complete-job-form/' . ($booking['id'] ?? 0)) ?>" class="btn btn-success">
-                                <i class="fas fa-check-circle"></i> Complete & Collect Payment
+                                <i class="fas fa-check-circle"></i> Done
                             </a>
                         <?php endif; ?>
                     </div>
@@ -97,6 +101,7 @@
             </div>
         </div>
 
+        <?php if (session()->get('user_type') === 'admin' || session()->get('user_type') === 'super_admin'): ?>
         <div class="col-lg-7">
             <div class="card h-100">
                 <div class="card-header">
@@ -130,6 +135,7 @@
                 </div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
 </div>
 

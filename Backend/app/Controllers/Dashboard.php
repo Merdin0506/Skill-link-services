@@ -617,6 +617,79 @@ class Dashboard extends BaseController
         return view('dashboard/admin_backups', $data);
     }
 
+    /**
+     * Admin Rates / Reviews manager
+     */
+    public function rates()
+    {
+        $filters = [
+            'q' => $this->request->getGet('q'),
+            'worker_id' => $this->request->getGet('worker_id'),
+            'status' => $this->request->getGet('status'),
+        ];
+
+        $builder = $this->reviewModel
+            ->select('reviews.*, bookings.booking_reference, customers.first_name AS customer_first_name, customers.last_name AS customer_last_name, workers.first_name AS worker_first_name, workers.last_name AS worker_last_name, services.name AS service_name')
+            ->join('bookings', 'bookings.id = reviews.booking_id')
+            ->join('users as customers', 'customers.id = reviews.customer_id')
+            ->join('users as workers', 'workers.id = reviews.worker_id')
+            ->join('services', 'services.id = bookings.service_id');
+
+        if (!empty($filters['worker_id'])) {
+            $builder->where('reviews.worker_id', (int)$filters['worker_id']);
+        }
+
+        if (!empty($filters['status'])) {
+            $builder->where('reviews.status', $filters['status']);
+        }
+
+        if (!empty($filters['q'])) {
+            $q = $filters['q'];
+            $builder->groupStart()
+                ->like('bookings.booking_reference', $q)
+                ->orLike('customers.first_name', $q)
+                ->orLike('customers.last_name', $q)
+                ->orLike('workers.first_name', $q)
+                ->orLike('workers.last_name', $q)
+                ->orLike('services.name', $q)
+                ->orLike('reviews.comment', $q)
+            ->groupEnd();
+        }
+
+        $reviews = $builder->orderBy('reviews.created_at', 'DESC')->findAll();
+
+        // status counts
+        $statusCounts = [
+            'published' => $this->reviewModel->where('status', 'published')->countAllResults(),
+            'hidden' => $this->reviewModel->where('status', 'hidden')->countAllResults(),
+            'flagged' => $this->reviewModel->where('status', 'flagged')->countAllResults(),
+        ];
+
+        // workers with reviews
+        $workersWithReviews = (new \App\Models\UserModel())
+            ->select('users.id, users.first_name, users.last_name, COUNT(reviews.id) AS review_count')
+            ->join('reviews', 'reviews.worker_id = users.id')
+            ->where('users.user_type', 'worker')
+            ->groupBy('users.id')
+            ->orderBy('review_count', 'DESC')
+            ->findAll();
+
+        // rating distribution (optionally per worker)
+        $ratingDistribution = $this->reviewModel->getRatingDistribution(!empty($filters['worker_id']) ? (int)$filters['worker_id'] : null);
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'reviews' => $reviews,
+            'statusCounts' => $statusCounts,
+            'filters' => $filters,
+            'workersWithReviews' => $workersWithReviews,
+            'ratingDistribution' => $ratingDistribution,
+        ];
+
+        return view('dashboard/admin_rates', $data);
+    }
+
     public function backupCreate()
     {
         try {
@@ -1356,7 +1429,7 @@ class Dashboard extends BaseController
             'recentActivityLogs' => $isAdmin ? $activityLogModel->getRecentWithUsers(25) : [],
         ];
 
-        return view('dashboard/admin_dashboard', $data);
+        return view('dashboard/settings', $data);
     }
 
     /**
@@ -1724,7 +1797,7 @@ class Dashboard extends BaseController
             'in_progress_bookings' => $this->bookingModel->where('worker_id', $userId)->where('status', 'in_progress')->countAllResults(),
             'completed_jobs' => $this->bookingModel->where('worker_id', $userId)->where('status', 'completed')->countAllResults(),
             'total_earnings' => $this->getWorkerEarnings($userId),
-            'average_rating' => $this->getAverageRating($userId),
+            // average_rating intentionally omitted for worker role
         ];
     }
 

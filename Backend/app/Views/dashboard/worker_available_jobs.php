@@ -29,7 +29,7 @@
                         <tbody>
                         <?php if (!empty($jobs)): ?>
                             <?php foreach ($jobs as $row): ?>
-                            <tr onclick="window.location.href='<?= base_url('worker/job/' . ($row['id'] ?? 0)) ?>'" style="cursor: pointer;">
+                            <tr>
                                 <td><strong><?= esc($row['booking_reference'] ?? '-') ?></strong></td>
                                 <td><?= esc($row['service_name'] ?? '-') ?></td>
                                 <td><?= esc(($row['customer_first_name'] ?? '') . ' ' . ($row['customer_last_name'] ?? '')) ?></td>
@@ -41,10 +41,10 @@
                                 </td>
                                 <td><strong>₱<?= number_format((float)($row['total_fee'] ?? 0), 2) ?></strong></td>
                                 <td>
-                                    <a href="<?= base_url('worker/job/' . ($row['id'] ?? 0)) ?>" class="btn btn-outline-primary btn-sm me-1" onclick="event.stopPropagation();">
+                                    <a href="<?= base_url('worker/job/' . ($row['id'] ?? 0)) ?>" class="btn btn-outline-primary btn-sm me-1">
                                         <i class="fas fa-eye"></i> Details
                                     </a>
-                                    <form action="<?= base_url('worker/accept-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;" data-confirm-message="Accept this job?" data-confirm-label="Accept job" data-confirm-class="btn-success">
+                                    <form action="<?= base_url('worker/accept-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="btn btn-success btn-sm">
                                             <i class="fas fa-check"></i> Accept
