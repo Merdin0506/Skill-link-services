@@ -27,6 +27,16 @@ $routes->get('logout', 'Auth::logout');
 
 $routes->get('dashboard', 'Dashboard::index', ['filter' => ['dashboardauth', 'permission']]);
 $routes->post('dashboard/refresh-security-data', 'Dashboard::refreshSecurityData', ['filter' => ['dashboardauth', 'permission']]);
+$routes->get('dashboard/security-events', 'Dashboard::securityEvents', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->post('dashboard/security/block-ip', 'Dashboard::securityBlockIp', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('dashboard/security-events/export', 'Dashboard::securityEventsExport', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/dashboard', 'SecurityController::dashboard', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/audit-logs', 'SecurityController::auditLogs', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/notifications', 'SecurityController::notifications', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/reports', 'SecurityController::reports', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/blocked-ips', 'SecurityController::blockedIps', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->post('security/unblock-ip/(:num)', 'SecurityController::unblockIp/$1', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/settings', 'SecurityController::settings', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 
 $routes->group('profile', ['filter' => ['dashboardauth', 'permission']], function ($routes) {
     $routes->get('/', 'Dashboard::profile');
@@ -155,6 +165,17 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('reviews/top-workers', 'ReviewsController::topWorkers');
     $routes->get('reviews/recent', 'ReviewsController::recentReviews');
     $routes->get('reviews/can-review', 'ReviewsController::canReview');
+});
+
+$routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin', 'permissionapi']], function ($routes) {
+    $routes->get('security/dashboard', 'SecurityController::dashboard');
+    $routes->get('security/events', 'SecurityController::events');
+    $routes->get('security/events/export', 'SecurityController::exportEvents');
+    $routes->post('security/block-ip', 'SecurityController::blockIP');
+    $routes->get('security/blocked-ips', 'SecurityController::blockedIPs');
+    $routes->post('security/unblock-ip/(:num)', 'SecurityController::unblockIP/$1');
+    $routes->get('security/statistics', 'SecurityController::statistics');
+    $routes->get('security/report', 'SecurityController::report');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

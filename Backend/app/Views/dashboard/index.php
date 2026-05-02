@@ -428,6 +428,7 @@
         <!-- Load Role-Specific Dashboard -->
         <?php 
         $dashboardView = match($role) {
+            'super_admin' => 'dashboard/admin_dashboard',
             'admin' => 'dashboard/admin_dashboard',
             'worker' => 'dashboard/worker_dashboard',
             'customer' => 'dashboard/customer_dashboard',
@@ -454,7 +455,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Keep dashboard data fresh by auto-refreshing the main dashboard view.
             const path = window.location.pathname.replace(/\/+$/, '');
-            const isMainDashboard = path === '/dashboard' || path.endsWith('/dashboard') || path.endsWith('/index.php/dashboard');
+            const isMainDashboard = path === '/dashboard' || path.endsWith('/dashboard');
             if (isMainDashboard) {
                 setInterval(function() {
                     if (!document.hidden) {

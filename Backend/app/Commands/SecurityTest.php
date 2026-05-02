@@ -70,6 +70,15 @@ class SecurityTest extends BaseCommand
             null,
             'test@example.com'
         );
+
+        CLI::write('Logging unauthorized access test event...', 'yellow');
+        $securityController->logEvent(
+            'unauthorized_access',
+            'medium',
+            'Test unauthorized access from security test command',
+            null,
+            'test@example.com'
+        );
         
         CLI::write('Event logged successfully!', 'green');
         

@@ -101,6 +101,10 @@ class Exceptions extends BaseConfig
      */
     public function handler(int $statusCode, Throwable $exception): ExceptionHandlerInterface
     {
+        if ($statusCode === 400) {
+            return new \App\Libraries\BadRequestRedirectHandler($this);
+        }
+
         return new ExceptionHandler($this);
     }
 }

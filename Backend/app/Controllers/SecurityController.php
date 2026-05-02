@@ -28,6 +28,102 @@ class SecurityController extends BaseController
         $this->userModel = new UserModel();
         $this->emailNotifier = new SecurityEmailNotifier();
     }
+
+    /**
+     * Render the security dashboard page.
+     */
+    public function dashboard()
+    {
+        return view('security/dashboard', [
+            'dashboardData' => $this->getDashboardData(),
+            'apiToken' => session()->get('api_token'),
+            'securityNavActive' => 'dashboard',
+        ]);
+    }
+
+    /**
+     * Render audit logs page.
+     */
+    public function auditLogs()
+    {
+        return view('security/audit_logs', [
+            'apiToken' => session()->get('api_token'),
+            'securityNavActive' => 'audit',
+        ]);
+    }
+
+    /**
+     * Render reports page.
+     */
+    public function reports()
+    {
+        return view('security/reports', [
+            'dashboardData' => $this->getDashboardData(),
+            'apiToken' => session()->get('api_token'),
+            'securityNavActive' => 'reports',
+        ]);
+    }
+
+    /**
+     * Render notifications page.
+     */
+    public function notifications()
+    {
+        $adminId = session()->get('user_id');
+
+        $notifications = [];
+        if (is_numeric($adminId)) {
+            $notifications = $this->securityNotificationModel
+                ->where('admin_id', (int) $adminId)
+                ->orderBy('created_at', 'DESC')
+                ->limit(50)
+                ->findAll();
+        }
+
+        return view('security/notifications', [
+            'notifications' => $notifications,
+            'securityNavActive' => 'notifications',
+        ]);
+    }
+
+    /**
+     * Render blocked IPs page.
+     */
+    public function blockedIps()
+    {
+        $blockedIps = $this->blockedIPModel
+            ->orderBy('created_at', 'DESC')
+            ->limit(100)
+            ->findAll();
+
+        return view('security/blocked_ips', [
+            'blockedIps' => $blockedIps,
+            'securityNavActive' => 'blocked',
+        ]);
+    }
+
+    /**
+     * Unblock an IP.
+     */
+    public function unblockIp(int $id)
+    {
+        $this->blockedIPModel->update($id, [
+            'is_active' => false,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        return redirect()->to('/security/blocked-ips')->with('success', 'IP address has been unblocked.');
+    }
+
+    /**
+     * Render security settings page.
+     */
+    public function settings()
+    {
+        return view('security/settings', [
+            'securityNavActive' => 'settings',
+        ]);
+    }
     
     /**
      * Log security event
@@ -85,6 +181,16 @@ class SecurityController extends BaseController
             
         if ($suspiciousCount >= 10) {
             $this->blockIP($ipAddress, 'Multiple suspicious activities detected', true, '+1 hour');
+
+            $this->createNotification(
+                'Multiple Suspicious Activities Detected',
+                "10 or more suspicious activities detected from IP: {$ipAddress} within 5 minutes. The IP has been blocked for 1 hour.",
+                'warning',
+                'high',
+                true,
+                $userId,
+                $ipAddress
+            );
             
             // Send email notification for repeated suspicious activity
             $this->emailNotifier->sendSecurityAlert(
@@ -97,7 +203,7 @@ class SecurityController extends BaseController
         // Check for admin account suspicious activities
         if ($userId && $eventType === 'login_success') {
             $user = $this->userModel->find($userId);
-            if ($user && $user['user_type'] === 'admin') {
+            if ($user && in_array(($user['user_type'] ?? ''), ['admin', 'super_admin'], true)) {
                 // Check if admin is logging from unusual location
                 $recentAdminLogins = $this->securityEventModel
                     ->where('event_type', 'login_success')
@@ -196,7 +302,7 @@ class SecurityController extends BaseController
     public function createNotification($title, $message, $type = 'info', $priority = 'medium', $actionRequired = false, $relatedUserId = null, $ipAddress = null)
     {
         // Get all admin users
-        $admins = $this->userModel->where('user_type', 'admin')->findAll();
+        $admins = $this->userModel->whereIn('user_type', ['admin', 'super_admin'])->findAll();
         
         foreach ($admins as $admin) {
             $data = [

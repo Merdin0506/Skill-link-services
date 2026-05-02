@@ -13,6 +13,8 @@
     
     <!-- Shared Sidebar CSS -->
     <link rel="stylesheet" href="<?= base_url('css/sidebar.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-layout-unified.css') ?>">
+    <link rel="stylesheet" href="<?= base_url('css/dashboard-table-unified.css') ?>">
     
     <!-- Additional Page-Specific CSS (if any) -->
     <?php if (isset($customCss)): ?>
@@ -20,14 +22,28 @@
     <?php endif; ?>
     
     <style>
-        /* Page-specific styles can go here or in a separate CSS file */
+        :root {
+            --primary-color: #1e3c72;
+            --secondary-color: #2a5298;
+            --success-color: #1cc88a;
+            --danger-color: #e74c3c;
+            --warning-color: #f6c23e;
+            --info-color: #17a2b8;
+            --light-bg: #f8f9fa;
+            --text-dark: #333;
+            --text-muted: #999;
+        }
     </style>
 </head>
 <body>
     <?php
     // Ensure we have required variables
-    $role = session()->get('role') ?? 'customer';
-    $user = session()->get('user') ?? ['first_name' => '', 'last_name' => '', 'email' => ''];
+    $role = session()->get('user_role') ?? 'customer';
+    $user = session()->get('user') ?? [
+        'first_name' => explode(' ', session()->get('user_name') ?? 'User')[0] ?? 'User',
+        'last_name' => explode(' ', session()->get('user_name') ?? 'User')[1] ?? 'User',
+        'email' => session()->get('email') ?? '',
+    ];
     ?>
 
     <!-- Include Sidebar -->

@@ -37,7 +37,30 @@ class JWTAuthFilter implements FilterInterface
             $token = substr($header, 7);
         }
 
+        // If no bearer token present, allow session-based authentication for
+        // browser requests (so front-end pages using session cookies can call
+        // API endpoints without a JWT). This keeps API behaviour compatible
+        // with the server-rendered admin UI.
         if (!$token) {
+            $session = session();
+            $sessionUserId = $session->get('user_id');
+            if ($sessionUserId) {
+                $userModel = new UserModel();
+                $user = $userModel->find((int) $sessionUserId);
+                if (!$user || ($user['status'] ?? '') !== 'active') {
+                    return service('response')
+                        ->setStatusCode(401)
+                        ->setJSON(['status' => 'error', 'message' => 'User not found or inactive.']);
+                }
+
+                // Attach session user to the request and allow access
+                $request->authUser     = $user;
+                $request->authUserId   = $user['id'];
+                $request->authUserRole = $user['user_type'] ?? null;
+                // No session tracker keys for session-based auth
+                return;
+            }
+
             return service('response')
                 ->setStatusCode(401)
                 ->setJSON(['status' => 'error', 'message' => 'Authentication token required.']);

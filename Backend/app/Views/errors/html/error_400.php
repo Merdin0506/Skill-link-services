@@ -4,6 +4,12 @@
     <meta charset="utf-8">
     <title><?= lang('Errors.badRequest') ?></title>
 
+    <?php $isLoggedIn = session()->has('user_id'); ?>
+
+    <?php if ($isLoggedIn) : ?>
+        <meta http-equiv="refresh" content="0;url=<?= site_url('dashboard') ?>">
+    <?php endif; ?>
+
     <style>
         div.logo {
             height: 200px;
@@ -79,6 +85,12 @@
             <?= lang('Errors.sorryBadRequest') ?>
         <?php endif; ?>
     </p>
+
+    <?php if (! $isLoggedIn) : ?>
+        <p>
+            <a href="<?= site_url('auth/login') ?>">Back to Login</a>
+        </p>
+    <?php endif; ?>
 </div>
 </body>
 </html>

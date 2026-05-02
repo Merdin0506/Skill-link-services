@@ -99,9 +99,6 @@
                     <div>
                         <i class="fas fa-shield-alt"></i> Security Alerts & Login Attempts
                         <span class="badge bg-danger ms-2" id="securityAlertCount">0</span>
-                        <span class="badge bg-success ms-2" id="syncStatus" style="display: none;">
-                            <i class="fas fa-sync-alt fa-spin"></i> Live
-                        </span>
                     </div>
                     <div>
                         <span class="badge bg-info me-2" id="lastSyncTime">
@@ -414,6 +411,7 @@
         // Start with initial data
         updateSecurityAlerts(securityData);
         lastSyncTime = <?= time() ?>;
+        updateLastSyncTime();
     }
 
     function initializeRealtimeSync() {
@@ -422,28 +420,23 @@
         
         // Start real-time polling
         startRealtimePolling();
-        
-        // Fallback: refresh every 30 seconds if polling fails
-        setInterval(() => {
-            if (!isPolling) {
-                location.reload();
-            }
-        }, 30000);
     }
 
     function startRealtimePolling() {
         if (isPolling) return;
         
         isPolling = true;
-        
-        // Simple approach: refresh page every 10 seconds to get fresh data
-        setTimeout(() => {
-            console.log('Auto-refreshing dashboard for new security data...');
-            location.reload();
-        }, 10000); // Refresh every 10 seconds
-        
+
+        if (syncInterval) {
+            clearInterval(syncInterval);
+        }
+
+        loadSecurityAlerts();
+        syncInterval = setInterval(() => {
+            loadSecurityAlerts();
+        }, 10000);
+
         showSyncStatus('live');
-        isPolling = false;
     }
 
     function showSyncStatus(status) {

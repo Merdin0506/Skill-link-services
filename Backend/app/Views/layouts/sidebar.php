@@ -31,6 +31,11 @@
                 <i class="fas fa-file-invoice"></i>
                 <span>Service Records</span>
             </a>
+
+            <a href="<?= base_url('security/dashboard') ?>" class="<?= (strpos(current_url(), '/security/') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-shield-alt"></i>
+                <span>Security</span>
+            </a>
         <?php elseif (isset($role) && $role === 'worker'): ?>
             <a href="<?= base_url('worker/available-jobs') ?>" class="<?= (strpos(current_url(), '/worker/available-jobs') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-briefcase"></i>

@@ -84,6 +84,24 @@ Add this to your `.env` file:
 JWT_SECRET = your-super-secret-jwt-key-change-this-in-production
 ```
 
+### 7. Schedule Periodic Security Audit Reports (Windows)
+
+The project includes a command and helper scripts for periodic security reports:
+
+```powershell
+cd Backend
+php spark security:report-generate --period daily --notify
+```
+
+To automate this on Windows Task Scheduler:
+
+```powershell
+cd Backend\scripts
+.\setup-security-audit-scheduler.ps1 -Period daily -Time 01:00 -Notify
+```
+
+This creates/updates a scheduled task that runs the security report generator daily.
+
 ## 📚 API Documentation
 
 ### Base URL

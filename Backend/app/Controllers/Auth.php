@@ -406,6 +406,16 @@ class Auth extends BaseController
                 $this->session->remove('temp_user_id');
                 $this->session->remove('temp_email');
 
+                // Record successful login in security events.
+                $securityController = new SecurityController();
+                $securityController->logEvent(
+                    'login_success',
+                    'low',
+                    'User login verified via OTP',
+                    (int) $user['id'],
+                    (string) $user['email']
+                );
+
                 // Explicitly save session before redirect
                 session_write_close();
 
@@ -623,6 +633,18 @@ class Auth extends BaseController
     public function logout()
     {
         $userId = $this->session->get('user_id');
+        $email = (string) ($this->session->get('email') ?? '');
+
+        // Record logout before session teardown.
+        $securityController = new SecurityController();
+        $securityController->logEvent(
+            'logout',
+            'low',
+            'User logged out from web session',
+            is_numeric($userId) ? (int) $userId : null,
+            $email !== '' ? $email : null
+        );
+
         $trackedSessionKey = $this->session->get('tracked_session_key');
         $this->activityLogger->record('auth', 'logout', 'success', is_numeric($userId) ? (int) $userId : null, is_numeric($userId) ? (int) $userId : null, [
             'session_type' => 'web',

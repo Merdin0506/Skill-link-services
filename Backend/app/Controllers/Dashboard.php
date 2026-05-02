@@ -10,6 +10,7 @@ use App\Models\BookingModel;
 use App\Models\PaymentModel;
 use App\Models\ReviewModel;
 use App\Models\ServiceRecordModel;
+use App\Models\SecurityEventModel;
 
 class Dashboard extends BaseController
 {
@@ -1408,6 +1409,207 @@ class Dashboard extends BaseController
                 'status' => 'error',
                 'message' => 'Failed to refresh security data: ' . $e->getMessage()
             ]);
+        }
+    }
+
+    /**
+     * Session-based security events endpoint for web dashboard pages.
+     */
+    public function securityEvents()
+    {
+        try {
+            $page = (int) ($this->request->getGet('page') ?? 1);
+            $limit = (int) ($this->request->getGet('limit') ?? 50);
+            $eventType = trim((string) ($this->request->getGet('event_type') ?? ''));
+            $severity = trim((string) ($this->request->getGet('severity') ?? ''));
+            $startDate = trim((string) ($this->request->getGet('start_date') ?? ''));
+            $endDate = trim((string) ($this->request->getGet('end_date') ?? ''));
+            $search = trim((string) ($this->request->getGet('search') ?? ''));
+
+            if ($page < 1) $page = 1;
+            if ($limit < 1) $limit = 50;
+
+            $db = \Config\Database::connect();
+            $builder = $db->table('security_events');
+
+            if ($eventType !== '') {
+                $builder->where('event_type', $eventType);
+            }
+
+            if ($severity !== '') {
+                $builder->where('severity', $severity);
+            }
+
+            if ($startDate !== '') {
+                $builder->where('created_at >=', $startDate);
+            }
+
+            if ($endDate !== '') {
+                $builder->where('created_at <=', $endDate);
+            }
+
+            if ($search !== '') {
+                $builder->groupStart()
+                    ->like('ip_address', $search)
+                    ->orLike('email', $search)
+                    ->orLike('details', $search)
+                    ->groupEnd();
+            }
+
+            $countBuilder = clone $builder;
+            $total = (int) $countBuilder->countAllResults();
+
+            $events = $builder
+                ->orderBy('created_at', 'DESC')
+                ->limit($limit, ($page - 1) * $limit)
+                ->get()
+                ->getResultArray();
+
+            $eventDates = array_values(array_filter(array_column($events, 'created_at')));
+            $exportStartDate = $startDate !== ''
+                ? $startDate
+                : (isset($eventDates[count($eventDates) - 1]) ? (string) $eventDates[count($eventDates) - 1] : null);
+            $exportEndDate = $endDate !== ''
+                ? $endDate
+                : (isset($eventDates[0]) ? (string) $eventDates[0] : null);
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'data' => [
+                    'events' => $events,
+                    'pagination' => [
+                        'total' => $total,
+                        'page' => $page,
+                        'limit' => $limit,
+                        'pages' => (int) ceil($total / max($limit, 1)),
+                    ],
+                    'meta' => [
+                        'exported_at' => date('Y-m-d H:i:s'),
+                        'date_range' => [
+                            'start' => $exportStartDate,
+                            'end' => $exportEndDate,
+                        ],
+                        'filters' => [
+                            'event_type' => $eventType !== '' ? $eventType : null,
+                            'severity' => $severity !== '' ? $severity : null,
+                            'search' => $search !== '' ? $search : null,
+                        ],
+                    ],
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to load security events: ' . $e->getMessage(),
+            ])->setStatusCode(500);
+        }
+    }
+
+    /**
+     * Session-based block IP endpoint for web dashboard pages.
+     */
+    public function securityBlockIp()
+    {
+        try {
+            $ipAddress = trim((string) ($this->request->getPost('ip_address') ?? ''));
+            $reason = trim((string) ($this->request->getPost('reason') ?? 'Manual block from audit logs'));
+
+            if ($ipAddress === '') {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'ip_address is required.',
+                ])->setStatusCode(422);
+            }
+
+            $securityController = new SecurityController();
+            $securityController->blockIP($ipAddress, $reason, true, '+1 hour');
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'message' => 'IP blocked successfully',
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to block IP: ' . $e->getMessage(),
+            ])->setStatusCode(500);
+        }
+    }
+
+    /**
+     * Session-based export endpoint for security events.
+     */
+    public function securityEventsExport()
+    {
+        try {
+            $eventType = trim((string) ($this->request->getGet('event_type') ?? ''));
+            $severity = trim((string) ($this->request->getGet('severity') ?? ''));
+            $startDate = trim((string) ($this->request->getGet('start_date') ?? ''));
+            $endDate = trim((string) ($this->request->getGet('end_date') ?? ''));
+            $search = trim((string) ($this->request->getGet('search') ?? ''));
+
+            $db = \Config\Database::connect();
+            $builder = $db->table('security_events');
+
+            if ($eventType !== '') {
+                $builder->where('event_type', $eventType);
+            }
+
+            if ($severity !== '') {
+                $builder->where('severity', $severity);
+            }
+
+            if ($startDate !== '') {
+                $builder->where('created_at >=', $startDate);
+            }
+
+            if ($endDate !== '') {
+                $builder->where('created_at <=', $endDate);
+            }
+
+            if ($search !== '') {
+                $builder->groupStart()
+                    ->like('ip_address', $search)
+                    ->orLike('email', $search)
+                    ->orLike('details', $search)
+                    ->groupEnd();
+            }
+
+            $events = $builder->orderBy('created_at', 'DESC')->get()->getResultArray();
+
+            $eventDates = array_values(array_filter(array_column($events, 'created_at')));
+            $exportStartDate = $startDate !== ''
+                ? $startDate
+                : (isset($eventDates[count($eventDates) - 1]) ? (string) $eventDates[count($eventDates) - 1] : null);
+            $exportEndDate = $endDate !== ''
+                ? $endDate
+                : (isset($eventDates[0]) ? (string) $eventDates[0] : null);
+
+            return $this->response->setJSON([
+                'status' => 'success',
+                'data' => [
+                    'events' => $events,
+                    'count' => count($events),
+                    'meta' => [
+                        'exported_at' => date('Y-m-d H:i:s'),
+                        'date_range' => [
+                            'start' => $exportStartDate,
+                            'end' => $exportEndDate,
+                        ],
+                        'filters' => [
+                            'event_type' => $eventType !== '' ? $eventType : null,
+                            'severity' => $severity !== '' ? $severity : null,
+                            'search' => $search !== '' ? $search : null,
+                        ],
+                    ],
+                    'exported_at' => date('Y-m-d H:i:s'),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to export security events: ' . $e->getMessage(),
+            ])->setStatusCode(500);
         }
     }
 

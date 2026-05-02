@@ -3,6 +3,7 @@
 namespace App\Filters;
 
 use App\Libraries\AccessControl;
+use App\Models\SecurityEventModel;
 use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -27,6 +28,8 @@ class PermissionFilter implements FilterInterface
             'action' => $action,
             'path' => $request->getUri()->getPath(),
         ]);
+
+        $this->logUnauthorized($request, 'Permission policy denied access.');
 
         return redirect()->to('/dashboard')->with('error', 'Access denied by security policy.');
     }
@@ -109,5 +112,26 @@ class PermissionFilter implements FilterInterface
         }
 
         return 'write';
+    }
+
+    private function logUnauthorized(RequestInterface $request, string $details): void
+    {
+        try {
+            $session = session();
+            (new SecurityEventModel())->insert([
+                'user_id' => $session->get('user_id') ?: null,
+                'email' => $session->get('email') ?: null,
+                'event_type' => 'unauthorized_access',
+                'severity' => 'medium',
+                'ip_address' => $request->getIPAddress(),
+                'user_agent' => method_exists($request, 'getUserAgent') ? (string) $request->getUserAgent() : 'unknown',
+                'request_uri' => $request->getUri()->getPath(),
+                'request_method' => $request->getMethod(),
+                'details' => $details,
+                'created_at' => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            // Ignore logging failures.
+        }
     }
 }

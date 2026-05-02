@@ -39,6 +39,12 @@ class SecurityController extends BaseController
         // Add additional data for API
         $dashboardData['top_threats'] = $this->securityEventModel->getTopSuspiciousIPs(5, 24);
         $dashboardData['recent_alerts'] = $this->securityNotificationModel->getActionRequiredNotifications();
+
+        // Backwards compatibility: some front-end pages expect `recent_notifications`
+        // while this API previously returned `recent_alerts`. Provide both keys.
+        if (empty($dashboardData['recent_notifications']) && !empty($dashboardData['recent_alerts'])) {
+            $dashboardData['recent_notifications'] = $dashboardData['recent_alerts'];
+        }
         
         return $this->respond([
             'status' => 'success',
@@ -52,8 +58,10 @@ class SecurityController extends BaseController
     public function events()
     {
         $request = service('request');
-        $page = $request->getVar('page') ?? 1;
-        $limit = $request->getVar('limit') ?? 50;
+        $page = (int) ($request->getVar('page') ?? 1);
+        $limit = (int) ($request->getVar('limit') ?? 50);
+        if ($page < 1) $page = 1;
+        if ($limit < 1) $limit = 50;
         $eventType = $request->getVar('event_type');
         $severity = $request->getVar('severity');
         $startDate = $request->getVar('start_date');
@@ -112,8 +120,10 @@ class SecurityController extends BaseController
     public function notifications()
     {
         $request = service('request');
-        $page = $request->getVar('page') ?? 1;
-        $limit = $request->getVar('limit') ?? 20;
+        $page = (int) ($request->getVar('page') ?? 1);
+        $limit = (int) ($request->getVar('limit') ?? 20);
+        if ($page < 1) $page = 1;
+        if ($limit < 1) $limit = 20;
         $type = $request->getVar('type');
         $priority = $request->getVar('priority');
         $unread = $request->getVar('unread');
@@ -355,6 +365,82 @@ class SecurityController extends BaseController
         return $this->respond([
             'status' => 'success',
             'data' => $report
+        ]);
+    }
+
+    /**
+     * Block an IP address from API.
+     */
+    public function blockIP()
+    {
+        $request = service('request');
+        $ipAddress = (string) $request->getVar('ip_address');
+        $reason = (string) ($request->getVar('reason') ?? 'Manual block by admin');
+        $isTemporary = filter_var($request->getVar('is_temporary') ?? true, FILTER_VALIDATE_BOOLEAN);
+        $duration = (string) ($request->getVar('duration') ?? '+1 hour');
+
+        if ($ipAddress === '') {
+            return $this->respond([
+                'status' => 'error',
+                'message' => 'ip_address is required.',
+            ], 422);
+        }
+
+        $this->baseSecurityController->blockIP($ipAddress, $reason, $isTemporary, $duration);
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'IP blocked successfully',
+        ]);
+    }
+
+    /**
+     * Export filtered security events.
+     */
+    public function exportEvents()
+    {
+        $request = service('request');
+        $eventType = $request->getVar('event_type');
+        $severity = $request->getVar('severity');
+        $startDate = $request->getVar('start_date');
+        $endDate = $request->getVar('end_date');
+        $search = $request->getVar('search');
+
+        $builder = $this->securityEventModel;
+
+        if ($eventType) {
+            $builder = $builder->where('event_type', $eventType);
+        }
+
+        if ($severity) {
+            $builder = $builder->where('severity', $severity);
+        }
+
+        if ($startDate) {
+            $builder = $builder->where('created_at >=', $startDate);
+        }
+
+        if ($endDate) {
+            $builder = $builder->where('created_at <=', $endDate);
+        }
+
+        if ($search) {
+            $builder = $builder->groupStart()
+                ->like('ip_address', $search)
+                ->orLike('email', $search)
+                ->orLike('details', $search)
+                ->groupEnd();
+        }
+
+        $events = $builder->orderBy('created_at', 'DESC')->findAll();
+
+        return $this->respond([
+            'status' => 'success',
+            'data' => [
+                'events' => $events,
+                'count' => count($events),
+                'exported_at' => date('Y-m-d H:i:s'),
+            ],
         ]);
     }
     
