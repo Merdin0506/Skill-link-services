@@ -4,6 +4,13 @@ import { setStatus } from '../../core/status.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
 import { getRoleTemplate } from './roleTemplates.js';
+import {
+  bindCashierPaymentsView,
+  createCashierPaymentsView,
+  createCashierPayoutsView,
+  createCashierReportsView,
+  loadCashierRouteData
+} from './cashierWorkspace.js';
 import { bindServicesView as bindServicesWorkspaceView, createServicesView as createServicesWorkspaceView, getDefaultServiceFilters } from './servicesWorkspace.js';
 
 function formatValue(value) {
@@ -167,7 +174,16 @@ function renderTableRows(bookings, role) {
           <td><span class="badge bg-secondary">${String(booking.payment_method || 'Unpaid').replace(/_/g, ' ')}</span></td>
           <td><span class="badge ${statusClass}">${status.replace(/_/g, ' ')}</span></td>
           <td>${formatDate(booking.transaction_created_at || booking.created_at)}</td>
-          <td><button type="button" class="ghost-button table-action" disabled>View</button></td>
+          <td>
+            <button
+              type="button"
+              class="ghost-button table-action"
+              data-dashboard-payment-view="true"
+              data-transaction-id="${booking.id || ''}"
+            >
+              View
+            </button>
+          </td>
         </tr>
       `;
     }
@@ -209,6 +225,93 @@ function renderTableRows(bookings, role) {
       </tr>
     `;
   }).join('');
+}
+
+function createFinanceDashboardDetailCard(state) {
+  const selectedTransactionId = Number(state.selectedDashboardTransactionId || 0);
+  const transaction = (state.bookings || []).find((item) => Number(item.id) === selectedTransactionId) || null;
+
+  if (!transaction) {
+    return '';
+  }
+
+  const paymentStatus = String(transaction.payment_status || transaction.status || 'pending').replace(/_/g, ' ');
+  const bookingStatus = String(transaction.booking_status || transaction.status || 'pending').replace(/_/g, ' ');
+
+  return `
+    <div class="row mt-4">
+      <div class="col-lg-12">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-eye"></i> Transaction Booking Details</span>
+            <button type="button" class="ghost-button" id="financeDashboardDetailCloseButton">Close</button>
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="desktop-insight-grid">
+              <div class="desktop-insight-tile">
+                <span>Transaction ID</span>
+                <strong>${escapeHtml(transaction.payment_reference || transaction.booking_reference || transaction.id || '-')}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Booking Reference</span>
+                <strong>${escapeHtml(transaction.booking_reference || '-')}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Booking Title</span>
+                <strong>${escapeHtml(transaction.title || '-')}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Amount</span>
+                <strong>${formatCurrency(transaction.amount ?? transaction.total_fee ?? 0)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Payment Method</span>
+                <strong>${escapeHtml(String(transaction.payment_method || 'unpaid').replace(/_/g, ' '))}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Payment Status</span>
+                <strong>${escapeHtml(paymentStatus)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Booking Status</span>
+                <strong>${escapeHtml(bookingStatus)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Priority</span>
+                <strong>${escapeHtml(String(transaction.priority || 'low').replace(/_/g, ' '))}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Scheduled Date</span>
+                <strong>${formatDate(transaction.scheduled_date || transaction.created_at)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Scheduled Time</span>
+                <strong>${escapeHtml(transaction.scheduled_time || '-')}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Labor Fee</span>
+                <strong>${formatCurrency(transaction.labor_fee ?? 0)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Materials Fee</span>
+                <strong>${formatCurrency(transaction.materials_fee ?? 0)}</strong>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="text-muted mb-2">Location</h6>
+              <div class="border rounded p-3">${escapeHtml(transaction.location_address || 'No location recorded.')}</div>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="text-muted mb-2">Notes</h6>
+              <div class="border rounded p-3">${escapeHtml(transaction.notes || transaction.description || 'No additional notes recorded.')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function getSidebarLinks(role) {
@@ -901,7 +1004,6 @@ function createPaymentsView(state) {
 
   if (state.role === 'customer') {
     const completedPayments = payments.filter((payment) => String(payment.status || '') === 'completed');
-    const pendingPayments = payments.filter((payment) => ['pending', 'processing'].includes(String(payment.status || '')));
 
     return `
       ${createPageHeading('fas fa-credit-card', 'My Payments')}
@@ -972,156 +1074,13 @@ function createPaymentsView(state) {
     `;
   }
 
-  const completed = payments.filter((payment) => String(payment.status || '') === 'completed');
-  const pending = payments.filter((payment) => String(payment.status || '') === 'pending');
-
-  return `
-    ${createInfoBanner(state.routeNotice)}
-    ${createMetricGrid([
-      { icon: 'fas fa-receipt', value: payments.length, label: 'All Payments', tone: 'primary' },
-      { icon: 'fas fa-hourglass-half', value: pending.length, label: 'Pending', tone: 'warning' },
-      { icon: 'fas fa-check-circle', value: completed.length, label: 'Completed', tone: 'success' },
-      { icon: 'fas fa-peso-sign', value: completed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0), label: 'Completed Value', tone: 'info' }
-    ])}
-
-    <div class="card desktop-card">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-credit-card"></i> Payment Ledger
-      </div>
-      <div class="card-body desktop-card-body">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Reference</th>
-                <th>Type</th>
-                <th>Method</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${payments.length ? payments.map((payment) => `
-                <tr>
-                  <td><strong>${payment.payment_reference || payment.transaction_id || payment.id}</strong></td>
-                  <td><span class="badge bg-secondary">${String(payment.payment_type || 'payment').replace(/_/g, ' ')}</span></td>
-                  <td>${String(payment.payment_method || 'unassigned').replace(/_/g, ' ')}</td>
-                  <td><span class="badge badge-${payment.status || 'pending'}">${String(payment.status || 'pending').replace(/_/g, ' ')}</span></td>
-                  <td>${formatCurrency(payment.amount || 0)}</td>
-                  <td>${formatDate(payment.payment_date || payment.created_at)}</td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td colspan="6" class="text-center text-muted py-4">No payments returned for this page yet.</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function createPayoutsView(state) {
-  const payouts = state.routePayments || [];
-  const completed = payouts.filter((payment) => String(payment.status || '') === 'completed');
-
-  return `
-    ${createInfoBanner(state.routeNotice)}
-    ${createMetricGrid([
-      { icon: 'fas fa-hand-holding-usd', value: payouts.length, label: 'Payout Records', tone: 'primary' },
-      { icon: 'fas fa-check-circle', value: completed.length, label: 'Completed Payouts', tone: 'success' },
-      { icon: 'fas fa-hourglass-half', value: payouts.length - completed.length, label: 'Pending Payouts', tone: 'warning' },
-      { icon: 'fas fa-wallet', value: completed.reduce((sum, payout) => sum + Number(payout.amount || 0), 0), label: 'Paid Out', tone: 'info' }
-    ])}
-
-    <div class="card desktop-card">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-money-check-alt"></i> Worker Payouts
-      </div>
-      <div class="card-body desktop-card-body">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Reference</th>
-                <th>Booking</th>
-                <th>Status</th>
-                <th>Method</th>
-                <th>Amount</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${payouts.length ? payouts.map((payout) => `
-                <tr>
-                  <td><strong>${payout.payment_reference || payout.id}</strong></td>
-                  <td>${payout.booking_reference || payout.booking_id || '-'}</td>
-                  <td><span class="badge badge-${payout.status || 'pending'}">${String(payout.status || 'pending').replace(/_/g, ' ')}</span></td>
-                  <td>${String(payout.payment_method || 'internal').replace(/_/g, ' ')}</td>
-                  <td>${formatCurrency(payout.amount || 0)}</td>
-                  <td>${formatDate(payout.payment_date || payout.created_at)}</td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td colspan="6" class="text-center text-muted py-4">No worker payouts have been recorded yet.</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function createReportsView(state) {
-  const stats = state.routePaymentStats || {};
-  const report = state.routeRevenueReport || [];
-
-  return `
-    ${createInfoBanner(state.routeNotice)}
-    ${createMetricGrid([
-      { icon: 'fas fa-peso-sign', value: stats.total_revenue ?? 0, label: 'Total Revenue', tone: 'success' },
-      { icon: 'fas fa-calendar-day', value: stats.today_payments ?? 0, label: 'Today Payments', tone: 'info' },
-      { icon: 'fas fa-chart-line', value: stats.monthly_revenue ?? 0, label: 'Monthly Revenue', tone: 'primary' },
-      { icon: 'fas fa-hourglass-half', value: stats.pending_payments ?? 0, label: 'Pending Payments', tone: 'warning' }
-    ])}
-
-    <div class="card desktop-card">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-chart-bar"></i> Revenue Timeline
-      </div>
-      <div class="card-body desktop-card-body">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Revenue</th>
-                <th>Transactions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${report.length ? report.map((entry) => `
-                <tr>
-                  <td><strong>${formatDate(entry.date)}</strong></td>
-                  <td>${formatCurrency(entry.revenue || 0)}</td>
-                  <td>${formatValue(entry.count || 0)}</td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td colspan="3" class="text-center text-muted py-4">No revenue report rows available yet.</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  `;
+  return createCashierPaymentsView(state, {
+    createInfoBanner,
+    createMetricGrid,
+    escapeHtml,
+    formatCurrency,
+    formatDate
+  });
 }
 
 function createRecordsView(state) {
@@ -1714,7 +1673,39 @@ function renderDashboardHome(contentElement, state) {
         </div>
       </div>
     </div>
+
+    ${state.role === 'finance' ? createFinanceDashboardDetailCard(state) : ''}
   `;
+}
+
+function bindDashboardHome(state, session, bridge) {
+  const contentElement = getElementById('desktopContentArea');
+  if (!contentElement || state.role !== 'finance') {
+    return;
+  }
+
+  contentElement.querySelectorAll('[data-dashboard-payment-view]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const transactionId = Number(button.getAttribute('data-transaction-id'));
+      if (!transactionId) {
+        updateInlineStatus('This transaction could not be opened because its ID is missing.', 'error');
+        return;
+      }
+
+      state.selectedDashboardTransactionId = transactionId;
+      renderDashboardHome(contentElement, state);
+      bindDashboardHome(state, session, bridge);
+    });
+  });
+
+  const closeButton = getElementById('financeDashboardDetailCloseButton');
+  if (closeButton) {
+    closeButton.onclick = () => {
+      state.selectedDashboardTransactionId = null;
+      renderDashboardHome(contentElement, state);
+      bindDashboardHome(state, session, bridge);
+    };
+  }
 }
 
 function updateViewHeader(state) {
@@ -1888,6 +1879,7 @@ async function renderRoute(state, session, bridge) {
   try {
     if (state.currentRoute === 'dashboard') {
       renderDashboardHome(contentElement, state);
+      bindDashboardHome(state, session, bridge);
       updateInlineStatus('', null);
       return;
     }
@@ -1924,6 +1916,12 @@ async function renderRoute(state, session, bridge) {
 
     if (state.currentRoute === 'payments') {
       contentElement.innerHTML = createPaymentsView(state);
+      bindCashierPaymentsView(state, session, bridge, {
+        performAuthenticatedRequest,
+        renderRoute,
+        setStatus,
+        updateInlineStatus
+      });
       updateInlineStatus('', null);
       return;
     }
@@ -1955,13 +1953,31 @@ async function renderRoute(state, session, bridge) {
     }
 
     if (state.currentRoute === 'payouts') {
-      contentElement.innerHTML = createPayoutsView(state);
+      contentElement.innerHTML = createCashierPayoutsView(state, {
+        createInfoBanner,
+        createMetricGrid,
+        escapeHtml,
+        formatCurrency,
+        formatDate
+      });
+      bindCashierPaymentsView(state, session, bridge, {
+        performAuthenticatedRequest,
+        renderRoute,
+        setStatus,
+        updateInlineStatus
+      });
       updateInlineStatus('', null);
       return;
     }
 
     if (state.currentRoute === 'reports') {
-      contentElement.innerHTML = createReportsView(state);
+      contentElement.innerHTML = createCashierReportsView(state, {
+        createInfoBanner,
+        createMetricGrid,
+        formatCurrency,
+        formatDate,
+        formatValue
+      });
       updateInlineStatus('', null);
       return;
     }
@@ -2187,15 +2203,6 @@ async function ensureRouteData(state, session, bridge) {
       state.routeNotice = 'This payment history is loaded directly from the backend for your account.';
       return;
     }
-
-    const [paymentsResponse, statisticsResponse] = await Promise.all([
-      performAuthenticatedRequest(session, bridge, '/api/payments?limit=50', { method: 'GET' }),
-      performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }).catch(() => ({ data: {} }))
-    ]);
-
-    state.routePayments = paymentsResponse?.data || [];
-    state.routePaymentStats = statisticsResponse?.data || {};
-    return;
   }
 
   if (state.currentRoute === 'users') {
@@ -2262,20 +2269,7 @@ async function ensureRouteData(state, session, bridge) {
     return;
   }
 
-  if (state.currentRoute === 'payouts') {
-    const payoutsResponse = await performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=worker_payout&limit=50', { method: 'GET' });
-    state.routePayments = payoutsResponse?.data || [];
-    return;
-  }
-
-  if (state.currentRoute === 'reports') {
-    const [statisticsResponse, revenueResponse] = await Promise.all([
-      performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }),
-      performAuthenticatedRequest(session, bridge, '/api/payments/revenue-report', { method: 'GET' }).catch(() => ({ data: [] }))
-    ]);
-
-    state.routePaymentStats = statisticsResponse?.data || {};
-    state.routeRevenueReport = revenueResponse?.data || [];
+  if (await loadCashierRouteData(state, session, bridge, performAuthenticatedRequest)) {
     return;
   }
 
