@@ -23,21 +23,36 @@ class UsersController extends BaseController
     public function index()
     {
         $userType = $this->request->getVar('user_type');
-        $status = $this->request->getVar('status') ?? 'active';
-        $limit = $this->getPositiveIntParam('limit', 50);
+        $status = $this->request->getVar('status');
+        $showDeleted = $this->request->getVar('show_deleted');
+        $limit = $this->getPositiveIntParam('limit', 25);
+        $page = $this->getPositiveIntParam('page', 1);
+        $offset = ($page - 1) * $limit;
+
+        $countModel = new UserModel();
+        $dataModel = new UserModel();
+
+        if ($this->isTruthy($showDeleted)) {
+            $countModel->onlyDeleted();
+            $dataModel->onlyDeleted();
+        } else {
+            $status = $status ?? 'active';
+        }
 
         if ($userType) {
-            $users = $this->userModel
-                ->where('user_type', $userType)
-                ->where('status', $status)
-                ->limit($limit)
-                ->findAll();
-        } else {
-            $users = $this->userModel
-                ->where('status', $status)
-                ->limit($limit)
-                ->findAll();
+            $countModel->where('user_type', $userType);
+            $dataModel->where('user_type', $userType);
         }
+
+        if ($status !== null && $status !== '') {
+            $countModel->where('status', $status);
+            $dataModel->where('status', $status);
+        }
+
+        $total = $countModel->countAllResults();
+        $users = $dataModel
+            ->orderBy('created_at', 'DESC')
+            ->findAll($limit, $offset);
 
         // Remove passwords from response
         foreach ($users as &$user) {
@@ -46,13 +61,19 @@ class UsersController extends BaseController
 
         return $this->respond([
             'status' => 'success',
-            'data' => $users
+            'data' => $users,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'pages' => max(1, (int) ceil($total / $limit)),
+            ],
         ]);
     }
 
     public function show($id = null)
     {
-        $user = $this->userModel->find($id);
+        $user = $this->userModel->withDeleted()->find($id);
 
         if (!$user) {
             return $this->failNotFound('User not found');
@@ -136,6 +157,88 @@ class UsersController extends BaseController
         ]);
     }
 
+    public function store()
+    {
+        $requestedRole = (string) ($this->request->getVar('user_type') ?? '');
+        if ($requestedRole === 'super_admin') {
+            return $this->fail('Only one super admin is allowed');
+        }
+
+        $rules = [
+            'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]',
+            'password'   => 'required|min_length[8]',
+            'phone'      => 'permit_empty|max_length[20]',
+            'address'    => 'permit_empty|max_length[500]',
+            'service_city' => 'permit_empty|max_length[120]',
+            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
+            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
+            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
+            'user_type'  => 'required|in_list[admin,finance,worker,customer]',
+            'status'     => 'required|in_list[active,inactive,suspended]',
+            'commission_rate' => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
+            'experience_years' => 'permit_empty|integer|greater_than_equal_to[0]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $data = [
+            'first_name' => $this->request->getVar('first_name'),
+            'last_name' => $this->request->getVar('last_name'),
+            'email' => $this->request->getVar('email'),
+            'password' => password_hash((string) $this->request->getVar('password'), PASSWORD_DEFAULT),
+            'phone' => $this->request->getVar('phone'),
+            'address' => $this->request->getVar('address'),
+            'user_type' => $requestedRole,
+            'status' => $this->request->getVar('status'),
+            'email_verified_at' => date('Y-m-d H:i:s'),
+        ];
+
+        if ($requestedRole === 'worker') {
+            $skills = $this->request->getVar('skills');
+            if (is_string($skills)) {
+                $skills = array_values(array_filter(array_map('trim', explode(',', $skills))));
+            }
+
+            if (!is_array($skills)) {
+                $skills = [];
+            }
+
+            $data['skills'] = json_encode($skills);
+            $data['experience_years'] = (int) ($this->request->getVar('experience_years') ?? 0);
+            $data['commission_rate'] = (float) ($this->request->getVar('commission_rate') ?? 20);
+            $data['service_city'] = trim((string) ($this->request->getVar('service_city') ?? ''));
+            $data['service_radius_km'] = (float) ($this->request->getVar('service_radius_km') ?: 20);
+            $data['work_latitude'] = $this->nullIfEmpty($this->request->getVar('work_latitude'));
+            $data['work_longitude'] = $this->nullIfEmpty($this->request->getVar('work_longitude'));
+        }
+
+        try {
+            $userId = $this->userModel->insert($data);
+            if ($userId === false) {
+                return $this->fail($this->userModel->errors());
+            }
+
+            $createdUser = $this->userModel->find($userId);
+            unset($createdUser['password']);
+
+            $this->activityLogger->record('account', 'user_created', 'success', $this->currentActorId(), (int) $userId, [
+                'created_fields' => $this->activityLogger->changedFields([], $data, array_keys($data)),
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            return $this->respondCreated([
+                'status' => 'success',
+                'message' => 'User created successfully',
+                'data' => $createdUser,
+            ]);
+        } catch (\Exception $e) {
+            return $this->fail('Failed to create user: ' . $e->getMessage());
+        }
+    }
+
     public function update($id = null)
     {
         $user = $this->userModel->find($id);
@@ -158,6 +261,10 @@ class UsersController extends BaseController
             'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
             'phone'      => 'max_length[20]',
             'address'    => 'max_length[500]',
+            'service_city' => 'permit_empty|max_length[120]',
+            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
+            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
+            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
             'status'     => 'required|in_list[active,inactive,suspended]'
         ];
 
@@ -170,6 +277,7 @@ class UsersController extends BaseController
         }
 
         $data = [
+            'id' => (int) $id,
             'first_name' => $this->request->getVar('first_name'),
             'last_name' => $this->request->getVar('last_name'),
             'phone' => $this->request->getVar('phone'),
@@ -191,6 +299,18 @@ class UsersController extends BaseController
             }
             if ($this->request->getVar('commission_rate')) {
                 $data['commission_rate'] = $this->request->getVar('commission_rate');
+            }
+            if ($this->request->getVar('service_city') !== null) {
+                $data['service_city'] = trim((string) $this->request->getVar('service_city'));
+            }
+            if ($this->request->getVar('service_radius_km') !== null) {
+                $data['service_radius_km'] = (float) $this->request->getVar('service_radius_km');
+            }
+            if ($this->request->getVar('work_latitude') !== null) {
+                $data['work_latitude'] = $this->request->getVar('work_latitude') ?: null;
+            }
+            if ($this->request->getVar('work_longitude') !== null) {
+                $data['work_longitude'] = $this->request->getVar('work_longitude') ?: null;
             }
         }
 
@@ -266,6 +386,7 @@ class UsersController extends BaseController
     {
         $stats = [
             'total_users' => $this->userModel->countAll(),
+            'archived_users' => $this->userModel->onlyDeleted()->countAllResults(),
             'total_workers' => $this->userModel->where('user_type', 'worker')->countAllResults(),
             'total_customers' => $this->userModel->where('user_type', 'customer')->countAllResults(),
             'total_admin_staff' => $this->userModel->whereIn('user_type', ['super_admin', 'admin', 'finance'])->countAllResults(),
@@ -284,21 +405,50 @@ class UsersController extends BaseController
     {
         $query = $this->request->getVar('q');
         $userType = $this->request->getVar('user_type');
-        $limit = $this->getPositiveIntParam('limit', 20);
+        $status = $this->request->getVar('status');
+        $showDeleted = $this->request->getVar('show_deleted');
+        $limit = $this->getPositiveIntParam('limit', 25);
+        $page = $this->getPositiveIntParam('page', 1);
+        $offset = ($page - 1) * $limit;
 
         if (!$query) {
             return $this->fail('Search query is required');
         }
 
-        $users = $this->userModel
+        $countModel = new UserModel();
+        $dataModel = new UserModel();
+
+        if ($this->isTruthy($showDeleted)) {
+            $countModel->onlyDeleted();
+            $dataModel->onlyDeleted();
+        }
+
+        $countModel->groupStart()
             ->like('first_name', $query)
             ->orLike('last_name', $query)
             ->orLike('email', $query)
-            ->when($userType, function($query, $userType) {
-                return $query->where('user_type', $userType);
-            })
-            ->limit($limit)
-            ->findAll();
+            ->groupEnd();
+
+        $dataModel->groupStart()
+            ->like('first_name', $query)
+            ->orLike('last_name', $query)
+            ->orLike('email', $query)
+            ->groupEnd();
+
+        if ($userType) {
+            $countModel->where('user_type', $userType);
+            $dataModel->where('user_type', $userType);
+        }
+
+        if ($status !== null && $status !== '') {
+            $countModel->where('status', $status);
+            $dataModel->where('status', $status);
+        }
+
+        $total = $countModel->countAllResults();
+        $users = $dataModel
+            ->orderBy('created_at', 'DESC')
+            ->findAll($limit, $offset);
 
         // Remove passwords
         foreach ($users as &$user) {
@@ -307,8 +457,82 @@ class UsersController extends BaseController
 
         return $this->respond([
             'status' => 'success',
-            'data' => $users
+            'data' => $users,
+            'pagination' => [
+                'total' => $total,
+                'page' => $page,
+                'limit' => $limit,
+                'pages' => max(1, (int) ceil($total / $limit)),
+            ],
         ]);
+    }
+
+    public function restore($id = null)
+    {
+        $user = $this->userModel->onlyDeleted()->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('Archived user not found');
+        }
+
+        try {
+            $restored = $this->userModel->builder()
+                ->where('id', (int) $id)
+                ->where('deleted_at IS NOT NULL', null, false)
+                ->update(['deleted_at' => null]);
+
+            if ($restored === false) {
+                return $this->fail('Failed to restore user');
+            }
+
+            $restoredUser = $this->userModel->find($id);
+            unset($restoredUser['password']);
+
+            $this->activityLogger->record('account', 'user_restored', 'success', $this->currentActorId(), (int) $id, [
+                'target_email' => $user['email'] ?? null,
+                'target_role' => $user['user_type'] ?? null,
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'User restored successfully',
+                'data' => $restoredUser,
+            ]);
+        } catch (\Exception $e) {
+            return $this->fail('Failed to restore user: ' . $e->getMessage());
+        }
+    }
+
+    public function permanentDelete($id = null)
+    {
+        $user = $this->userModel->onlyDeleted()->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('Archived user not found');
+        }
+
+        if (($user['user_type'] ?? '') === 'super_admin') {
+            return $this->fail('Super admin account cannot be permanently deleted');
+        }
+
+        try {
+            $deleted = $this->userModel->delete((int) $id, true);
+            if ($deleted === false) {
+                return $this->fail('Failed to permanently delete user');
+            }
+
+            $this->activityLogger->record('account', 'user_deleted_permanently', 'success', $this->currentActorId(), (int) $id, [
+                'target_email' => $user['email'] ?? null,
+                'target_role' => $user['user_type'] ?? null,
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            return $this->respondDeleted([
+                'status' => 'success',
+                'message' => 'User permanently deleted successfully',
+            ]);
+        } catch (\Exception $e) {
+            return $this->fail('Failed to permanently delete user: ' . $e->getMessage());
+        }
     }
 
     public function updateProfileImage($id = null)
@@ -347,11 +571,11 @@ class UsersController extends BaseController
         }
     }
 
-    private function getPositiveIntParam(string $name, int $default): int
+    protected function getPositiveIntParam(string $key, int $default, int $min = 1): int
     {
-        $value = (int) $this->request->getVar($name);
+        $value = (int) $this->request->getVar($key);
 
-        return $value > 0 ? $value : $default;
+        return $value >= $min ? $value : $default;
     }
 
     private function currentActorId(): ?int
@@ -359,5 +583,24 @@ class UsersController extends BaseController
         $userId = $this->request->authUserId ?? null;
 
         return is_numeric($userId) ? (int) $userId : null;
+    }
+
+    private function nullIfEmpty($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+        return $trimmed === '' ? null : $trimmed;
+    }
+
+    private function isTruthy($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on'], true);
     }
 }

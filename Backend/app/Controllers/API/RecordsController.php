@@ -25,14 +25,14 @@ class RecordsController extends BaseController
      */
     private function getAuthUser(): ?array
     {
-        $session = session();
-        if (!$session->has('user_id')) {
+        $user = $this->request->authUser ?? null;
+        if (!$user || !isset($user['id'], $user['user_type'])) {
             return null;
         }
 
         return [
-            'id'   => (int) $session->get('user_id'),
-            'role' => $session->get('user_role'),
+            'id'   => (int) $user['id'],
+            'role' => (string) $user['user_type'],
         ];
     }
 

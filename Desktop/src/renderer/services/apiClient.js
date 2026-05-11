@@ -1,5 +1,7 @@
 import { BACKEND_BASE_URL, BACKEND_BASE_URLS, NETWORK_TIMEOUT_MS } from '../config/appConfig.js';
 
+let preferredBaseUrl = BACKEND_BASE_URL;
+
 function createHeaders(options = {}) {
   return {
     'Content-Type': 'application/json',
@@ -82,12 +84,16 @@ async function requestOnce(baseUrl, endpoint, options = {}) {
 }
 
 export async function requestJson(endpoint, options = {}) {
-  const baseUrls = [BACKEND_BASE_URL, ...BACKEND_BASE_URLS.filter((url) => url !== BACKEND_BASE_URL)];
+  const orderedBaseUrls = [preferredBaseUrl, BACKEND_BASE_URL, ...BACKEND_BASE_URLS]
+    .filter(Boolean)
+    .filter((url, index, array) => array.indexOf(url) === index);
   let lastError = null;
 
-  for (const baseUrl of baseUrls) {
+  for (const baseUrl of orderedBaseUrls) {
     try {
-      return await requestOnce(baseUrl, endpoint, options);
+      const data = await requestOnce(baseUrl, endpoint, options);
+      preferredBaseUrl = baseUrl;
+      return data;
     } catch (error) {
       lastError = error;
 

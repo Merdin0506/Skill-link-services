@@ -132,7 +132,7 @@ class PaymentModel extends Model
 
     public function getPendingPayments()
     {
-        return $this->select('payments.*, bookings.booking_reference, bookings.title')
+        return $this->select('payments.*, bookings.booking_reference, bookings.title as booking_title, bookings.title as service_name')
                     ->join('bookings', 'bookings.id = payments.booking_id')
                     ->where('payments.status', 'pending')
                     ->orderBy('payments.created_at', 'ASC')
@@ -141,7 +141,7 @@ class PaymentModel extends Model
 
     public function getCustomerPayments($customerId)
     {
-        return $this->select('payments.*, bookings.booking_reference, bookings.title')
+        return $this->select('payments.*, bookings.booking_reference, bookings.title as booking_title, bookings.title as service_name')
                     ->join('bookings', 'bookings.id = payments.booking_id')
                     ->where('payments.paid_by', $customerId)
                     ->where('payments.payment_type', 'customer_payment')
@@ -151,7 +151,7 @@ class PaymentModel extends Model
 
     public function getWorkerPayouts($workerId)
     {
-        return $this->select('payments.*, bookings.booking_reference, bookings.title')
+        return $this->select('payments.*, bookings.booking_reference, bookings.title as booking_title, bookings.title as service_name')
                     ->join('bookings', 'bookings.id = payments.booking_id')
                     ->where('payments.paid_to', $workerId)
                     ->where('payments.payment_type', 'worker_payout')

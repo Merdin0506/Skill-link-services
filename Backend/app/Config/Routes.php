@@ -148,6 +148,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('dashboard/stats', 'DashboardController::stats');
     $routes->get('dashboard/analytics', 'DashboardController::analytics');
     $routes->get('dashboard/bookings', 'DashboardController::bookings');
+    $routes->get('payments/mine', 'PaymentsController::myPayments');
     $routes->get('services', 'ServicesController::index');
     $routes->get('services/categories', 'ServicesController::categories');
     $routes->get('services/popular', 'ServicesController::popular');
@@ -214,6 +215,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('users/(:num)', 'UsersController::show/$1');
     $routes->put('users/(:num)', 'UsersController::update/$1');
     $routes->delete('users/(:num)', 'UsersController::delete/$1');
+    $routes->post('users/(:num)/restore', 'UsersController::restore/$1');
+    $routes->delete('users/(:num)/permanent', 'UsersController::permanentDelete/$1');
     $routes->get('users/workers', 'UsersController::workers');
     $routes->get('users/customers', 'UsersController::customers');
     $routes->get('users/admin-staff', 'UsersController::adminStaff');

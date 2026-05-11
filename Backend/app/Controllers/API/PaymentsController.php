@@ -56,6 +56,31 @@ class PaymentsController extends BaseController
         ]);
     }
 
+    public function myPayments()
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $userRole = (string) ($this->request->authUserRole ?? '');
+
+        if (!$userId || !$userRole) {
+            return $this->failUnauthorized('User not authenticated');
+        }
+
+        $payments = match ($userRole) {
+            'customer' => $this->paymentModel->getCustomerPayments($userId),
+            'worker' => $this->paymentModel->getWorkerPayouts($userId),
+            default => null
+        };
+
+        if ($payments === null) {
+            return $this->failForbidden('This payment view is not available for your role');
+        }
+
+        return $this->respond([
+            'status' => 'success',
+            'data' => $payments
+        ]);
+    }
+
     public function show($id = null)
     {
         $payment = $this->paymentModel->getPaymentWithDetails($id);
@@ -250,10 +275,14 @@ class PaymentsController extends BaseController
 
     public function statistics()
     {
+        $todayPayments = $this->paymentModel->getTodayPayments();
+        $monthlyRevenue = $this->paymentModel->getMonthlyRevenue();
+
         $stats = [
             'total_revenue' => $this->paymentModel->getTotalRevenue(),
-            'today_payments' => $this->paymentModel->getTodayPayments(),
-            'monthly_revenue' => $this->paymentModel->getMonthlyRevenue(),
+            'today_payments' => (int) ($todayPayments['count'] ?? 0),
+            'today_revenue' => (float) ($todayPayments['total'] ?? 0),
+            'monthly_revenue' => (float) ($monthlyRevenue['total_revenue'] ?? 0),
             'pending_payments' => $this->paymentModel->where('status', 'pending')->countAllResults(),
             'completed_payments' => $this->paymentModel->where('status', 'completed')->countAllResults(),
             'customer_payments_total' => $this->paymentModel

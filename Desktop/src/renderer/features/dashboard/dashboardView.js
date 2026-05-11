@@ -38,6 +38,47 @@ function formatDate(value) {
   });
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatRelativeCount(value) {
+  const numericValue = Number(value || 0);
+  return Number.isFinite(numericValue) ? numericValue.toLocaleString() : '0';
+}
+
+function getSeverityTone(value) {
+  const severity = String(value || '').toLowerCase();
+  if (['critical', 'high', 'danger'].includes(severity)) {
+    return 'danger';
+  }
+
+  if (['medium', 'warning'].includes(severity)) {
+    return 'warning';
+  }
+
+  if (['low', 'info'].includes(severity)) {
+    return 'info';
+  }
+
+  return 'secondary';
+}
+
+function createPageHeading(icon, title) {
+  return `
+    <div class="row mb-4">
+      <div class="col-12">
+        <h3 class="mb-0"><i class="${icon}"></i> ${title}</h3>
+      </div>
+    </div>
+  `;
+}
+
 function createStatCard({ icon, value, label, tone = 'primary', subtitle = '' }) {
   return `
     <div class="col-md-3 col-sm-6 mb-3">
@@ -173,6 +214,7 @@ function getSidebarLinks(role) {
   if (role === 'admin' || role === 'super_admin') {
     return [
       { icon: 'fas fa-chart-line', label: 'Dashboard', route: 'dashboard' },
+      { icon: 'fas fa-shield-alt', label: 'Security', route: 'security' },
       { icon: 'fas fa-users', label: 'Users', route: 'users' },
       { icon: 'fas fa-calendar-check', label: 'Bookings', route: 'bookings' },
       { icon: 'fas fa-credit-card', label: 'Payments', route: 'payments' },
@@ -209,6 +251,7 @@ function getSidebarLinks(role) {
 function getViewTitle(route, role) {
   const titles = {
     dashboard: 'Dashboard',
+    security: 'Security',
     profile: 'Profile',
     settings: 'Settings',
     users: 'Users',
@@ -230,6 +273,7 @@ function createProfileForm(profile) {
   const isWorker = profile.user_type === 'worker';
 
   return `
+    ${createPageHeading('fas fa-user-circle', 'Profile')}
     <div class="card desktop-card">
       <div class="card-header desktop-card-header">
         <i class="fas fa-user-circle"></i> Edit Profile
@@ -285,6 +329,7 @@ function createProfileForm(profile) {
 
 function createSettingsForm() {
   return `
+    ${createPageHeading('fas fa-cog', 'Settings')}
     <div class="card desktop-card">
       <div class="card-header desktop-card-header">
         <i class="fas fa-shield-alt"></i> Change Password
@@ -313,13 +358,50 @@ function createSettingsForm() {
 }
 
 function createServicesView(state) {
-  const categories = state.serviceCategories || [];
-  const services = state.services || [];
+  const categories = Array.isArray(state.serviceCategories)
+    ? state.serviceCategories
+    : Object.keys(state.serviceCategories || {});
+  const services = Array.isArray(state.services)
+    ? state.services
+    : Object.values(state.services || {});
+  const selectedService = state.selectedService || null;
 
   return `
+    ${createPageHeading('fas fa-list', 'Available Services')}
+    <div class="row mb-4">
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card">
+          <i class="fas fa-briefcase stat-icon" style="color: var(--primary);"></i>
+          <div class="stat-value">${formatValue(services.length)}</div>
+          <div class="stat-label">Visible Services</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card info">
+          <i class="fas fa-layer-group stat-icon" style="color: var(--info);"></i>
+          <div class="stat-value">${formatValue(categories.length)}</div>
+          <div class="stat-label">Categories</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card success">
+          <i class="fas fa-peso-sign stat-icon" style="color: var(--success);"></i>
+          <div class="stat-value">${services.length ? formatCurrency(Math.min(...services.map((service) => Number(service.base_price || 0)))) : '-'}</div>
+          <div class="stat-label">Starting Price</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6 mb-3">
+        <div class="stat-card warning">
+          <i class="fas fa-clock stat-icon" style="color: var(--warning);"></i>
+          <div class="stat-value">${selectedService?.estimated_duration || '-'}</div>
+          <div class="stat-label">Selected Duration</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card desktop-card mb-4">
       <div class="card-header desktop-card-header">
-        <i class="fas fa-list"></i> Browse Services
+        <i class="fas fa-list"></i> Service Categories
       </div>
       <div class="card-body desktop-card-body">
         <div class="desktop-chip-row">
@@ -337,22 +419,28 @@ function createServicesView(state) {
 
     <div class="desktop-service-grid">
       ${services.length ? services.map((service) => `
-        <div class="card desktop-card desktop-service-card">
+        <div class="card desktop-card desktop-service-card service-card position-relative">
           <div class="card-body desktop-card-body">
+            <span class="badge bg-primary category-badge desktop-category-badge">${service.category || 'general'}</span>
             <div class="desktop-service-head">
               <div>
                 <h5>${service.name || 'Service'}</h5>
-                <span class="badge bg-secondary">${service.category || 'general'}</span>
               </div>
-              <strong>${formatCurrency(service.base_price ?? 0)}</strong>
             </div>
             <p class="text-muted mb-3">${service.description || 'No description provided.'}</p>
-            <div class="desktop-service-meta">
-              <span><i class="fas fa-clock"></i> ${service.estimated_duration || '-'} mins</span>
-              <span><i class="fas fa-toggle-on"></i> ${service.status || 'active'}</span>
+            <div class="mt-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted"><i class="fas fa-peso-sign"></i> Base Price:</span>
+                <strong class="text-primary">${formatCurrency(service.base_price ?? 0)}</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted"><i class="fas fa-clock"></i> Duration:</span>
+                <span>${service.estimated_duration || '-'} mins</span>
+              </div>
             </div>
-            <div class="desktop-form-actions mt-3">
-              <button type="button" class="action-button" data-service-book="${service.id}">Book Service</button>
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" class="ghost-button w-100" data-service-view="${service.id}">Details</button>
+              <button type="button" class="action-button w-100" data-service-book="${service.id}">Book Now</button>
             </div>
           </div>
         </div>
@@ -363,6 +451,43 @@ function createServicesView(state) {
           </div>
         </div>
       `}
+    </div>
+
+    <div class="card desktop-card mt-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-eye"></i> Service Details
+      </div>
+      <div class="card-body desktop-card-body">
+        ${selectedService ? `
+          <div class="row g-3">
+            <div class="col-lg-8">
+              <h5 class="mb-2">${selectedService.name || 'Service'}</h5>
+              <p class="text-muted mb-3">${selectedService.description || 'No description provided.'}</p>
+              <div class="d-flex flex-wrap gap-2">
+                <span class="badge bg-secondary">${selectedService.category || 'general'}</span>
+                <span class="badge bg-secondary">${selectedService.status || 'active'}</span>
+              </div>
+            </div>
+            <div class="col-lg-4">
+              <div class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="text-muted">Base Price</span>
+                  <strong class="text-primary">${formatCurrency(selectedService.base_price ?? 0)}</strong>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                  <span class="text-muted">Estimated Duration</span>
+                  <span>${selectedService.estimated_duration || '-'} mins</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div class="text-center text-muted py-4">
+            <i class="fas fa-list fa-2x mb-3 opacity-50"></i>
+            <p class="mb-0">Choose a service to preview its details here.</p>
+          </div>
+        `}
+      </div>
     </div>
 
     <div class="card desktop-card mt-4">
@@ -429,11 +554,13 @@ function createServicesView(state) {
 
 function createBookingsView(state) {
   const bookings = state.routeBookings || [];
+  const isCustomer = state.role === 'customer';
 
   return `
+    ${createPageHeading('fas fa-calendar-check', getViewTitle(state.currentRoute, state.role))}
     <div class="card desktop-card">
       <div class="card-header desktop-card-header">
-        <i class="fas fa-calendar-check"></i> ${getViewTitle(state.currentRoute, state.role)}
+        <i class="fas fa-list"></i> ${isCustomer ? 'Booking List' : getViewTitle(state.currentRoute, state.role)}
       </div>
       <div class="card-body desktop-card-body">
         <div class="table-responsive">
@@ -441,10 +568,11 @@ function createBookingsView(state) {
             <thead>
               <tr>
                 <th>Reference</th>
-                <th>Title</th>
+                <th>${isCustomer ? 'Service' : 'Title'}</th>
+                ${isCustomer ? '<th>Worker</th>' : ''}
+                <th>Scheduled Date</th>
                 <th>Status</th>
-                <th>Scheduled</th>
-                <th>Amount</th>
+                <th>${isCustomer ? 'Total Fee' : 'Amount'}</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -452,9 +580,10 @@ function createBookingsView(state) {
               ${bookings.length ? bookings.map((booking) => `
                 <tr>
                   <td><strong>${booking.booking_reference || booking.id}</strong></td>
-                  <td>${booking.title || 'Untitled booking'}</td>
-                  <td><span class="badge badge-${booking.status || 'pending'}">${String(booking.status || 'pending').replace(/_/g, ' ')}</span></td>
+                  <td>${booking.service_name || booking.title || 'Untitled booking'}</td>
+                  ${isCustomer ? `<td>${[booking.worker_first_name, booking.worker_last_name].filter(Boolean).join(' ') || 'Not assigned yet'}</td>` : ''}
                   <td>${formatDate(booking.scheduled_date || booking.created_at)}</td>
+                  <td><span class="badge badge-${booking.status || 'pending'}">${String(booking.status || 'pending').replace(/_/g, ' ')}</span></td>
                   <td>${formatCurrency(booking.total_fee ?? (Number(booking.labor_fee || 0) + Number(booking.materials_fee || 0)))}</td>
                   <td class="desktop-table-actions">
                     ${getBookingActionButtons(booking, state.role, state.currentRoute)}
@@ -536,6 +665,861 @@ function createEarningsView(state) {
               `}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createInfoBanner(message, tone = 'info') {
+  if (!message) {
+    return '';
+  }
+
+  return `
+    <div class="desktop-inline-banner ${tone}">
+      ${message}
+    </div>
+  `;
+}
+
+function createMetricGrid(metrics) {
+  return `
+    <div class="row mb-4">
+      ${metrics.map((metric) => createStatCard(metric)).join('')}
+    </div>
+  `;
+}
+
+function getDefaultUserFilters() {
+  return {
+    q: '',
+    userType: '',
+    status: 'active',
+    showDeleted: false,
+    page: 1,
+    limit: 25
+  };
+}
+
+function parseSkills(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    } catch {
+      return value.split(',').map((skill) => skill.trim()).filter(Boolean);
+    }
+  }
+
+  return [];
+}
+
+function createUserEditorForm(state) {
+  const mode = state.userEditorMode || 'create';
+  const user = state.selectedUser || {};
+  const isEditing = mode === 'edit';
+  const isViewing = mode === 'view';
+  const isArchivedView = Boolean(state.userFilters?.showDeleted);
+  const isArchivedUser = Boolean(user.deleted_at) || isArchivedView;
+  const isSuperAdmin = user.user_type === 'super_admin';
+  const canArchive = mode !== 'create' && !isSuperAdmin && !isArchivedUser;
+  const skills = parseSkills(user.skills).join(', ');
+  const locked = isViewing ? 'disabled' : '';
+  const title = isArchivedUser
+    ? 'Archived User Details'
+    : isViewing
+      ? 'User Details'
+      : isEditing
+        ? 'Edit User'
+        : 'Create New User';
+  const submitLabel = isEditing ? 'Save Changes' : 'Create User';
+
+  return `
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-user-gear"></i> ${title}</span>
+        ${mode !== 'create' && !isArchivedView ? '<button type="button" class="ghost-button" id="userCreateNewButton">New User</button>' : ''}
+      </div>
+      <div class="card-body desktop-card-body">
+        ${isArchivedUser
+          ? createInfoBanner('This user is archived. You can restore the account or permanently delete it from the desktop.', 'warning')
+          : isViewing
+            ? createInfoBanner('This is a read-only view. Click Edit to update this account.', 'info')
+            : ''}
+        <form id="userEditorForm" class="desktop-form-grid">
+          ${isEditing ? `<input type="hidden" name="id" value="${escapeHtml(user.id || '')}" />` : ''}
+          ${isSuperAdmin ? '<input type="hidden" name="user_type" value="super_admin" />' : ''}
+          <div class="form-row">
+            <div class="field">
+              <label for="admin_user_first_name">First Name</label>
+              <input id="admin_user_first_name" name="first_name" type="text" value="${escapeHtml(user.first_name || '')}" ${locked} required />
+            </div>
+            <div class="field">
+              <label for="admin_user_last_name">Last Name</label>
+              <input id="admin_user_last_name" name="last_name" type="text" value="${escapeHtml(user.last_name || '')}" ${locked} required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="admin_user_email">Email</label>
+              <input id="admin_user_email" name="email" type="email" value="${escapeHtml(user.email || '')}" ${locked} required />
+            </div>
+            <div class="field">
+              <label for="admin_user_phone">Phone</label>
+              <input id="admin_user_phone" name="phone" type="text" value="${escapeHtml(user.phone || '')}" ${locked} />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="admin_user_address">Address</label>
+            <textarea id="admin_user_address" name="address" ${locked}>${escapeHtml(user.address || '')}</textarea>
+          </div>
+
+          <div class="form-row">
+            <div class="field">
+              <label for="admin_user_type">User Role</label>
+              ${isSuperAdmin ? `
+                <input id="admin_user_type_label" type="text" value="super_admin" disabled />
+                <small class="text-muted">Super admin role is fixed and cannot be reassigned.</small>
+              ` : `
+                <select id="admin_user_type" name="user_type" ${locked} required>
+                  <option value="">Select role</option>
+                  ${['admin', 'finance', 'worker', 'customer'].map((role) => `
+                    <option value="${role}" ${String(user.user_type || '') === role ? 'selected' : ''}>${role.replace(/_/g, ' ')}</option>
+                  `).join('')}
+                </select>
+              `}
+            </div>
+            <div class="field">
+              <label for="admin_user_status">Status</label>
+              <select id="admin_user_status" name="status" ${locked} required>
+                ${['active', 'inactive', 'suspended'].map((status) => `
+                  <option value="${status}" ${String(user.status || 'active') === status ? 'selected' : ''}>${status}</option>
+                `).join('')}
+              </select>
+            </div>
+          </div>
+
+          ${!isEditing ? `
+            <div class="field">
+              <label for="admin_user_password">Password</label>
+              <input id="admin_user_password" name="password" type="password" minlength="8" ${locked} required />
+            </div>
+          ` : `
+            <div class="desktop-inline-banner">Password changes stay in the self-service profile flow, just like the website admin page.</div>
+          `}
+
+          <div id="desktopWorkerFields" class="${String(user.user_type || '') === 'worker' ? '' : 'hidden'}">
+            <div class="desktop-section-divider">
+              <h5><i class="fas fa-tools"></i> Worker Details</h5>
+              <p class="mb-0 text-muted">Coverage, rate, and skills are used when matching workers to jobs.</p>
+            </div>
+            <div class="field">
+              <label for="admin_user_skills">Skills</label>
+              <input id="admin_user_skills" name="skills" type="text" value="${escapeHtml(skills)}" placeholder="e.g., plumbing, electrical, carpentry" ${locked} />
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="admin_user_experience_years">Years of Experience</label>
+                <input id="admin_user_experience_years" name="experience_years" type="number" min="0" max="50" value="${escapeHtml(user.experience_years ?? 0)}" ${locked} />
+              </div>
+              <div class="field">
+                <label for="admin_user_commission_rate">Commission Rate (%)</label>
+                <input id="admin_user_commission_rate" name="commission_rate" type="number" min="0" max="100" step="0.01" value="${escapeHtml(user.commission_rate ?? 20)}" ${locked} />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="admin_user_service_city">Service City / Area</label>
+                <input id="admin_user_service_city" name="service_city" type="text" value="${escapeHtml(user.service_city || '')}" ${locked} />
+              </div>
+              <div class="field">
+                <label for="admin_user_service_radius_km">Coverage Radius (km)</label>
+                <input id="admin_user_service_radius_km" name="service_radius_km" type="number" min="1" max="500" step="0.1" value="${escapeHtml(user.service_radius_km ?? 20)}" ${locked} />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="admin_user_work_latitude">Base Latitude</label>
+                <input id="admin_user_work_latitude" name="work_latitude" type="number" min="-90" max="90" step="0.00000001" value="${escapeHtml(user.work_latitude || '')}" ${locked} />
+              </div>
+              <div class="field">
+                <label for="admin_user_work_longitude">Base Longitude</label>
+                <input id="admin_user_work_longitude" name="work_longitude" type="number" min="-180" max="180" step="0.00000001" value="${escapeHtml(user.work_longitude || '')}" ${locked} />
+              </div>
+            </div>
+          </div>
+
+          ${mode !== 'create' ? `
+            <div class="desktop-insight-grid">
+              <div class="desktop-insight-tile">
+                <span>User ID</span>
+                <strong>${formatValue(user.id)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Role</span>
+                <strong>${escapeHtml(String(user.user_type || '-').replace(/_/g, ' '))}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Joined</span>
+                <strong>${formatDate(user.created_at)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Worker Rating</span>
+                <strong>${formatValue(user.average_rating ?? '-')}</strong>
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="desktop-form-actions">
+            ${isArchivedUser
+              ? '<button type="button" class="action-button" id="userRestoreButton">Restore User</button><button type="button" class="ghost-button desktop-danger-button" id="userPermanentDeleteButton">Delete Permanently</button>'
+              : isViewing
+                ? '<button type="button" class="action-button" id="userEditButton">Edit User</button>'
+                : `<button type="submit" class="action-button" id="userSaveButton">${submitLabel}</button>`}
+            ${canArchive ? '<button type="button" class="ghost-button desktop-danger-button" id="userArchiveButton">Archive User</button>' : ''}
+            ${mode !== 'create' ? '<button type="button" class="ghost-button" id="userCancelSelectionButton">Clear Selection</button>' : ''}
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function createUsersEmptyDetailPanel(state) {
+  const isArchivedView = Boolean(state.userFilters?.showDeleted);
+  return `
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-user-gear"></i> User Workspace
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="chart-placeholder desktop-placeholder-card">
+          <div>
+            <h5 class="mb-2">${isArchivedView ? 'Select an archived user' : 'Select a user or create a new one'}</h5>
+            <p class="mb-0 text-muted">${isArchivedView ? 'Choose an archived user to restore it or permanently delete it.' : 'Choose a row action from the list, or click <strong>Add New User</strong> to open the admin form.'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createUsersView(state) {
+  const users = state.routeUsers || [];
+  const stats = state.routeUserStats || {};
+  const filters = state.userFilters || getDefaultUserFilters();
+  const isArchivedView = Boolean(filters.showDeleted);
+  const mode = state.userEditorMode || 'idle';
+  const tableTitle = isArchivedView
+    ? 'Archived Users'
+    : filters.status === 'active'
+      ? 'Active Users'
+      : filters.status
+        ? `${String(filters.status).replace(/_/g, ' ')} Users`
+        : 'All Users';
+  const pagination = state.routeUsersPagination || { total: users.length, page: filters.page || 1, limit: filters.limit || 25, pages: 1 };
+  const currentPage = Number(pagination.page || 1);
+  const totalPages = Number(pagination.pages || 1);
+  const totalUsers = Number(pagination.total || users.length || 0);
+  const pageSize = Number(pagination.limit || filters.limit || 25);
+  const rangeStart = totalUsers ? ((currentPage - 1) * pageSize) + 1 : 0;
+  const rangeEnd = totalUsers ? Math.min(currentPage * pageSize, totalUsers) : 0;
+
+  return `
+    ${createInfoBanner(state.routeNotice)}
+    ${createMetricGrid([
+      { icon: 'fas fa-users', value: stats.total_users ?? users.length, label: 'Total Users', tone: 'primary' },
+      { icon: 'fas fa-box-archive', value: stats.archived_users ?? 0, label: 'Archived', tone: 'secondary' },
+      { icon: 'fas fa-user-tie', value: stats.total_workers ?? 0, label: 'Workers', tone: 'info' },
+      { icon: 'fas fa-user-friends', value: stats.total_customers ?? 0, label: 'Customers', tone: 'success' }
+    ])}
+
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-filter"></i> User Filters
+      </div>
+      <div class="card-body desktop-card-body">
+        <form id="usersFilterForm" class="desktop-filter-grid">
+          <div class="field">
+            <label for="usersFilterQuery">Search</label>
+            <input id="usersFilterQuery" name="q" type="text" value="${escapeHtml(filters.q || '')}" placeholder="Name or email" />
+          </div>
+          <div class="field">
+            <label for="usersFilterRole">Role</label>
+            <select id="usersFilterRole" name="userType">
+              <option value="">All roles</option>
+              ${['admin', 'finance', 'worker', 'customer', 'super_admin'].map((role) => `
+                <option value="${role}" ${filters.userType === role ? 'selected' : ''}>${role.replace(/_/g, ' ')}</option>
+              `).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="usersFilterStatus">Status</label>
+            <select id="usersFilterStatus" name="status">
+              <option value="" ${!filters.status ? 'selected' : ''}>All statuses</option>
+              ${['active', 'inactive', 'suspended'].map((status) => `
+                <option value="${status}" ${filters.status === status ? 'selected' : ''}>${status}</option>
+              `).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="usersFilterLimit">Rows</label>
+            <select id="usersFilterLimit" name="limit">
+              ${[10, 25, 50, 100].map((limit) => `
+                <option value="${limit}" ${Number(filters.limit || 25) === limit ? 'selected' : ''}>${limit}</option>
+              `).join('')}
+            </select>
+          </div>
+          <div class="desktop-form-actions">
+            <button type="submit" class="action-button">Apply Filters</button>
+            <button type="button" class="ghost-button" id="usersResetFiltersButton">Reset</button>
+            <button type="button" class="ghost-button" id="usersArchivedToggleButton">${isArchivedView ? 'Back to Active Users' : 'View Archived'}</button>
+            ${isArchivedView ? '' : '<button type="button" class="ghost-button" id="usersCreateButton">Add New User</button>'}
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="desktop-admin-split">
+      <div class="card desktop-card">
+        <div class="card-header desktop-card-header d-flex justify-content-between align-items-center">
+          <span><i class="fas fa-users"></i> ${tableTitle}</span>
+          <span class="badge bg-secondary">${rangeStart}-${rangeEnd} of ${totalUsers}</span>
+        </div>
+        <div class="card-body desktop-card-body">
+          <div class="table-responsive desktop-users-list-scroll">
+            <table class="table table-hover desktop-users-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${users.length ? users.map((user) => `
+                  <tr
+                    class="${Number(state.selectedUserId || 0) === Number(user.id) ? 'desktop-row-selected' : ''} desktop-clickable-row"
+                    data-user-row="true"
+                    data-user-id="${user.id}"
+                  >
+                    <td>
+                      <strong class="desktop-user-name">${escapeHtml([user.first_name, user.last_name].filter(Boolean).join(' ') || 'Unnamed user')}</strong>
+                    </td>
+                    <td><span class="badge bg-secondary">${escapeHtml(String(user.user_type || 'user').replace(/_/g, ' '))}</span></td>
+                    <td><span class="badge bg-${isArchivedView ? 'secondary' : String(user.status || 'active') === 'active' ? 'success' : 'secondary'}">${escapeHtml(isArchivedView ? 'archived' : String(user.status || 'active').replace(/_/g, ' '))}</span></td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="3" class="text-center text-muted py-4">No users matched the current filters.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+          <div class="desktop-pagination-bar">
+            <div class="desktop-table-subtext">Page ${currentPage} of ${totalPages}</div>
+            <div class="desktop-form-actions">
+              <button type="button" class="ghost-button" id="usersPrevPageButton" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
+              <button type="button" class="ghost-button" id="usersNextPageButton" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${mode === 'idle' ? createUsersEmptyDetailPanel(state) : createUserEditorForm(state)}
+    </div>
+  `;
+}
+
+function cacheUsers(state, users) {
+  state.userDetailsById = state.userDetailsById || {};
+  users.forEach((user) => {
+    if (!user?.id) {
+      return;
+    }
+
+    const existingUser = state.userDetailsById[user.id] || {};
+    state.userDetailsById[user.id] = { ...existingUser, ...user };
+  });
+}
+
+function selectUserFromCache(state, userId) {
+  const normalizedUserId = Number(userId || 0);
+  if (!normalizedUserId) {
+    state.selectedUserId = null;
+    state.selectedUser = null;
+    return;
+  }
+
+  state.selectedUserId = normalizedUserId;
+  state.userDetailsById = state.userDetailsById || {};
+  const cachedUser = state.userDetailsById[normalizedUserId];
+  const listUser = (state.routeUsers || []).find((user) => Number(user.id) === normalizedUserId) || null;
+  state.selectedUser = cachedUser || listUser || null;
+}
+
+function renderUsersViewOnly(state, session, bridge) {
+  const contentElement = getElementById('desktopContentArea');
+  if (!contentElement) {
+    return;
+  }
+
+  contentElement.innerHTML = createUsersView(state);
+  bindUsersView(state, session, bridge);
+}
+
+function createPaymentsView(state) {
+  const payments = state.routePayments || [];
+
+  if (state.role === 'customer') {
+    const completedPayments = payments.filter((payment) => String(payment.status || '') === 'completed');
+    const pendingPayments = payments.filter((payment) => ['pending', 'processing'].includes(String(payment.status || '')));
+
+    return `
+      ${createPageHeading('fas fa-credit-card', 'My Payments')}
+      ${createInfoBanner(state.routeNotice || 'This payment history is loaded directly from the backend for your account.')}
+      <div class="card desktop-card">
+        <div class="card-header desktop-card-header">
+          <i class="fas fa-receipt"></i> Payment Records
+        </div>
+        <div class="card-body desktop-card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Payment Reference</th>
+                  <th>Booking</th>
+                  <th>Service</th>
+                  <th>Amount</th>
+                  <th>Payment Method</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${payments.length ? payments.map((payment) => `
+                  <tr>
+                    <td><code>${payment.payment_reference || payment.transaction_id || payment.id}</code></td>
+                    <td>${payment.booking_title || payment.booking_reference || '-'}</td>
+                    <td>${payment.service_name || '-'}</td>
+                    <td><strong>${formatCurrency(payment.amount || 0)}</strong></td>
+                    <td>${String(payment.payment_method || 'unassigned').replace(/_/g, ' ')}</td>
+                    <td><span class="badge badge-${payment.status || 'pending'}">${String(payment.status || 'pending').replace(/_/g, ' ')}</span></td>
+                    <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="7" class="text-center text-muted py-4">No payment records returned for your account yet.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      ${payments.length ? `
+        <div class="card desktop-card mt-4">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-chart-pie"></i> Payment Summary
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="row text-center">
+              <div class="col-md-4">
+                <h6 class="text-muted">Total Spent</h6>
+                <h4 class="text-primary">${formatCurrency(payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0))}</h4>
+              </div>
+              <div class="col-md-4">
+                <h6 class="text-muted">Total Payments</h6>
+                <h4 class="text-info">${payments.length}</h4>
+              </div>
+              <div class="col-md-4">
+                <h6 class="text-muted">Completed</h6>
+                <h4 class="text-success">${completedPayments.length}</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+    `;
+  }
+
+  const completed = payments.filter((payment) => String(payment.status || '') === 'completed');
+  const pending = payments.filter((payment) => String(payment.status || '') === 'pending');
+
+  return `
+    ${createInfoBanner(state.routeNotice)}
+    ${createMetricGrid([
+      { icon: 'fas fa-receipt', value: payments.length, label: 'All Payments', tone: 'primary' },
+      { icon: 'fas fa-hourglass-half', value: pending.length, label: 'Pending', tone: 'warning' },
+      { icon: 'fas fa-check-circle', value: completed.length, label: 'Completed', tone: 'success' },
+      { icon: 'fas fa-peso-sign', value: completed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0), label: 'Completed Value', tone: 'info' }
+    ])}
+
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-credit-card"></i> Payment Ledger
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Type</th>
+                <th>Method</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payments.length ? payments.map((payment) => `
+                <tr>
+                  <td><strong>${payment.payment_reference || payment.transaction_id || payment.id}</strong></td>
+                  <td><span class="badge bg-secondary">${String(payment.payment_type || 'payment').replace(/_/g, ' ')}</span></td>
+                  <td>${String(payment.payment_method || 'unassigned').replace(/_/g, ' ')}</td>
+                  <td><span class="badge badge-${payment.status || 'pending'}">${String(payment.status || 'pending').replace(/_/g, ' ')}</span></td>
+                  <td>${formatCurrency(payment.amount || 0)}</td>
+                  <td>${formatDate(payment.payment_date || payment.created_at)}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No payments returned for this page yet.</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createPayoutsView(state) {
+  const payouts = state.routePayments || [];
+  const completed = payouts.filter((payment) => String(payment.status || '') === 'completed');
+
+  return `
+    ${createInfoBanner(state.routeNotice)}
+    ${createMetricGrid([
+      { icon: 'fas fa-hand-holding-usd', value: payouts.length, label: 'Payout Records', tone: 'primary' },
+      { icon: 'fas fa-check-circle', value: completed.length, label: 'Completed Payouts', tone: 'success' },
+      { icon: 'fas fa-hourglass-half', value: payouts.length - completed.length, label: 'Pending Payouts', tone: 'warning' },
+      { icon: 'fas fa-wallet', value: completed.reduce((sum, payout) => sum + Number(payout.amount || 0), 0), label: 'Paid Out', tone: 'info' }
+    ])}
+
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-money-check-alt"></i> Worker Payouts
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Reference</th>
+                <th>Booking</th>
+                <th>Status</th>
+                <th>Method</th>
+                <th>Amount</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${payouts.length ? payouts.map((payout) => `
+                <tr>
+                  <td><strong>${payout.payment_reference || payout.id}</strong></td>
+                  <td>${payout.booking_reference || payout.booking_id || '-'}</td>
+                  <td><span class="badge badge-${payout.status || 'pending'}">${String(payout.status || 'pending').replace(/_/g, ' ')}</span></td>
+                  <td>${String(payout.payment_method || 'internal').replace(/_/g, ' ')}</td>
+                  <td>${formatCurrency(payout.amount || 0)}</td>
+                  <td>${formatDate(payout.payment_date || payout.created_at)}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No worker payouts have been recorded yet.</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createReportsView(state) {
+  const stats = state.routePaymentStats || {};
+  const report = state.routeRevenueReport || [];
+
+  return `
+    ${createInfoBanner(state.routeNotice)}
+    ${createMetricGrid([
+      { icon: 'fas fa-peso-sign', value: stats.total_revenue ?? 0, label: 'Total Revenue', tone: 'success' },
+      { icon: 'fas fa-calendar-day', value: stats.today_payments ?? 0, label: 'Today Payments', tone: 'info' },
+      { icon: 'fas fa-chart-line', value: stats.monthly_revenue ?? 0, label: 'Monthly Revenue', tone: 'primary' },
+      { icon: 'fas fa-hourglass-half', value: stats.pending_payments ?? 0, label: 'Pending Payments', tone: 'warning' }
+    ])}
+
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-chart-bar"></i> Revenue Timeline
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Revenue</th>
+                <th>Transactions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${report.length ? report.map((entry) => `
+                <tr>
+                  <td><strong>${formatDate(entry.date)}</strong></td>
+                  <td>${formatCurrency(entry.revenue || 0)}</td>
+                  <td>${formatValue(entry.count || 0)}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="3" class="text-center text-muted py-4">No revenue report rows available yet.</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createRecordsView(state) {
+  const records = state.routeRecords || [];
+
+  return `
+    ${createInfoBanner(state.routeNotice || 'Service records help operations track field work, notes, and payment status.')}
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-file-invoice"></i> Service Records
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Record</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Payment Status</th>
+                <th>Total</th>
+                <th>Scheduled</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${records.length ? records.map((record) => `
+                <tr>
+                  <td><strong>${record.id}</strong></td>
+                  <td>${record.customer_name || record.customer_id || '-'}</td>
+                  <td><span class="badge badge-${record.status || 'pending'}">${String(record.status || 'pending').replace(/_/g, ' ')}</span></td>
+                  <td><span class="badge bg-secondary">${String(record.payment_status || 'unpaid').replace(/_/g, ' ')}</span></td>
+                  <td>${formatCurrency(record.total_amount || 0)}</td>
+                  <td>${formatDate(record.scheduled_at || record.created_at)}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No service records are available to the desktop app for this role yet.</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createSecurityView(state) {
+  const dashboard = state.routeSecurityDashboard || {};
+  const stats = state.routeSecurityStats || {};
+  const topThreats = Array.isArray(dashboard.top_threats) ? dashboard.top_threats : [];
+  const alerts = Array.isArray(dashboard.recent_alerts) ? dashboard.recent_alerts : [];
+  const events = Array.isArray(state.routeSecurityEvents) ? state.routeSecurityEvents : [];
+  const blockedIps = Array.isArray(state.routeBlockedIps) ? state.routeBlockedIps : [];
+  const eventStats = stats.event_stats || {};
+  const blockStats = stats.block_stats || {};
+  const notificationStats = stats.notification_stats || {};
+  const dashboardSummary = dashboard.summary || {};
+
+  return `
+    ${createPageHeading('fas fa-shield-alt', 'Security Center')}
+    ${createInfoBanner(state.routeNotice || 'This workspace surfaces the backend security monitoring APIs for admins.')}
+    <div class="desktop-form-actions mb-3">
+      <button id="securityRefreshButton" type="button" class="action-button">Refresh Security Data</button>
+    </div>
+
+    ${createMetricGrid([
+      { icon: 'fas fa-triangle-exclamation', value: dashboardSummary.total_events ?? eventStats.total_events ?? 0, label: 'Tracked Events', tone: 'danger' },
+      { icon: 'fas fa-lock', value: dashboardSummary.failed_logins ?? eventStats.login_failed ?? 0, label: 'Failed Logins', tone: 'warning' },
+      { icon: 'fas fa-user-shield', value: dashboardSummary.suspicious_activities ?? eventStats.suspicious_activity ?? 0, label: 'Suspicious Activity', tone: 'info' },
+      { icon: 'fas fa-ban', value: dashboardSummary.blocked_ips ?? blockStats.active_blocks ?? blockedIps.length, label: 'Blocked IPs', tone: 'primary' },
+      { icon: 'fas fa-bell', value: notificationStats.unread ?? alerts.length, label: 'Unread Alerts', tone: 'warning' },
+      { icon: 'fas fa-check-circle', value: dashboardSummary.successful_logins ?? eventStats.login_success ?? 0, label: 'Successful Logins', tone: 'success' }
+    ])}
+
+    <div class="row">
+      <div class="col-xl-7">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-clock-rotate-left"></i> Recent Security Events
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Event</th>
+                    <th>Severity</th>
+                    <th>IP Address</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${events.length ? events.map((event) => `
+                    <tr>
+                      <td>
+                        <strong>${escapeHtml(String(event.event_type || 'event').replace(/_/g, ' '))}</strong>
+                        <div class="desktop-table-subtext">${escapeHtml(event.details || 'No additional details provided.')}</div>
+                      </td>
+                      <td><span class="badge bg-${getSeverityTone(event.severity)}">${escapeHtml(String(event.severity || 'info').replace(/_/g, ' '))}</span></td>
+                      <td>${escapeHtml(event.ip_address || '-')}</td>
+                      <td>${formatDate(event.created_at)}</td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colspan="4" class="text-center text-muted py-4">No recent security events were returned.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-5">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-radar"></i> Top Threat Sources
+          </div>
+          <div class="card-body desktop-card-body">
+            ${topThreats.length ? topThreats.map((threat) => `
+              <div class="desktop-insight-row">
+                <div>
+                  <strong>${escapeHtml(threat.ip_address || 'Unknown IP')}</strong>
+                  <div class="desktop-table-subtext">${escapeHtml(threat.details || threat.event_type || 'Suspicious activity detected')}</div>
+                </div>
+                <span class="badge bg-${getSeverityTone(threat.severity || 'medium')}">${formatRelativeCount(threat.event_count || threat.total || 1)} hits</span>
+              </div>
+            `).join('') : `
+              <div class="chart-placeholder desktop-placeholder-card">No top threat data is available yet.</div>
+            `}
+          </div>
+        </div>
+
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-bell"></i> Action Alerts
+          </div>
+          <div class="card-body desktop-card-body">
+            ${alerts.length ? alerts.map((alert) => `
+              <div class="desktop-insight-row">
+                <div>
+                  <strong>${escapeHtml(alert.title || alert.type || 'Security alert')}</strong>
+                  <div class="desktop-table-subtext">${escapeHtml(alert.message || alert.description || 'Review this alert in the backend.')}</div>
+                </div>
+                <span class="badge bg-${getSeverityTone(alert.priority || 'warning')}">${escapeHtml(String(alert.priority || 'pending').replace(/_/g, ' '))}</span>
+              </div>
+            `).join('') : `
+              <div class="chart-placeholder desktop-placeholder-card">No action-required alerts are waiting right now.</div>
+            `}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-xl-6">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-ban"></i> Blocked IP Addresses
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>IP Address</th>
+                    <th>Reason</th>
+                    <th>Blocked Until</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${blockedIps.length ? blockedIps.map((blockedIp) => `
+                    <tr>
+                      <td><strong>${escapeHtml(blockedIp.ip_address || '-')}</strong></td>
+                      <td>${escapeHtml(blockedIp.reason || blockedIp.notes || 'Manual or automated security block')}</td>
+                      <td>${formatDate(blockedIp.blocked_until || blockedIp.expires_at || blockedIp.created_at)}</td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colspan="3" class="text-center text-muted py-4">No active blocked IP entries were returned.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-6">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-chart-column"></i> Security Snapshot
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="desktop-insight-grid">
+              <div class="desktop-insight-tile">
+                <span>Blocks Today</span>
+                <strong>${formatRelativeCount(blockStats.blocks_today ?? blockStats.total_blocks_today ?? 0)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Total Active Blocks</span>
+                <strong>${formatRelativeCount(blockStats.active_blocks ?? blockedIps.length)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Critical Alerts</span>
+                <strong>${formatRelativeCount(notificationStats.critical ?? 0)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Notifications</span>
+                <strong>${formatRelativeCount(notificationStats.total ?? alerts.length)}</strong>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -679,11 +1663,182 @@ function createPlaceholderView(route, role) {
   `;
 }
 
+function createRouteErrorView(route, role, message) {
+  return `
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-triangle-exclamation"></i> ${getViewTitle(route, role)}
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="chart-placeholder desktop-placeholder-card">
+          ${message || 'This page could not load from the backend right now.'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createRouteLoadingView(route, role) {
+  return `
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-spinner fa-spin"></i> ${getViewTitle(route, role)}
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="chart-placeholder desktop-placeholder-card">
+          Loading ${getViewTitle(route, role).toLowerCase()}...
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function findBookingById(state, bookingId) {
   return (state.routeBookings || []).find((booking) => String(booking.id) === String(bookingId)) || null;
 }
 
+function renderCustomerDashboardHome(contentElement, state) {
+  const bookings = state.bookings || [];
+
+  contentElement.innerHTML = `
+    <div class="container-fluid">
+      <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="stat-card">
+            <i class="fas fa-calendar-check stat-icon" style="color: var(--primary);"></i>
+            <div class="stat-value">${formatValue(state.stats.active_bookings ?? 0)}</div>
+            <div class="stat-label">Active Bookings</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="stat-card warning">
+            <i class="fas fa-hourglass-half stat-icon" style="color: var(--warning);"></i>
+            <div class="stat-value">${formatValue(state.stats.pending_bookings ?? 0)}</div>
+            <div class="stat-label">Pending Bookings</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="stat-card success">
+            <i class="fas fa-check-circle stat-icon" style="color: var(--success);"></i>
+            <div class="stat-value">${formatValue(state.stats.completed_bookings ?? 0)}</div>
+            <div class="stat-label">Completed Bookings</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="stat-card info">
+            <i class="fas fa-book stat-icon" style="color: var(--info);"></i>
+            <div class="stat-value">${formatValue(state.stats.total_bookings ?? 0)}</div>
+            <div class="stat-label">Total Bookings</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="stat-card success">
+            <i class="fas fa-peso-sign stat-icon" style="color: var(--success);"></i>
+            <div class="stat-value">${formatCurrency(state.stats.total_spent ?? 0)}</div>
+            <div class="stat-label">Total Spent</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+          <div class="stat-card">
+            <i class="fas fa-star stat-icon" style="color: #ffc107;"></i>
+            <div class="stat-value">${formatValue(state.stats.average_rating_given ?? 0)}/5</div>
+            <div class="stat-label">Avg. Rating Given</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-lg-6">
+          <div class="card desktop-card">
+            <div class="card-header desktop-card-header">
+              <i class="fas fa-chart-line"></i> Spending Trend (Last 30 Days)
+            </div>
+            <div class="card-body desktop-card-body">
+              <div class="chart-container">
+                <div class="chart-placeholder">No spending data yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card desktop-card">
+            <div class="card-header desktop-card-header">
+              <i class="fas fa-chart-pie"></i> Service Preferences
+            </div>
+            <div class="card-body desktop-card-body">
+              <div class="chart-container">
+                <div class="chart-placeholder">No service preference data yet.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-lg-12">
+          <div class="card desktop-card">
+            <div class="card-header desktop-card-header">
+              <i class="fas fa-list"></i> Recent Bookings
+            </div>
+            <div class="card-body desktop-card-body">
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Title</th>
+                      <th>Status</th>
+                      <th>Scheduled Date</th>
+                      <th>Amount</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${bookings.length ? bookings.map((booking) => `
+                      <tr>
+                        <td><strong>${booking.booking_reference || 'N/A'}</strong></td>
+                        <td>${booking.title || 'N/A'}</td>
+                        <td>
+                          <span class="badge badge-${booking.status || 'pending'}">
+                            ${String(booking.status || 'pending').replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td>${formatDate(booking.scheduled_date || booking.created_at)}</td>
+                        <td>${formatCurrency(booking.total_fee ?? 0)}</td>
+                        <td>
+                          <button type="button" class="ghost-button table-action" disabled>
+                            <i class="fas fa-eye"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    `).join('') : `
+                      <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                          <i class="fas fa-inbox fa-2x mb-2"></i>
+                          <p class="mb-0">No bookings yet. Create your first booking from Services.</p>
+                        </td>
+                      </tr>
+                    `}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderDashboardHome(contentElement, state) {
+  if (state.role === 'customer') {
+    renderCustomerDashboardHome(contentElement, state);
+    return;
+  }
+
   const template = getRoleTemplate(state.role);
 
   contentElement.innerHTML = `
@@ -750,13 +1905,11 @@ function updateViewHeader(state) {
   const displayName = [state.profile.first_name, state.profile.last_name].filter(Boolean).join(' ') || 'User';
 
   if (titleElement) {
-    titleElement.textContent = getViewTitle(state.currentRoute, state.role);
+    titleElement.textContent = 'Welcome back!';
   }
 
   if (subtitleElement) {
-    subtitleElement.textContent = state.currentRoute === 'dashboard'
-      ? `Welcome back, ${displayName}.`
-      : `Signed in as ${displayName}.`;
+    subtitleElement.textContent = displayName;
   }
 }
 
@@ -809,7 +1962,6 @@ function buildDashboardShell(profile, role) {
         <div class="brand desktop-brand">
           <i class="fas fa-link"></i>
           <h5>SkillLink</h5>
-          <p>Desktop workspace</p>
         </div>
         <nav class="sidebar-nav" id="desktopSidebarNav">
           ${sidebarLinks.map((item) => `
@@ -840,19 +1992,16 @@ function buildDashboardShell(profile, role) {
               <i class="fas fa-bars"></i>
             </button>
             <div>
-              <h6 id="desktopViewTitle">Dashboard</h6>
-              <p class="mb-0 text-muted" id="desktopViewSubtitle">Welcome back, ${userName}.</p>
+              <h6 id="desktopViewTitle">Welcome back!</h6>
+              <p class="mb-0 text-muted" id="desktopViewSubtitle">${userName}</p>
             </div>
           </div>
           <div class="user-profile desktop-user-profile">
-            <div class="desktop-user-meta">
-              <span class="role-badge desktop-role-badge">${displayRole}</span>
-            </div>
-            <div class="desktop-account-panel">
+            <span class="role-badge desktop-role-badge">${displayRole}</span>
+            <div>
               <p class="mb-0">${profile.email || '-'}</p>
-              <small class="text-muted">Desktop connected to Backend API</small>
+              <small class="text-muted">Last login: Today</small>
             </div>
-            <button id="logoutButton" class="ghost-button desktop-ghost-button" type="button">Logout</button>
           </div>
         </div>
 
@@ -895,53 +2044,116 @@ async function renderRoute(state, session, bridge) {
     return;
   }
 
+  state.routeRequestSeq = (state.routeRequestSeq || 0) + 1;
+  const requestSeq = state.routeRequestSeq;
+
   updateViewHeader(state);
-  await ensureRouteData(state, session, bridge);
+  if (state.currentRoute !== 'dashboard') {
+    contentElement.innerHTML = createRouteLoadingView(state.currentRoute, state.role);
+  }
 
-  if (state.currentRoute === 'dashboard') {
-    renderDashboardHome(contentElement, state);
+  try {
+    await ensureRouteData(state, session, bridge);
+  } catch (error) {
+    if (requestSeq !== state.routeRequestSeq) {
+      return;
+    }
+    contentElement.innerHTML = createRouteErrorView(state.currentRoute, state.role, error.message || 'Failed to load this page from the backend.');
+    updateInlineStatus(error.message || 'Failed to load this page from the backend.', 'error');
+    return;
+  }
+
+  if (requestSeq !== state.routeRequestSeq) {
+    return;
+  }
+
+  try {
+    if (state.currentRoute === 'dashboard') {
+      renderDashboardHome(contentElement, state);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'profile') {
+      contentElement.innerHTML = createProfileForm(state.profile);
+      bindProfileForm(state, session, bridge);
+      return;
+    }
+
+    if (state.currentRoute === 'settings') {
+      contentElement.innerHTML = createSettingsForm();
+      bindPasswordForm(session, bridge);
+      return;
+    }
+
+    if (state.currentRoute === 'services') {
+      contentElement.innerHTML = createServicesView(state);
+      bindServicesView(state, session, bridge);
+      return;
+    }
+
+    if (state.currentRoute === 'available-jobs') {
+      contentElement.innerHTML = createBookingsView(state);
+      bindBookingsView(state, session, bridge);
+      return;
+    }
+
+    if (['bookings', 'my-jobs'].includes(state.currentRoute)) {
+      contentElement.innerHTML = createBookingsView(state);
+      bindBookingsView(state, session, bridge);
+      return;
+    }
+
+    if (state.currentRoute === 'payments') {
+      contentElement.innerHTML = createPaymentsView(state);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'earnings') {
+      contentElement.innerHTML = createEarningsView(state);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'users') {
+      contentElement.innerHTML = createUsersView(state);
+      bindUsersView(state, session, bridge);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'security') {
+      contentElement.innerHTML = createSecurityView(state);
+      bindSecurityView(state, session, bridge);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'records') {
+      contentElement.innerHTML = createRecordsView(state);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'payouts') {
+      contentElement.innerHTML = createPayoutsView(state);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'reports') {
+      contentElement.innerHTML = createReportsView(state);
+      updateInlineStatus('', null);
+      return;
+    }
+
+    contentElement.innerHTML = createPlaceholderView(state.currentRoute, state.role);
     updateInlineStatus('', null);
-    return;
+  } catch (error) {
+    contentElement.innerHTML = createRouteErrorView(state.currentRoute, state.role, error.message || 'This page could not be rendered.');
+    updateInlineStatus(error.message || 'This page could not be rendered.', 'error');
   }
-
-  if (state.currentRoute === 'profile') {
-    contentElement.innerHTML = createProfileForm(state.profile);
-    bindProfileForm(state, session, bridge);
-    return;
-  }
-
-  if (state.currentRoute === 'settings') {
-    contentElement.innerHTML = createSettingsForm();
-    bindPasswordForm(session, bridge);
-    return;
-  }
-
-  if (state.currentRoute === 'services') {
-    contentElement.innerHTML = createServicesView(state);
-    bindServicesView(state, session, bridge);
-    return;
-  }
-
-  if (state.currentRoute === 'available-jobs') {
-    contentElement.innerHTML = createBookingsView(state);
-    bindBookingsView(state, session, bridge);
-    return;
-  }
-
-  if (['bookings', 'my-jobs'].includes(state.currentRoute)) {
-    contentElement.innerHTML = createBookingsView(state);
-    bindBookingsView(state, session, bridge);
-    return;
-  }
-
-  if (state.currentRoute === 'earnings') {
-    contentElement.innerHTML = createEarningsView(state);
-    updateInlineStatus('', null);
-    return;
-  }
-
-  contentElement.innerHTML = createPlaceholderView(state.currentRoute, state.role);
-  updateInlineStatus('', null);
 }
 
 function setActiveNav(route) {
@@ -953,6 +2165,22 @@ function setActiveNav(route) {
   nav.querySelectorAll('[data-route]').forEach((link) => {
     link.classList.toggle('active', link.getAttribute('data-route') === route);
   });
+}
+
+function resetRouteState(state) {
+  state.routeNotice = '';
+  state.routeBookings = [];
+  state.routePayments = [];
+  state.routeUsers = [];
+  state.routeUserStats = {};
+  state.routeUsersPagination = { total: 0, page: 1, limit: 25, pages: 1 };
+  state.routePaymentStats = {};
+  state.routeRevenueReport = [];
+  state.routeRecords = [];
+  state.routeSecurityDashboard = {};
+  state.routeSecurityStats = {};
+  state.routeSecurityEvents = [];
+  state.routeBlockedIps = [];
 }
 
 function bindProfileForm(state, session, bridge) {
@@ -1064,14 +2292,27 @@ function bindSidebarNavigation(state, session, bridge) {
 }
 
 async function ensureRouteData(state, session, bridge) {
+  resetRouteState(state);
+
   if (state.currentRoute === 'services') {
+    const categoryKey = state.serviceCategory || '__all__';
+    state.serviceCatalogCache = state.serviceCatalogCache || {};
+
+    if (state.serviceCatalogCache[categoryKey] && state.serviceCategories?.length) {
+      state.services = state.serviceCatalogCache[categoryKey];
+      return;
+    }
+
     const [servicesResponse, categoriesResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, `/api/services${state.serviceCategory ? `?category=${encodeURIComponent(state.serviceCategory)}` : ''}`, { method: 'GET' }),
       state.serviceCategories?.length ? Promise.resolve({ data: state.serviceCategories }) : performAuthenticatedRequest(session, bridge, '/api/services/categories', { method: 'GET' })
     ]);
 
     state.services = servicesResponse?.data || [];
-    state.serviceCategories = categoriesResponse?.data || [];
+    state.serviceCategories = Array.isArray(categoriesResponse?.data)
+      ? categoriesResponse.data
+      : Object.keys(categoriesResponse?.data || {});
+    state.serviceCatalogCache[categoryKey] = state.services;
     return;
   }
 
@@ -1079,11 +2320,7 @@ async function ensureRouteData(state, session, bridge) {
     const bookingResponse = await performAuthenticatedRequest(session, bridge, '/api/dashboard/bookings?limit=50', { method: 'GET' });
     const allBookings = bookingResponse?.bookings || [];
 
-    if (state.currentRoute === 'my-jobs' && state.role === 'worker') {
-      state.routeBookings = allBookings;
-    } else {
-      state.routeBookings = allBookings;
-    }
+    state.routeBookings = allBookings;
     return;
   }
 
@@ -1104,6 +2341,116 @@ async function ensureRouteData(state, session, bridge) {
   if (state.currentRoute === 'earnings' && state.role === 'worker') {
     const earningsResponse = await performAuthenticatedRequest(session, bridge, `/api/payments/worker-earnings/${state.profile.id}`, { method: 'GET' });
     state.earningsData = earningsResponse?.data || { total_earnings: 0, payouts: [] };
+    return;
+  }
+
+  if (state.currentRoute === 'payments') {
+    if (state.role === 'customer') {
+      const paymentsResponse = await performAuthenticatedRequest(session, bridge, '/api/payments/mine', { method: 'GET' });
+      state.routePayments = paymentsResponse?.data || [];
+      state.routeNotice = 'This payment history is loaded directly from the backend for your account.';
+      return;
+    }
+
+    const [paymentsResponse, statisticsResponse] = await Promise.all([
+      performAuthenticatedRequest(session, bridge, '/api/payments?limit=50', { method: 'GET' }),
+      performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }).catch(() => ({ data: {} }))
+    ]);
+
+    state.routePayments = paymentsResponse?.data || [];
+    state.routePaymentStats = statisticsResponse?.data || {};
+    return;
+  }
+
+  if (state.currentRoute === 'users') {
+    state.userFilters = state.userFilters || getDefaultUserFilters();
+    const { q = '', userType = '', status = 'active', showDeleted = false, page = 1, limit = 25 } = state.userFilters;
+    const normalizedQuery = String(q || '').trim();
+    const params = new URLSearchParams({ limit: String(limit), page: String(page) });
+    if (userType) {
+      params.set('user_type', userType);
+    }
+    if (showDeleted) {
+      params.set('show_deleted', '1');
+    }
+    if (status && !normalizedQuery) {
+      params.set('status', status);
+    }
+
+    const [usersResponse, statisticsResponse] = await Promise.all([
+      performAuthenticatedRequest(
+        session,
+        bridge,
+        normalizedQuery
+          ? `/api/users/search?q=${encodeURIComponent(normalizedQuery)}${userType ? `&user_type=${encodeURIComponent(userType)}` : ''}${status ? `&status=${encodeURIComponent(status)}` : ''}${showDeleted ? '&show_deleted=1' : ''}&limit=${encodeURIComponent(String(limit))}&page=${encodeURIComponent(String(page))}`
+          : `/api/users?${params.toString()}`,
+        { method: 'GET' }
+      ),
+      performAuthenticatedRequest(session, bridge, '/api/users/statistics', { method: 'GET' }).catch(() => ({ data: {} }))
+    ]);
+
+    const users = usersResponse?.data || [];
+
+    state.routeUsers = users;
+    state.routeUsersPagination = usersResponse?.pagination || { total: users.length, page, limit, pages: 1 };
+    state.routeUserStats = statisticsResponse?.data || {};
+    state.routeNotice = showDeleted
+      ? (normalizedQuery
+        ? `Showing archived search results for "${normalizedQuery}" in the desktop admin workspace.`
+        : 'Archived users are shown here. Restore them to move them back into the active user workspace.')
+      : (normalizedQuery
+        ? `Showing search results for "${normalizedQuery}" in the desktop admin workspace.`
+        : 'This desktop page mirrors the website admin user manager with inline editing and archive actions.');
+    cacheUsers(state, users);
+
+    if (state.selectedUserId) {
+      selectUserFromCache(state, state.selectedUserId);
+    }
+
+    return;
+  }
+
+  if (state.currentRoute === 'security') {
+    const [dashboardResponse, eventsResponse, blockedResponse, statisticsResponse] = await Promise.all([
+      performAuthenticatedRequest(session, bridge, '/api/security/dashboard', { method: 'GET' }),
+      performAuthenticatedRequest(session, bridge, '/api/security/events?limit=10', { method: 'GET' }).catch(() => ({ data: { events: [] } })),
+      performAuthenticatedRequest(session, bridge, '/api/security/blocked-ips?limit=10', { method: 'GET' }).catch(() => ({ data: { blocked_ips: [] } })),
+      performAuthenticatedRequest(session, bridge, '/api/security/statistics', { method: 'GET' }).catch(() => ({ data: {} }))
+    ]);
+
+    state.routeSecurityDashboard = dashboardResponse?.data || {};
+    state.routeSecurityEvents = eventsResponse?.data?.events || [];
+    state.routeBlockedIps = blockedResponse?.data?.blocked_ips || [];
+    state.routeSecurityStats = statisticsResponse?.data || {};
+    state.routeNotice = 'Security data is live from the backend admin APIs. Refresh this page after investigating new incidents.';
+    return;
+  }
+
+  if (state.currentRoute === 'payouts') {
+    const payoutsResponse = await performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=worker_payout&limit=50', { method: 'GET' });
+    state.routePayments = payoutsResponse?.data || [];
+    return;
+  }
+
+  if (state.currentRoute === 'reports') {
+    const [statisticsResponse, revenueResponse] = await Promise.all([
+      performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }),
+      performAuthenticatedRequest(session, bridge, '/api/payments/revenue-report', { method: 'GET' }).catch(() => ({ data: [] }))
+    ]);
+
+    state.routePaymentStats = statisticsResponse?.data || {};
+    state.routeRevenueReport = revenueResponse?.data || [];
+    return;
+  }
+
+  if (state.currentRoute === 'records') {
+    try {
+      const recordsResponse = await performAuthenticatedRequest(session, bridge, '/api/records?limit=50', { method: 'GET' });
+      state.routeRecords = recordsResponse?.data || [];
+    } catch (error) {
+      state.routeRecords = [];
+      state.routeNotice = error.message || 'Service records are not available in the desktop flow yet.';
+    }
   }
 }
 
@@ -1148,6 +2495,20 @@ function bindServicesView(state, session, bridge) {
       }
 
       updateInlineStatus(`Selected ${service.name}. Complete the booking form below.`, 'success');
+    });
+  });
+
+  contentElement.querySelectorAll('[data-service-view]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const serviceId = Number(button.getAttribute('data-service-view'));
+      const service = (state.services || []).find((item) => Number(item.id) === serviceId);
+      if (!service) {
+        return;
+      }
+
+      state.selectedService = service;
+      await renderRoute(state, session, bridge);
+      updateInlineStatus(`Viewing ${service.name}. You can book it below when ready.`, 'success');
     });
   });
 
@@ -1307,6 +2668,419 @@ function bindReviewForm(state, session, bridge) {
   };
 }
 
+function bindSecurityView(state, session, bridge) {
+  const refreshButton = getElementById('securityRefreshButton');
+  if (!refreshButton) {
+    return;
+  }
+
+  refreshButton.onclick = async () => {
+    refreshButton.disabled = true;
+    refreshButton.textContent = 'Refreshing...';
+
+    try {
+      await renderRoute(state, session, bridge);
+      updateInlineStatus('Security data refreshed successfully.', 'success');
+      setStatus('Security data refreshed successfully.', 'success');
+    } catch (error) {
+      updateInlineStatus(error.message || 'Failed to refresh security data.', 'error');
+      setStatus(error.message || 'Failed to refresh security data.', 'error');
+    } finally {
+      refreshButton.disabled = false;
+      refreshButton.textContent = 'Refresh Security Data';
+    }
+  };
+}
+
+function syncUserWorkerFields() {
+  const roleField = getElementById('admin_user_type');
+  const workerFields = getElementById('desktopWorkerFields');
+  if (!workerFields) {
+    return;
+  }
+
+  const roleValue = roleField?.value || document.querySelector('input[name="user_type"]')?.value || '';
+  workerFields.classList.toggle('hidden', roleValue !== 'worker');
+}
+
+function buildUserPayload(form) {
+  const payload = Object.fromEntries(new FormData(form).entries());
+  if ((payload.user_type || '') !== 'worker') {
+    delete payload.skills;
+    delete payload.experience_years;
+    delete payload.commission_rate;
+    delete payload.service_city;
+    delete payload.service_radius_km;
+    delete payload.work_latitude;
+    delete payload.work_longitude;
+  }
+
+  return payload;
+}
+
+function bindUsersView(state, session, bridge) {
+  const filterForm = getElementById('usersFilterForm');
+  const resetButton = getElementById('usersResetFiltersButton');
+  const archivedToggleButton = getElementById('usersArchivedToggleButton');
+  const createButton = getElementById('usersCreateButton');
+  const contentElement = getElementById('desktopContentArea');
+
+  if (filterForm) {
+    filterForm.onsubmit = async (event) => {
+      event.preventDefault();
+      const formData = new FormData(filterForm);
+      state.userFilters = {
+        q: String(formData.get('q') || '').trim(),
+        userType: String(formData.get('userType') || ''),
+        status: String(formData.get('status') || ''),
+        showDeleted: Boolean(state.userFilters?.showDeleted),
+        limit: Number(formData.get('limit') || 25),
+        page: 1
+      };
+      await renderRoute(state, session, bridge);
+    };
+  }
+
+  if (resetButton) {
+    resetButton.onclick = async () => {
+      state.userFilters = {
+        ...getDefaultUserFilters(),
+        showDeleted: Boolean(state.userFilters?.showDeleted),
+        status: state.userFilters?.showDeleted ? '' : 'active'
+      };
+      state.userEditorMode = 'idle';
+      state.selectedUserId = null;
+      state.selectedUser = null;
+      await renderRoute(state, session, bridge);
+    };
+  }
+
+  if (archivedToggleButton) {
+    archivedToggleButton.onclick = async () => {
+      const nextShowDeleted = !Boolean(state.userFilters?.showDeleted);
+      state.userFilters = {
+        ...(state.userFilters || getDefaultUserFilters()),
+        showDeleted: nextShowDeleted,
+        status: nextShowDeleted ? '' : 'active',
+        page: 1
+      };
+      state.userEditorMode = 'idle';
+      state.selectedUserId = null;
+      state.selectedUser = null;
+      await renderRoute(state, session, bridge);
+    };
+  }
+
+  if (createButton) {
+    createButton.onclick = () => {
+      state.userEditorMode = 'create';
+      state.selectedUserId = null;
+      state.selectedUser = null;
+      renderUsersViewOnly(state, session, bridge);
+    };
+  }
+
+  if (contentElement) {
+    contentElement.querySelectorAll('[data-user-row]').forEach((row) => {
+      row.addEventListener('click', async (event) => {
+        if (event.target.closest('[data-user-action]')) {
+          return;
+        }
+
+        const userId = Number(row.getAttribute('data-user-id'));
+        state.userEditorMode = 'view';
+        selectUserFromCache(state, userId);
+        renderUsersViewOnly(state, session, bridge);
+      });
+    });
+
+    contentElement.querySelectorAll('[data-user-action]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const action = button.getAttribute('data-user-action');
+        const userId = Number(button.getAttribute('data-user-id'));
+
+        if (action === 'archive') {
+          const confirmed = typeof window.confirm === 'function'
+            ? window.confirm('Archive this user?')
+            : true;
+          if (!confirmed) {
+            return;
+          }
+
+          button.disabled = true;
+          try {
+            const response = await performAuthenticatedRequest(session, bridge, `/api/users/${userId}`, {
+              method: 'DELETE'
+            });
+            updateInlineStatus(response?.message || 'User archived successfully.', 'success');
+            setStatus(response?.message || 'User archived successfully.', 'success');
+            if (Number(state.selectedUserId || 0) === userId) {
+              state.selectedUserId = null;
+              state.selectedUser = null;
+              state.userEditorMode = 'idle';
+            }
+            if (state.userDetailsById) {
+              delete state.userDetailsById[userId];
+            }
+            await renderRoute(state, session, bridge);
+          } catch (error) {
+            updateInlineStatus(error.message || 'Failed to archive user.', 'error');
+            setStatus(error.message || 'Failed to archive user.', 'error');
+          } finally {
+            button.disabled = false;
+          }
+          return;
+        }
+
+        state.userEditorMode = action === 'edit' ? 'edit' : 'view';
+        selectUserFromCache(state, userId);
+        renderUsersViewOnly(state, session, bridge);
+      });
+    });
+  }
+
+  const editorForm = getElementById('userEditorForm');
+  const saveButton = getElementById('userSaveButton');
+  const editButton = getElementById('userEditButton');
+  const archiveButton = getElementById('userArchiveButton');
+  const restoreButton = getElementById('userRestoreButton');
+  const permanentDeleteButton = getElementById('userPermanentDeleteButton');
+  const clearButton = getElementById('userCancelSelectionButton');
+  const newButton = getElementById('userCreateNewButton');
+  const prevPageButton = getElementById('usersPrevPageButton');
+  const nextPageButton = getElementById('usersNextPageButton');
+  const roleField = getElementById('admin_user_type');
+
+  if (prevPageButton) {
+    prevPageButton.onclick = async () => {
+      const currentPage = Number(state.userFilters?.page || 1);
+      if (currentPage <= 1) {
+        return;
+      }
+      state.userFilters = {
+        ...(state.userFilters || getDefaultUserFilters()),
+        page: currentPage - 1
+      };
+      await renderRoute(state, session, bridge);
+    };
+  }
+
+  if (nextPageButton) {
+    nextPageButton.onclick = async () => {
+      const currentPage = Number(state.userFilters?.page || 1);
+      const totalPages = Number(state.routeUsersPagination?.pages || 1);
+      if (currentPage >= totalPages) {
+        return;
+      }
+      state.userFilters = {
+        ...(state.userFilters || getDefaultUserFilters()),
+        page: currentPage + 1
+      };
+      await renderRoute(state, session, bridge);
+    };
+  }
+
+  roleField?.addEventListener('change', syncUserWorkerFields);
+  syncUserWorkerFields();
+
+  if (editButton) {
+    editButton.onclick = () => {
+      state.userEditorMode = 'edit';
+      renderUsersViewOnly(state, session, bridge);
+    };
+  }
+
+  if (archiveButton) {
+    archiveButton.onclick = async () => {
+      if (!state.selectedUserId) {
+        return;
+      }
+
+      const confirmed = typeof window.confirm === 'function'
+        ? window.confirm('Soft delete this user? The account will be archived, not permanently removed.')
+        : true;
+      if (!confirmed) {
+        return;
+      }
+
+      archiveButton.disabled = true;
+      archiveButton.textContent = 'Deleting...';
+
+      try {
+        const archivedUserId = state.selectedUserId;
+        const response = await performAuthenticatedRequest(session, bridge, `/api/users/${archivedUserId}`, {
+          method: 'DELETE'
+        });
+
+        state.selectedUserId = null;
+        state.selectedUser = null;
+        state.userEditorMode = 'idle';
+        if (state.userDetailsById) {
+          delete state.userDetailsById[archivedUserId];
+        }
+        updateInlineStatus(response?.message || 'User archived successfully.', 'success');
+        setStatus(response?.message || 'User archived successfully.', 'success');
+        await renderRoute(state, session, bridge);
+      } catch (error) {
+        updateInlineStatus(error.message || 'Failed to archive user.', 'error');
+        setStatus(error.message || 'Failed to archive user.', 'error');
+      } finally {
+        archiveButton.disabled = false;
+        archiveButton.textContent = 'Archive User';
+      }
+    };
+  }
+
+  if (restoreButton) {
+    restoreButton.onclick = async () => {
+      if (!state.selectedUserId) {
+        return;
+      }
+
+      const confirmed = typeof window.confirm === 'function'
+        ? window.confirm('Restore this user?')
+        : true;
+      if (!confirmed) {
+        return;
+      }
+
+      restoreButton.disabled = true;
+      restoreButton.textContent = 'Restoring...';
+
+      try {
+        const restoredUserId = state.selectedUserId;
+        const response = await performAuthenticatedRequest(session, bridge, `/api/users/${restoredUserId}/restore`, {
+          method: 'POST'
+        });
+
+        const restoredUser = response?.data || null;
+        if (restoredUser?.id) {
+          state.userDetailsById = state.userDetailsById || {};
+          state.userDetailsById[restoredUser.id] = {
+            ...(state.userDetailsById[restoredUser.id] || {}),
+            ...restoredUser
+          };
+        }
+        state.selectedUserId = null;
+        state.selectedUser = null;
+        state.userEditorMode = 'idle';
+        updateInlineStatus(response?.message || 'User restored successfully.', 'success');
+        setStatus(response?.message || 'User restored successfully.', 'success');
+        await renderRoute(state, session, bridge);
+      } catch (error) {
+        updateInlineStatus(error.message || 'Failed to restore user.', 'error');
+        setStatus(error.message || 'Failed to restore user.', 'error');
+      } finally {
+        restoreButton.disabled = false;
+        restoreButton.textContent = 'Restore User';
+      }
+    };
+  }
+
+  if (permanentDeleteButton) {
+    permanentDeleteButton.onclick = async () => {
+      if (!state.selectedUserId) {
+        return;
+      }
+
+      const confirmed = typeof window.confirm === 'function'
+        ? window.confirm('Delete this archived user permanently? This cannot be undone.')
+        : true;
+      if (!confirmed) {
+        return;
+      }
+
+      permanentDeleteButton.disabled = true;
+      permanentDeleteButton.textContent = 'Deleting...';
+
+      try {
+        const deletedUserId = state.selectedUserId;
+        const response = await performAuthenticatedRequest(session, bridge, `/api/users/${deletedUserId}/permanent`, {
+          method: 'DELETE'
+        });
+
+        if (state.userDetailsById) {
+          delete state.userDetailsById[deletedUserId];
+        }
+        state.selectedUserId = null;
+        state.selectedUser = null;
+        state.userEditorMode = 'idle';
+        updateInlineStatus(response?.message || 'User permanently deleted successfully.', 'success');
+        setStatus(response?.message || 'User permanently deleted successfully.', 'success');
+        await renderRoute(state, session, bridge);
+      } catch (error) {
+        updateInlineStatus(error.message || 'Failed to permanently delete user.', 'error');
+        setStatus(error.message || 'Failed to permanently delete user.', 'error');
+      } finally {
+        permanentDeleteButton.disabled = false;
+        permanentDeleteButton.textContent = 'Delete Permanently';
+      }
+    };
+  }
+
+  if (clearButton) {
+    clearButton.onclick = () => {
+      state.selectedUserId = null;
+      state.selectedUser = null;
+      state.userEditorMode = 'idle';
+      renderUsersViewOnly(state, session, bridge);
+    };
+  }
+
+  if (newButton) {
+    newButton.onclick = () => {
+      state.selectedUserId = null;
+      state.selectedUser = null;
+      state.userEditorMode = 'create';
+      renderUsersViewOnly(state, session, bridge);
+    };
+  }
+
+  if (editorForm && saveButton) {
+    editorForm.onsubmit = async (event) => {
+      event.preventDefault();
+      saveButton.disabled = true;
+      saveButton.textContent = state.userEditorMode === 'edit' ? 'Saving...' : 'Creating...';
+
+      const payload = buildUserPayload(editorForm);
+      const isEditing = state.userEditorMode === 'edit' && payload.id;
+
+      try {
+        const response = await performAuthenticatedRequest(
+          session,
+          bridge,
+          isEditing ? `/api/users/${payload.id}` : '/api/users',
+          {
+            method: isEditing ? 'PUT' : 'POST',
+            body: payload
+          }
+        );
+
+        const savedUser = response?.data || null;
+        if (savedUser?.id) {
+          state.userDetailsById = state.userDetailsById || {};
+          state.userDetailsById[savedUser.id] = {
+            ...(state.userDetailsById[savedUser.id] || {}),
+            ...savedUser
+          };
+        }
+        state.selectedUserId = savedUser?.id || state.selectedUserId;
+        state.selectedUser = savedUser;
+        state.userEditorMode = savedUser ? 'view' : 'idle';
+        updateInlineStatus(response?.message || (isEditing ? 'User updated successfully.' : 'User created successfully.'), 'success');
+        setStatus(response?.message || (isEditing ? 'User updated successfully.' : 'User created successfully.'), 'success');
+        await renderRoute(state, session, bridge);
+      } catch (error) {
+        updateInlineStatus(error.message || 'Failed to save user.', 'error');
+        setStatus(error.message || 'Failed to save user.', 'error');
+      } finally {
+        saveButton.disabled = false;
+        saveButton.textContent = isEditing ? 'Save Changes' : 'Create User';
+      }
+    };
+  }
+}
+
 function bindCompleteJobForm(state, session, bridge) {
   const form = getElementById('completeJobForm');
   const submitButton = getElementById('completeJobSubmitButton');
@@ -1408,7 +3182,12 @@ export async function renderDashboardView(session = getSession()) {
       profile,
       stats: statsResponse?.stats || {},
       bookings: bookingsResponse?.bookings || [],
-      role
+      role,
+      userFilters: getDefaultUserFilters(),
+      userEditorMode: 'idle',
+      selectedUserId: null,
+      selectedUser: null,
+      userDetailsById: {}
     };
 
     const performLogout = async (event) => {

@@ -1,5 +1,7 @@
 const { NETWORK_TIMEOUT_MS } = require('../config/appConfig');
 
+let preferredBaseUrl = null;
+
 function createHeaders(options = {}) {
   return {
     'Content-Type': 'application/json',
@@ -83,11 +85,16 @@ async function requestOnce(baseUrl, endpoint, options = {}) {
 
 async function requestJson(baseUrlOrUrls, endpoint, options = {}) {
   const baseUrls = Array.isArray(baseUrlOrUrls) ? baseUrlOrUrls : [baseUrlOrUrls];
+  const orderedBaseUrls = [preferredBaseUrl, ...baseUrls]
+    .filter(Boolean)
+    .filter((url, index, array) => array.indexOf(url) === index);
   let lastError = null;
 
-  for (const baseUrl of baseUrls) {
+  for (const baseUrl of orderedBaseUrls) {
     try {
-      return await requestOnce(baseUrl, endpoint, options);
+      const data = await requestOnce(baseUrl, endpoint, options);
+      preferredBaseUrl = baseUrl;
+      return data;
     } catch (error) {
       lastError = error;
 
