@@ -9,6 +9,7 @@ export function bindAuthNavigation() {
     const showRegister = sectionToShow === 'register';
     authSection?.classList.toggle('hidden', showRegister);
     registerSection?.classList.toggle('hidden', !showRegister);
+    root?.classList.toggle('register-mode', showRegister);
   }
 
   root?.addEventListener('click', (event) => {

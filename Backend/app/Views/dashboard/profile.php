@@ -31,21 +31,26 @@
                     <div class="col-12"><strong>Address:</strong> <?= esc($user['address'] ?? '-') ?></div>
                     
                     <?php if (isset($user['user_type']) && $user['user_type'] === 'worker'): ?>
+                        <?php
+                            $rawSkills = $user['skills'] ?? '';
+                            $decodedSkills = is_string($rawSkills) ? json_decode($rawSkills, true) : $rawSkills;
+                            $skillsList = [];
+                            if (is_array($decodedSkills)) {
+                                $skillsList = array_values(array_filter(array_map('trim', $decodedSkills)));
+                            } elseif (is_string($rawSkills) && trim($rawSkills) !== '') {
+                                $skillsList = array_values(array_filter(array_map('trim', explode(',', $rawSkills))));
+                            }
+                        ?>
                         <div class="col-12 mt-3">
                             <h5><i class="fas fa-tools"></i> Worker Details</h5>
                             <hr>
                         </div>
                         <div class="col-md-6">
                             <strong>Skills:</strong> 
-                            <?php if (isset($user['skills']) && $user['skills']): ?>
-                                <?php $skills = json_decode($user['skills'], true); ?>
-                                <?php if (is_array($skills) && count($skills) > 0): ?>
-                                    <?php foreach ($skills as $skill): ?>
-                                        <span class="badge bg-primary me-1"><?= esc($skill) ?></span>
-                                    <?php endforeach; ?>
-                                <?php else: ?>
-                                    -
-                                <?php endif; ?>
+                            <?php if (!empty($skillsList)): ?>
+                                <?php foreach ($skillsList as $skill): ?>
+                                    <span class="badge bg-primary me-1"><?= esc($skill) ?></span>
+                                <?php endforeach; ?>
                             <?php else: ?>
                                 -
                             <?php endif; ?>

@@ -96,6 +96,15 @@
                         <?php endif; ?>
 
                         <!-- Worker-specific fields -->
+                        <?php
+                            $editUserSkills = $editUser['skills'] ?? '';
+                            $decodedEditUserSkills = is_string($editUserSkills) ? json_decode($editUserSkills, true) : $editUserSkills;
+                            if (is_array($decodedEditUserSkills)) {
+                                $editUserSkillsDisplay = implode(', ', array_filter(array_map('trim', $decodedEditUserSkills)));
+                            } else {
+                                $editUserSkillsDisplay = is_string($editUserSkills) ? trim($editUserSkills) : '';
+                            }
+                        ?>
                         <div id="workerFields" style="display: <?= old('user_type', $editUser['user_type'] ?? '') === 'worker' ? 'block' : 'none' ?>;">
                             <div class="col-12 mt-3">
                                 <h5><i class="fas fa-tools"></i> Worker Details</h5>
@@ -104,7 +113,7 @@
                             <div class="col-md-6">
                                 <label for="skills" class="form-label">Skills (comma separated)</label>
                                 <input type="text" class="form-control <?= isset($errors['skills']) ? 'is-invalid' : '' ?>" id="skills_input" name="skills_input" 
-                                       value="<?= isset($editUser) && $editUser['skills'] ? esc(implode(', ', json_decode($editUser['skills'], true))) : '' ?>" 
+                                       value="<?= esc(old('skills_input', $editUserSkillsDisplay)) ?>" 
                                        placeholder="e.g., plumbing, electrical, carpentry">
                                 <small class="text-muted">Separate skills with commas</small>
                                 <?php if (isset($errors['skills'])): ?><div class="field-error"><?= esc($errors['skills']) ?></div><?php endif; ?>
@@ -120,6 +129,32 @@
                                 <input type="number" class="form-control <?= isset($errors['commission_rate']) ? 'is-invalid' : '' ?>" id="commission_rate" name="commission_rate" 
                                        min="0" max="100" step="0.01" value="<?= esc(old('commission_rate', $editUser['commission_rate'] ?? 20.00)) ?>">
                                 <?php if (isset($errors['commission_rate'])): ?><div class="field-error"><?= esc($errors['commission_rate']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="service_city" class="form-label">Service City / Area</label>
+                                <input type="text" class="form-control <?= isset($errors['service_city']) ? 'is-invalid' : '' ?>" id="service_city" name="service_city"
+                                       value="<?= esc(old('service_city', $editUser['service_city'] ?? '')) ?>"
+                                       placeholder="e.g., General Santos">
+                                <small class="text-muted">Used when coordinates are not available.</small>
+                                <?php if (isset($errors['service_city'])): ?><div class="field-error"><?= esc($errors['service_city']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="service_radius_km" class="form-label">Coverage Radius (km)</label>
+                                <input type="number" class="form-control <?= isset($errors['service_radius_km']) ? 'is-invalid' : '' ?>" id="service_radius_km" name="service_radius_km"
+                                       min="1" max="500" step="0.1" value="<?= esc(old('service_radius_km', $editUser['service_radius_km'] ?? 20)) ?>">
+                                <?php if (isset($errors['service_radius_km'])): ?><div class="field-error"><?= esc($errors['service_radius_km']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="work_latitude" class="form-label">Base Latitude</label>
+                                <input type="number" class="form-control <?= isset($errors['work_latitude']) ? 'is-invalid' : '' ?>" id="work_latitude" name="work_latitude"
+                                       min="-90" max="90" step="0.00000001" value="<?= esc(old('work_latitude', $editUser['work_latitude'] ?? '')) ?>">
+                                <?php if (isset($errors['work_latitude'])): ?><div class="field-error"><?= esc($errors['work_latitude']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="work_longitude" class="form-label">Base Longitude</label>
+                                <input type="number" class="form-control <?= isset($errors['work_longitude']) ? 'is-invalid' : '' ?>" id="work_longitude" name="work_longitude"
+                                       min="-180" max="180" step="0.00000001" value="<?= esc(old('work_longitude', $editUser['work_longitude'] ?? '')) ?>">
+                                <?php if (isset($errors['work_longitude'])): ?><div class="field-error"><?= esc($errors['work_longitude']) ?></div><?php endif; ?>
                             </div>
                         </div>
 

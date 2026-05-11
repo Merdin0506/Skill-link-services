@@ -53,6 +53,15 @@
                         </div>
 
                         <?php if (isset($user['user_type']) && $user['user_type'] === 'worker'): ?>
+                            <?php
+                                $rawSkills = $user['skills'] ?? '';
+                                $decodedSkills = is_string($rawSkills) ? json_decode($rawSkills, true) : $rawSkills;
+                                if (is_array($decodedSkills)) {
+                                    $skillsDisplay = implode(', ', array_filter(array_map('trim', $decodedSkills)));
+                                } else {
+                                    $skillsDisplay = is_string($rawSkills) ? trim($rawSkills) : '';
+                                }
+                            ?>
                             <div class="col-12 mt-3">
                                 <h5><i class="fas fa-tools"></i> Worker Details</h5>
                                 <hr>
@@ -60,7 +69,7 @@
                             <div class="col-md-8">
                                 <label for="skills" class="form-label">Skills (comma separated)</label>
                                 <input type="text" class="form-control <?= isset($errors['skills']) ? 'is-invalid' : '' ?>" id="skills_input" name="skills_input" 
-                                       value="<?= isset($user['skills']) && $user['skills'] ? esc(implode(', ', json_decode($user['skills'], true))) : '' ?>" 
+                                       value="<?= esc(old('skills_input', $skillsDisplay)) ?>" 
                                        placeholder="e.g., plumbing, electrical, carpentry">
                                 <small class="text-muted">Separate skills with commas</small>
                                 <?php if (isset($errors['skills'])): ?><div class="field-error"><?= esc($errors['skills']) ?></div><?php endif; ?>
@@ -70,6 +79,31 @@
                                 <input type="number" class="form-control <?= isset($errors['experience_years']) ? 'is-invalid' : '' ?>" id="experience_years" name="experience_years" 
                                        min="0" max="50" value="<?= esc(old('experience_years', $user['experience_years'] ?? 0)) ?>">
                                 <?php if (isset($errors['experience_years'])): ?><div class="field-error"><?= esc($errors['experience_years']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="service_city" class="form-label">Service City / Area</label>
+                                <input type="text" class="form-control <?= isset($errors['service_city']) ? 'is-invalid' : '' ?>" id="service_city" name="service_city"
+                                       value="<?= esc(old('service_city', $user['service_city'] ?? '')) ?>"
+                                       placeholder="e.g., General Santos">
+                                <?php if (isset($errors['service_city'])): ?><div class="field-error"><?= esc($errors['service_city']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="service_radius_km" class="form-label">Coverage Radius (km)</label>
+                                <input type="number" class="form-control <?= isset($errors['service_radius_km']) ? 'is-invalid' : '' ?>" id="service_radius_km" name="service_radius_km"
+                                       min="1" max="500" step="0.1" value="<?= esc(old('service_radius_km', $user['service_radius_km'] ?? 20)) ?>">
+                                <?php if (isset($errors['service_radius_km'])): ?><div class="field-error"><?= esc($errors['service_radius_km']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="work_latitude" class="form-label">Base Latitude</label>
+                                <input type="number" class="form-control <?= isset($errors['work_latitude']) ? 'is-invalid' : '' ?>" id="work_latitude" name="work_latitude"
+                                       min="-90" max="90" step="0.00000001" value="<?= esc(old('work_latitude', $user['work_latitude'] ?? '')) ?>">
+                                <?php if (isset($errors['work_latitude'])): ?><div class="field-error"><?= esc($errors['work_latitude']) ?></div><?php endif; ?>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="work_longitude" class="form-label">Base Longitude</label>
+                                <input type="number" class="form-control <?= isset($errors['work_longitude']) ? 'is-invalid' : '' ?>" id="work_longitude" name="work_longitude"
+                                       min="-180" max="180" step="0.00000001" value="<?= esc(old('work_longitude', $user['work_longitude'] ?? '')) ?>">
+                                <?php if (isset($errors['work_longitude'])): ?><div class="field-error"><?= esc($errors['work_longitude']) ?></div><?php endif; ?>
                             </div>
                         <?php endif; ?>
 

@@ -374,10 +374,48 @@ class BookingModel extends Model
         return (bool) $recordModel->insert($recordData, false);
     }
 
-    public function getAvailableWorkers($serviceCategory)
+    public function getAvailableWorkers($serviceCategory, ?int $bookingId = null)
     {
         $userModel = new UserModel();
-        return $userModel->getWorkersBySkill($serviceCategory);
+        if ($bookingId !== null) {
+            $booking = $this->find($bookingId);
+            if ($booking) {
+                return $userModel->getWorkersForBooking($booking, $serviceCategory);
+            }
+        }
+
+        return $userModel->getWorkersByServiceCategory($serviceCategory);
+    }
+
+    public function getAvailableJobsForWorker(int $workerId, int $limit = 50): array
+    {
+        $userModel = new UserModel();
+        $worker = $userModel->find($workerId);
+
+        if (!$worker || ($worker['user_type'] ?? '') !== 'worker' || ($worker['status'] ?? '') !== 'active') {
+            return [];
+        }
+
+        $allJobs = $this->select('bookings.*, customers.first_name AS customer_first_name, customers.last_name AS customer_last_name, services.name AS service_name, services.category AS service_category')
+            ->join('users AS customers', 'customers.id = bookings.customer_id')
+            ->join('services', 'services.id = bookings.service_id', 'left')
+            ->where('bookings.status', 'pending')
+            ->orderBy('bookings.created_at', 'DESC')
+            ->findAll();
+
+        $matchingJobs = [];
+        foreach ($allJobs as $job) {
+            $matchedWorkers = $userModel->getWorkersForBooking($job, (string) ($job['service_category'] ?? 'general'));
+            foreach ($matchedWorkers as $matchedWorker) {
+                if ((int) ($matchedWorker['id'] ?? 0) === $workerId) {
+                    $job['distance_km'] = $matchedWorker['distance_km'] ?? null;
+                    $matchingJobs[] = $job;
+                    break;
+                }
+            }
+        }
+
+        return array_slice($matchingJobs, 0, $limit);
     }
 
     public function getTodayBookings()

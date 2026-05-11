@@ -75,7 +75,13 @@ class BookingsController extends BaseController
     public function availableJobs()
     {
         $limit = $this->getPositiveIntParam('limit', 50);
-        $bookings = array_slice($this->bookingModel->getPendingBookings(), 0, $limit);
+        $workerId = (int) ($this->request->authUserId ?? 0);
+
+        if ($workerId <= 0) {
+            return $this->failUnauthorized('Authenticated worker not found');
+        }
+
+        $bookings = $this->bookingModel->getAvailableJobsForWorker($workerId, $limit);
 
         return $this->respond([
             'status' => 'success',
@@ -453,7 +459,11 @@ class BookingsController extends BaseController
             return $this->failNotFound('Service not found');
         }
 
-        $workers = $this->bookingModel->getAvailableWorkers($service['category']);
+        $bookingId = $this->request->getVar('booking_id');
+        $workers = $this->bookingModel->getAvailableWorkers(
+            $service['category'],
+            is_numeric($bookingId) ? (int) $bookingId : null
+        );
 
         return $this->respond([
             'status' => 'success',

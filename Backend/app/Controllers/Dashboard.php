@@ -109,6 +109,10 @@ class Dashboard extends BaseController
             'password'   => 'required|min_length[6]',
             'phone'      => 'permit_empty|max_length[20]',
             'address'    => 'permit_empty|max_length[500]',
+            'service_city' => 'permit_empty|max_length[120]',
+            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
+            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
+            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
             'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
             'status'     => 'required|in_list[active,inactive,suspended]',
         ];
@@ -138,6 +142,10 @@ class Dashboard extends BaseController
             $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
             $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
+            $userData['service_city'] = trim((string) $this->request->getPost('service_city'));
+            $userData['service_radius_km'] = (float) ($this->request->getPost('service_radius_km') ?: 20);
+            $userData['work_latitude'] = $this->nullIfEmpty($this->request->getPost('work_latitude'));
+            $userData['work_longitude'] = $this->nullIfEmpty($this->request->getPost('work_longitude'));
         }
 
         $db = \Config\Database::connect();
@@ -199,6 +207,10 @@ class Dashboard extends BaseController
             'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,' . $id . ']',
             'phone'      => 'permit_empty|max_length[20]',
             'address'    => 'permit_empty|max_length[500]',
+            'service_city' => 'permit_empty|max_length[120]',
+            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
+            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
+            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
             'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
             'status'     => 'required|in_list[active,inactive,suspended]',
         ];
@@ -208,6 +220,7 @@ class Dashboard extends BaseController
         }
 
         $userData = [
+            'id' => (int) $id,
             'first_name' => $this->request->getPost('first_name'),
             'last_name' => $this->request->getPost('last_name'),
             'email' => $this->request->getPost('email'),
@@ -237,6 +250,10 @@ class Dashboard extends BaseController
             $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
             $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
+            $userData['service_city'] = trim((string) $this->request->getPost('service_city'));
+            $userData['service_radius_km'] = (float) ($this->request->getPost('service_radius_km') ?: 20);
+            $userData['work_latitude'] = $this->nullIfEmpty($this->request->getPost('work_latitude'));
+            $userData['work_longitude'] = $this->nullIfEmpty($this->request->getPost('work_longitude'));
         }
 
         $db = \Config\Database::connect();
@@ -417,6 +434,10 @@ class Dashboard extends BaseController
             'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,' . $userId . ']',
             'phone' => 'permit_empty|max_length[20]',
             'address' => 'permit_empty|max_length[500]',
+            'service_city' => 'permit_empty|max_length[120]',
+            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
+            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
+            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
         ];
 
         if (!$this->validate($rules)) {
@@ -424,6 +445,7 @@ class Dashboard extends BaseController
         }
 
         $userData = [
+            'id' => (int) $userId,
             'first_name' => $this->request->getPost('first_name'),
             'last_name' => $this->request->getPost('last_name'),
             'email' => $this->request->getPost('email'),
@@ -435,6 +457,10 @@ class Dashboard extends BaseController
         if ($currentUser['user_type'] === 'worker') {
             $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
             $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
+            $userData['service_city'] = trim((string) $this->request->getPost('service_city'));
+            $userData['service_radius_km'] = (float) ($this->request->getPost('service_radius_km') ?: 20);
+            $userData['work_latitude'] = $this->nullIfEmpty($this->request->getPost('work_latitude'));
+            $userData['work_longitude'] = $this->nullIfEmpty($this->request->getPost('work_longitude'));
         }
 
         if ($this->userModel->update($userId, $userData) === false) {
@@ -1035,61 +1061,7 @@ class Dashboard extends BaseController
     {
 
         $workerId = (int) $this->session->get('user_id');
-        
-        // Get worker's skills
-        $worker = $this->userModel->find($workerId);
-        $workerSkills = json_decode($worker['skills'] ?? '[]', true);
-        if (!is_array($workerSkills)) {
-            $workerSkills = [];
-        }
-
-        // Get all pending jobs
-        $allJobs = $this->bookingModel
-            ->select('bookings.*, customers.first_name AS customer_first_name, customers.last_name AS customer_last_name, services.name AS service_name, services.category AS service_category')
-            ->join('users AS customers', 'customers.id = bookings.customer_id')
-            ->join('services', 'services.id = bookings.service_id', 'left')
-            ->where('bookings.status', 'pending')
-            ->orderBy('bookings.created_at', 'DESC')
-            ->findAll();
-
-        // Skill mapping - same as in UserModel
-        $skillMap = [
-            'electrician' => ['electrical', 'electrician', 'wiring'],
-            'plumber' => ['plumbing', 'plumber', 'pipe'],
-            'mechanic' => ['automotive', 'mechanic', 'engine'],
-            'technician' => ['technician', 'technical', 'repair'],
-            'general' => [] // general jobs available to all workers
-        ];
-
-        // Filter jobs based on worker's skills
-        $matchingJobs = [];
-        foreach ($allJobs as $job) {
-            $serviceCategory = $job['service_category'] ?? '';
-            
-            // General category jobs are available to all workers
-            if ($serviceCategory === 'general' || !isset($skillMap[$serviceCategory])) {
-                $matchingJobs[] = $job;
-                continue;
-            }
-
-            // Check if worker has matching skills for this job
-            $requiredKeywords = $skillMap[$serviceCategory];
-            $hasMatchingSkill = false;
-
-            foreach ($workerSkills as $skill) {
-                $skillLower = strtolower($skill);
-                foreach ($requiredKeywords as $keyword) {
-                    if (stripos($skillLower, $keyword) !== false) {
-                        $hasMatchingSkill = true;
-                        break 2;
-                    }
-                }
-            }
-
-            if ($hasMatchingSkill) {
-                $matchingJobs[] = $job;
-            }
-        }
+        $matchingJobs = $this->bookingModel->getAvailableJobsForWorker($workerId, 50);
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -1754,6 +1726,11 @@ class Dashboard extends BaseController
         $userId = $this->session->get('user_id');
 
         return is_numeric($userId) ? (int) $userId : null;
+    }
+
+    private function nullIfEmpty(mixed $value): mixed
+    {
+        return $value === null || $value === '' ? null : $value;
     }
 
     /**

@@ -24,6 +24,7 @@ export function renderRegisterView(onRegisterSuccess) {
   const loginLink = getElementById('loginLink');
   const registerLink = getElementById('registerLink');
   const registerStatusElement = getElementById('registerStatus');
+  const body = document.body;
 
   if (!registerSection || !registerForm) {
     return;
@@ -78,6 +79,7 @@ export function renderRegisterView(onRegisterSuccess) {
   function showRegister() {
     authSection?.classList.add('hidden');
     registerSection?.classList.remove('hidden');
+    body?.classList.add('register-mode');
     setRegisterStatus('', null);
   }
 
@@ -85,6 +87,7 @@ export function renderRegisterView(onRegisterSuccess) {
   function showLogin() {
     registerSection?.classList.add('hidden');
     authSection?.classList.remove('hidden');
+    body?.classList.remove('register-mode');
     setRegisterStatus('', null);
   }
 

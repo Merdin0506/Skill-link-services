@@ -20,6 +20,10 @@ class UserModel extends Model
         'password',
         'phone',
         'address',
+        'service_city',
+        'service_radius_km',
+        'work_latitude',
+        'work_longitude',
         'user_type',
         'status',
         'skills',
@@ -46,6 +50,7 @@ class UserModel extends Model
     protected $afterFind = ['restoreSensitiveFields'];
 
     protected $validationRules = [
+        'id'         => 'permit_empty|integer',
         'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
         'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
         'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,{id}]',
@@ -53,6 +58,10 @@ class UserModel extends Model
         'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
         'status'     => 'required|in_list[active,inactive,suspended]',
         'phone'      => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
+        'service_city' => 'permit_empty|max_length[120]',
+        'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
+        'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
+        'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
         'commission_rate'  => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
         'experience_years' => 'permit_empty|integer|greater_than_equal_to[0]'
     ];
@@ -108,6 +117,83 @@ class UserModel extends Model
                     ->findAll();
     }
 
+    public function getWorkersForBooking(array $booking, string $serviceCategory): array
+    {
+        $workers = $this->getWorkersByServiceCategory($serviceCategory);
+        $matchingWorkers = [];
+
+        foreach ($workers as $worker) {
+            if (!$this->workerCanCoverBooking($worker, $booking)) {
+                continue;
+            }
+
+            $worker['distance_km'] = $this->calculateDistanceToBooking($worker, $booking);
+            $matchingWorkers[] = $worker;
+        }
+
+        usort($matchingWorkers, static function (array $left, array $right): int {
+            $leftDistance = $left['distance_km'] ?? PHP_FLOAT_MAX;
+            $rightDistance = $right['distance_km'] ?? PHP_FLOAT_MAX;
+
+            return $leftDistance <=> $rightDistance;
+        });
+
+        return $matchingWorkers;
+    }
+
+    public function workerCanCoverBooking(array $worker, array $booking): bool
+    {
+        $workerCity = $this->normalizeAreaName((string) ($worker['service_city'] ?? ''));
+        $bookingCity = $this->extractBookingCity($booking);
+
+        $hasWorkerCoords = $this->hasCoordinates($worker['work_latitude'] ?? null, $worker['work_longitude'] ?? null);
+        $hasBookingCoords = $this->hasCoordinates($booking['latitude'] ?? null, $booking['longitude'] ?? null);
+
+        if ($hasWorkerCoords && $hasBookingCoords) {
+            $distanceKm = $this->calculateDistanceKm(
+                (float) $worker['work_latitude'],
+                (float) $worker['work_longitude'],
+                (float) $booking['latitude'],
+                (float) $booking['longitude']
+            );
+
+            $radiusKm = (float) ($worker['service_radius_km'] ?? 0);
+            if ($radiusKm <= 0) {
+                $radiusKm = 20.0;
+            }
+
+            return $distanceKm <= $radiusKm;
+        }
+
+        if ($workerCity === '' || $bookingCity === '') {
+            return false;
+        }
+
+        return $workerCity === $bookingCity;
+    }
+
+    public function extractBookingCity(array $booking): string
+    {
+        return $this->extractCityFromAddress((string) ($booking['location_address'] ?? ''));
+    }
+
+    public function calculateDistanceToBooking(array $worker, array $booking): ?float
+    {
+        $hasWorkerCoords = $this->hasCoordinates($worker['work_latitude'] ?? null, $worker['work_longitude'] ?? null);
+        $hasBookingCoords = $this->hasCoordinates($booking['latitude'] ?? null, $booking['longitude'] ?? null);
+
+        if (!$hasWorkerCoords || !$hasBookingCoords) {
+            return null;
+        }
+
+        return round($this->calculateDistanceKm(
+            (float) $worker['work_latitude'],
+            (float) $worker['work_longitude'],
+            (float) $booking['latitude'],
+            (float) $booking['longitude']
+        ), 2);
+    }
+
     /**
      * Get workers matching a service category
      */
@@ -154,6 +240,49 @@ class UserModel extends Model
         }
 
         return $matchingWorkers;
+    }
+
+    public function extractCityFromAddress(string $address): string
+    {
+        $normalized = trim($address);
+        if ($normalized === '') {
+            return '';
+        }
+
+        $parts = array_values(array_filter(array_map('trim', explode(',', $normalized))));
+        $priorityPatterns = [
+            'general santos',
+            'gensan',
+            'davao',
+            'koronadal',
+            'polomolok',
+            'south cotabato',
+            'cotabato',
+        ];
+
+        foreach ($parts as $part) {
+            $normalizedPart = $this->normalizeAreaName($part);
+            foreach ($priorityPatterns as $pattern) {
+                if (str_contains($normalizedPart, $pattern)) {
+                    return $normalizedPart === 'gensan' ? 'general santos' : $normalizedPart;
+                }
+            }
+        }
+
+        for ($index = count($parts) - 1; $index >= 0; $index--) {
+            $candidate = $this->normalizeAreaName($parts[$index]);
+            if ($candidate === '' || preg_match('/^\d+$/', $candidate)) {
+                continue;
+            }
+
+            if (str_contains($candidate, 'philippines') || str_contains($candidate, 'region')) {
+                continue;
+            }
+
+            return $candidate === 'gensan' ? 'general santos' : $candidate;
+        }
+
+        return '';
     }
 
     public function getWorkerRating($workerId)
@@ -359,5 +488,38 @@ class UserModel extends Model
         }
 
         return $row;
+    }
+
+    private function hasCoordinates(mixed $latitude, mixed $longitude): bool
+    {
+        return is_numeric($latitude) && is_numeric($longitude);
+    }
+
+    private function calculateDistanceKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadiusKm = 6371.0;
+
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lonDelta = deg2rad($lon2 - $lon1);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadiusKm * $c;
+    }
+
+    private function normalizeAreaName(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/\s+city$/', '', $value) ?? $value;
+        $value = preg_replace('/[^a-z0-9\s]/', ' ', $value) ?? $value;
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
+        if ($value === 'gensan') {
+            return 'general santos';
+        }
+
+        return trim($value);
     }
 }

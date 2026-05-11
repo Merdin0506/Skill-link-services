@@ -22,6 +22,23 @@ export function renderAuthView(onAuthenticated) {
   const authButton = getElementById('loginButton');
   const dashboardSection = getElementById('dashboardSection');
   const loginStatusElement = getElementById('loginStatus');
+  const body = document.body;
+
+  function setupPasswordToggles() {
+    const toggleButtons = authSection?.querySelectorAll('.toggle-password');
+    toggleButtons?.forEach((button) => {
+      button.onclick = (event) => {
+        event.preventDefault();
+        const targetId = button.getAttribute('data-target');
+        const input = getElementById(targetId);
+        if (input) {
+          const isHidden = input.type === 'password';
+          input.type = isHidden ? 'text' : 'password';
+          button.classList.toggle('is-visible', isHidden);
+        }
+      };
+    });
+  }
 
   function setLoginStatus(message, type = null) {
     if (!loginStatusElement) {
@@ -43,9 +60,11 @@ export function renderAuthView(onAuthenticated) {
   }
 
   authSection.classList.remove('hidden');
+  body?.classList.remove('register-mode');
   if (dashboardSection) {
     dashboardSection.classList.add('hidden');
   }
+  setupPasswordToggles();
 
   loginForm.onsubmit = async (event) => {
     event.preventDefault();
