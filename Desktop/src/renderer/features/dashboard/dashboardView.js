@@ -4,6 +4,7 @@ import { setStatus } from '../../core/status.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
 import { getRoleTemplate } from './roleTemplates.js';
+import { bindServicesView as bindServicesWorkspaceView, createServicesView as createServicesWorkspaceView, getDefaultServiceFilters } from './servicesWorkspace.js';
 
 function formatValue(value) {
   if (value === null || value === undefined || value === '') {
@@ -216,6 +217,7 @@ function getSidebarLinks(role) {
       { icon: 'fas fa-chart-line', label: 'Dashboard', route: 'dashboard' },
       { icon: 'fas fa-shield-alt', label: 'Security', route: 'security' },
       { icon: 'fas fa-users', label: 'Users', route: 'users' },
+      { icon: 'fas fa-list', label: 'Services', route: 'services' },
       { icon: 'fas fa-calendar-check', label: 'Bookings', route: 'bookings' },
       { icon: 'fas fa-credit-card', label: 'Payments', route: 'payments' },
       { icon: 'fas fa-file-invoice', label: 'Service Records', route: 'records' }
@@ -358,198 +360,14 @@ function createSettingsForm() {
 }
 
 function createServicesView(state) {
-  const categories = Array.isArray(state.serviceCategories)
-    ? state.serviceCategories
-    : Object.keys(state.serviceCategories || {});
-  const services = Array.isArray(state.services)
-    ? state.services
-    : Object.values(state.services || {});
-  const selectedService = state.selectedService || null;
-
-  return `
-    ${createPageHeading('fas fa-list', 'Available Services')}
-    <div class="row mb-4">
-      <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card">
-          <i class="fas fa-briefcase stat-icon" style="color: var(--primary);"></i>
-          <div class="stat-value">${formatValue(services.length)}</div>
-          <div class="stat-label">Visible Services</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card info">
-          <i class="fas fa-layer-group stat-icon" style="color: var(--info);"></i>
-          <div class="stat-value">${formatValue(categories.length)}</div>
-          <div class="stat-label">Categories</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card success">
-          <i class="fas fa-peso-sign stat-icon" style="color: var(--success);"></i>
-          <div class="stat-value">${services.length ? formatCurrency(Math.min(...services.map((service) => Number(service.base_price || 0)))) : '-'}</div>
-          <div class="stat-label">Starting Price</div>
-        </div>
-      </div>
-      <div class="col-md-3 col-sm-6 mb-3">
-        <div class="stat-card warning">
-          <i class="fas fa-clock stat-icon" style="color: var(--warning);"></i>
-          <div class="stat-value">${selectedService?.estimated_duration || '-'}</div>
-          <div class="stat-label">Selected Duration</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card desktop-card mb-4">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-list"></i> Service Categories
-      </div>
-      <div class="card-body desktop-card-body">
-        <div class="desktop-chip-row">
-          <button type="button" class="ghost-button desktop-chip ${!state.serviceCategory ? 'is-active' : ''}" data-category="">
-            All
-          </button>
-          ${categories.map((category) => `
-            <button type="button" class="ghost-button desktop-chip ${state.serviceCategory === category ? 'is-active' : ''}" data-category="${category}">
-              ${String(category).replace(/_/g, ' ')}
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-
-    <div class="desktop-service-grid">
-      ${services.length ? services.map((service) => `
-        <div class="card desktop-card desktop-service-card service-card position-relative">
-          <div class="card-body desktop-card-body">
-            <span class="badge bg-primary category-badge desktop-category-badge">${service.category || 'general'}</span>
-            <div class="desktop-service-head">
-              <div>
-                <h5>${service.name || 'Service'}</h5>
-              </div>
-            </div>
-            <p class="text-muted mb-3">${service.description || 'No description provided.'}</p>
-            <div class="mt-3">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-muted"><i class="fas fa-peso-sign"></i> Base Price:</span>
-                <strong class="text-primary">${formatCurrency(service.base_price ?? 0)}</strong>
-              </div>
-              <div class="d-flex justify-content-between align-items-center">
-                <span class="text-muted"><i class="fas fa-clock"></i> Duration:</span>
-                <span>${service.estimated_duration || '-'} mins</span>
-              </div>
-            </div>
-            <div class="d-flex gap-2 mt-3">
-              <button type="button" class="ghost-button w-100" data-service-view="${service.id}">Details</button>
-              <button type="button" class="action-button w-100" data-service-book="${service.id}">Book Now</button>
-            </div>
-          </div>
-        </div>
-      `).join('') : `
-        <div class="card desktop-card">
-          <div class="card-body desktop-card-body">
-            <div class="chart-placeholder desktop-placeholder-card">No services available for this category yet.</div>
-          </div>
-        </div>
-      `}
-    </div>
-
-    <div class="card desktop-card mt-4">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-eye"></i> Service Details
-      </div>
-      <div class="card-body desktop-card-body">
-        ${selectedService ? `
-          <div class="row g-3">
-            <div class="col-lg-8">
-              <h5 class="mb-2">${selectedService.name || 'Service'}</h5>
-              <p class="text-muted mb-3">${selectedService.description || 'No description provided.'}</p>
-              <div class="d-flex flex-wrap gap-2">
-                <span class="badge bg-secondary">${selectedService.category || 'general'}</span>
-                <span class="badge bg-secondary">${selectedService.status || 'active'}</span>
-              </div>
-            </div>
-            <div class="col-lg-4">
-              <div class="border rounded p-3 h-100">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="text-muted">Base Price</span>
-                  <strong class="text-primary">${formatCurrency(selectedService.base_price ?? 0)}</strong>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                  <span class="text-muted">Estimated Duration</span>
-                  <span>${selectedService.estimated_duration || '-'} mins</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        ` : `
-          <div class="text-center text-muted py-4">
-            <i class="fas fa-list fa-2x mb-3 opacity-50"></i>
-            <p class="mb-0">Choose a service to preview its details here.</p>
-          </div>
-        `}
-      </div>
-    </div>
-
-    <div class="card desktop-card mt-4">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-calendar-plus"></i> Create Booking
-      </div>
-      <div class="card-body desktop-card-body">
-        <form id="bookingCreateForm" class="desktop-form-grid">
-          <input id="booking_service_id" name="service_id" type="hidden" value="${state.selectedService?.id || ''}" />
-          <div class="form-row">
-            <div class="field">
-              <label for="booking_title">Title</label>
-              <input id="booking_title" name="title" type="text" value="${state.selectedService ? `Booking for ${state.selectedService.name}` : ''}" required />
-            </div>
-            <div class="field">
-              <label for="booking_priority">Priority</label>
-              <select id="booking_priority" name="priority" required>
-                ${['low', 'medium', 'high', 'urgent'].map((priority) => `
-                  <option value="${priority}" ${priority === 'medium' ? 'selected' : ''}>${priority}</option>
-                `).join('')}
-              </select>
-            </div>
-          </div>
-          <div class="field">
-            <label for="booking_description">Description</label>
-            <textarea id="booking_description" name="description">${state.selectedService?.description || ''}</textarea>
-          </div>
-          <div class="field">
-            <label for="booking_location_address">Location Address</label>
-            <textarea id="booking_location_address" name="location_address" required>${state.profile.address || ''}</textarea>
-          </div>
-          <div class="form-row">
-            <div class="field">
-              <label for="booking_scheduled_date">Scheduled Date</label>
-              <input id="booking_scheduled_date" name="scheduled_date" type="date" required />
-            </div>
-            <div class="field">
-              <label for="booking_scheduled_time">Scheduled Time</label>
-              <input id="booking_scheduled_time" name="scheduled_time" type="time" required />
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="field">
-              <label for="booking_labor_fee">Labor Fee</label>
-              <input id="booking_labor_fee" name="labor_fee" type="number" min="1" step="0.01" value="${state.selectedService?.base_price || ''}" required />
-            </div>
-            <div class="field">
-              <label for="booking_materials_fee">Materials Fee</label>
-              <input id="booking_materials_fee" name="materials_fee" type="number" min="0" step="0.01" value="0" />
-            </div>
-          </div>
-          <div class="field">
-            <label for="booking_notes">Notes</label>
-            <textarea id="booking_notes" name="notes"></textarea>
-          </div>
-          <div class="desktop-form-actions">
-            <button id="bookingCreateButton" type="submit" class="action-button">Create Booking</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
+  return createServicesWorkspaceView(state, {
+    createInfoBanner,
+    createMetricGrid,
+    createPageHeading,
+    escapeHtml,
+    formatCurrency,
+    formatValue
+  });
 }
 
 function createBookingsView(state) {
@@ -2296,15 +2114,32 @@ async function ensureRouteData(state, session, bridge) {
 
   if (state.currentRoute === 'services') {
     const categoryKey = state.serviceCategory || '__all__';
+    state.serviceFilters = state.serviceFilters || getDefaultServiceFilters(state.role);
+    const statusKey = (state.role === 'admin' || state.role === 'super_admin')
+      ? (state.serviceFilters.status || 'active')
+      : 'active';
+    const cacheKey = `${categoryKey}::${statusKey}`;
+    const serviceRouteNotice = state.role === 'admin' || state.role === 'super_admin'
+      ? 'Manage service offerings here. Create, update, and retire catalog items directly from the desktop.'
+      : '';
     state.serviceCatalogCache = state.serviceCatalogCache || {};
 
-    if (state.serviceCatalogCache[categoryKey] && state.serviceCategories?.length) {
-      state.services = state.serviceCatalogCache[categoryKey];
+    if (state.serviceCatalogCache[cacheKey] && state.serviceCategories?.length) {
+      state.services = state.serviceCatalogCache[cacheKey];
+      state.routeNotice = serviceRouteNotice;
       return;
     }
 
+    const query = new URLSearchParams();
+    if (state.serviceCategory) {
+      query.set('category', state.serviceCategory);
+    }
+    if (state.role === 'admin' || state.role === 'super_admin') {
+      query.set('status', state.serviceFilters.status || 'active');
+    }
+
     const [servicesResponse, categoriesResponse] = await Promise.all([
-      performAuthenticatedRequest(session, bridge, `/api/services${state.serviceCategory ? `?category=${encodeURIComponent(state.serviceCategory)}` : ''}`, { method: 'GET' }),
+      performAuthenticatedRequest(session, bridge, `/api/services${query.toString() ? `?${query.toString()}` : ''}`, { method: 'GET' }),
       state.serviceCategories?.length ? Promise.resolve({ data: state.serviceCategories }) : performAuthenticatedRequest(session, bridge, '/api/services/categories', { method: 'GET' })
     ]);
 
@@ -2312,7 +2147,8 @@ async function ensureRouteData(state, session, bridge) {
     state.serviceCategories = Array.isArray(categoriesResponse?.data)
       ? categoriesResponse.data
       : Object.keys(categoriesResponse?.data || {});
-    state.serviceCatalogCache[categoryKey] = state.services;
+    state.serviceCatalogCache[cacheKey] = state.services;
+    state.routeNotice = serviceRouteNotice;
     return;
   }
 
@@ -2455,98 +2291,13 @@ async function ensureRouteData(state, session, bridge) {
 }
 
 function bindServicesView(state, session, bridge) {
-  const contentElement = getElementById('desktopContentArea');
-  if (!contentElement) {
-    return;
-  }
-
-  contentElement.querySelectorAll('[data-category]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      state.serviceCategory = button.getAttribute('data-category') || '';
-      await renderRoute(state, session, bridge);
-    });
+  return bindServicesWorkspaceView(state, session, bridge, {
+    performAuthenticatedRequest,
+    renderRoute,
+    setActiveNav,
+    setStatus,
+    updateInlineStatus
   });
-
-  contentElement.querySelectorAll('[data-service-book]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const serviceId = Number(button.getAttribute('data-service-book'));
-      const service = (state.services || []).find((item) => Number(item.id) === serviceId);
-      if (!service) {
-        return;
-      }
-
-      state.selectedService = service;
-      const serviceIdInput = getElementById('booking_service_id');
-      const titleInput = getElementById('booking_title');
-      const descriptionInput = getElementById('booking_description');
-      const laborFeeInput = getElementById('booking_labor_fee');
-
-      if (serviceIdInput) {
-        serviceIdInput.value = String(service.id);
-      }
-      if (titleInput) {
-        titleInput.value = `Booking for ${service.name}`;
-      }
-      if (descriptionInput) {
-        descriptionInput.value = service.description || '';
-      }
-      if (laborFeeInput) {
-        laborFeeInput.value = String(service.base_price || '');
-      }
-
-      updateInlineStatus(`Selected ${service.name}. Complete the booking form below.`, 'success');
-    });
-  });
-
-  contentElement.querySelectorAll('[data-service-view]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const serviceId = Number(button.getAttribute('data-service-view'));
-      const service = (state.services || []).find((item) => Number(item.id) === serviceId);
-      if (!service) {
-        return;
-      }
-
-      state.selectedService = service;
-      await renderRoute(state, session, bridge);
-      updateInlineStatus(`Viewing ${service.name}. You can book it below when ready.`, 'success');
-    });
-  });
-
-  const form = getElementById('bookingCreateForm');
-  const submitButton = getElementById('bookingCreateButton');
-  if (!form || !submitButton) {
-    return;
-  }
-
-  form.onsubmit = async (event) => {
-    event.preventDefault();
-    submitButton.disabled = true;
-    submitButton.textContent = 'Creating...';
-
-    const payload = Object.fromEntries(new FormData(form).entries());
-    payload.customer_id = String(state.profile.id);
-
-    try {
-      const response = await performAuthenticatedRequest(session, bridge, '/api/bookings', {
-        method: 'POST',
-        body: payload
-      });
-
-      form.reset();
-      state.selectedService = null;
-      updateInlineStatus(response?.message || 'Booking created successfully.', 'success');
-      setStatus('Booking created successfully.', 'success');
-      state.currentRoute = 'bookings';
-      setActiveNav('bookings');
-      await renderRoute(state, session, bridge);
-    } catch (error) {
-      updateInlineStatus(error.message || 'Failed to create booking.', 'error');
-      setStatus(error.message || 'Failed to create booking.', 'error');
-    } finally {
-      submitButton.disabled = false;
-      submitButton.textContent = 'Create Booking';
-    }
-  };
 }
 
 function bindBookingsView(state, session, bridge) {

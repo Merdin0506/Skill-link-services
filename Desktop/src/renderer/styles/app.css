@@ -1267,6 +1267,14 @@ h1 {
   vertical-align: middle;
 }
 
+.table tbody tr.table-active > td {
+  background: #eceff3;
+}
+
+.desktop-clickable-row {
+  cursor: pointer;
+}
+
 .badge {
   padding: 8px 12px;
   border-radius: 20px;
