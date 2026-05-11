@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('desktopApp', {
   register: (payload) => ipcRenderer.invoke('auth:register', payload),
   verifyOtp: (payload) => ipcRenderer.invoke('auth:verifyOtp', payload),
   resendOtp: (payload) => ipcRenderer.invoke('auth:resendOtp', payload),
+  requestPasswordReset: (payload) => ipcRenderer.invoke('auth:requestPasswordReset', payload),
+  resetPasswordWithOtp: (payload) => ipcRenderer.invoke('auth:resetPasswordWithOtp', payload),
   getProfile: (token) => ipcRenderer.invoke('auth:profile', token),
   updateProfile: (token, payload) => ipcRenderer.invoke('auth:updateProfile', token, payload),
   changePassword: (token, payload) => ipcRenderer.invoke('auth:changePassword', token, payload),

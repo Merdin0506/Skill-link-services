@@ -281,6 +281,149 @@ class AuthController extends BaseController
         ]);
     }
 
+    public function requestPasswordReset()
+    {
+        $rules = [
+            'email' => 'required|valid_email',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = (string) $this->request->getVar('email');
+        $user = $this->userModel->where('email', $email)->first();
+
+        if (! $user) {
+            $this->activityLogger->record('account', 'password_reset_request', 'ignored', null, null, [
+                'email' => $email,
+                'reason' => 'missing_user',
+            ], 'api');
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'If that email exists, a password reset code has been sent.',
+                'data' => [
+                    'email' => $email,
+                ],
+            ]);
+        }
+
+        $otp = $this->issueOtpForUser((int) $user['id']);
+
+        try {
+            if (! $this->sendOtpEmail($email, $otp, 'forgot_password')) {
+                return $this->failServerError('We could not send the password reset code. Please try again.');
+            }
+        } catch (Exception) {
+            return $this->failServerError('We could not send the password reset code. Please try again.');
+        }
+
+        $this->activityLogger->record('account', 'password_reset_request', 'success', (int) $user['id'], (int) $user['id'], [
+            'email' => $email,
+            'delivery' => 'email_otp',
+        ], 'api');
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'A password reset code has been sent to your email.',
+            'data' => [
+                'email' => $email,
+            ],
+        ]);
+    }
+
+    public function resetPasswordWithOtp()
+    {
+        $rules = [
+            'email' => 'required|valid_email',
+            'otp' => 'required|exact_length[6]|numeric',
+            'new_password' => 'required|min_length[8]',
+            'confirm_password' => 'required|matches[new_password]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = (string) $this->request->getVar('email');
+        $otpInput = (string) $this->request->getVar('otp');
+        $newPassword = (string) $this->request->getVar('new_password');
+        $user = $this->userModel->where('email', $email)->first();
+
+        if (! $user) {
+            $this->activityLogger->record('account', 'password_reset', 'failed', null, null, [
+                'email' => $email,
+                'reason' => 'missing_user',
+            ], 'api');
+            return $this->failNotFound('User not found');
+        }
+
+        if (($user['otp_attempts'] ?? 0) >= 3) {
+            $this->activityLogger->record('account', 'password_reset', 'blocked', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'max_attempts',
+            ], 'api');
+            return $this->fail('Max OTP attempts reached. Please request a new code.');
+        }
+
+        if (!empty($user['otp_expire']) && strtotime((string) $user['otp_expire']) < time()) {
+            $this->activityLogger->record('account', 'password_reset', 'failed', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'expired_otp',
+            ], 'api');
+            return $this->fail('OTP has expired. Please request a new code.');
+        }
+
+        if (($user['otp'] ?? '') !== $otpInput || empty($user['otp'])) {
+            $newAttempts = ((int) ($user['otp_attempts'] ?? 0)) + 1;
+            $this->userModel->update((int) $user['id'], ['otp_attempts' => $newAttempts]);
+            $this->activityLogger->record('account', 'password_reset', 'failed', null, (int) $user['id'], [
+                'email' => $email,
+                'reason' => 'invalid_otp',
+                'attempts' => $newAttempts,
+            ], 'api');
+            return $this->fail('Invalid OTP code. Tries left: ' . max(0, 3 - $newAttempts));
+        }
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->changePassword((int) $user['id'], $newPassword) === false) {
+                throw new \Exception('Failed to update password.');
+            }
+
+            $this->userModel->update((int) $user['id'], [
+                'otp' => null,
+                'otp_expire' => null,
+                'otp_attempts' => 0,
+                'email_verified_at' => $user['email_verified_at'] ?: date('Y-m-d H:i:s'),
+                'failed_login_attempts' => 0,
+                'locked_until' => null,
+            ]);
+
+            $this->activityLogger->record('account', 'password_reset', 'success', (int) $user['id'], (int) $user['id'], [
+                'email' => $email,
+                'method' => 'email_otp',
+            ], 'api');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Password reset successfully. You can now log in with your new password.',
+            ]);
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return $this->fail('Password reset failed: ' . $e->getMessage());
+        }
+    }
+
     public function profile()
     {
         $userId = $this->request->authUserId;
@@ -479,6 +622,7 @@ class AuthController extends BaseController
         $mail->Subject = match ($context) {
             'register' => 'Verify your SkillLink account',
             'login' => 'SkillLink login verification code',
+            'forgot_password' => 'SkillLink password reset code',
             default => 'Your new SkillLink verification code',
         };
         $mail->Body = $this->generateOtpEmailMessage($otp, $recipientEmail, $context);
@@ -523,7 +667,11 @@ class AuthController extends BaseController
         }
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
-        $action = $context === 'register' ? 'verifying a newly created SkillLink account' : 'logging into SkillLink Services';
+        $action = match ($context) {
+            'register' => 'verifying a newly created SkillLink account',
+            'forgot_password' => 'resetting a SkillLink account password',
+            default => 'logging into SkillLink Services',
+        };
         $prompt = "Write a very short, professional and welcoming security email for a user with email $email who is $action.
                    The 6-digit verification code is $otp.
                    Mention it expires in 5 minutes.
@@ -567,7 +715,9 @@ class AuthController extends BaseController
     {
         $intro = $context === 'register'
             ? 'Thanks for creating your SkillLink account.'
-            : 'We received a request to verify your SkillLink sign-in.';
+            : ($context === 'forgot_password'
+                ? 'We received a request to reset your SkillLink password.'
+                : 'We received a request to verify your SkillLink sign-in.');
 
         return "<p>{$intro}</p><p>Your verification code is <b>{$otp}</b>.</p><p>This code expires in 5 minutes.</p>";
     }

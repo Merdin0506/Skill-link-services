@@ -35,6 +35,20 @@ function registerAuthHandlers({ getBackendBaseUrls }) {
     });
   });
 
+  ipcMain.handle('auth:requestPasswordReset', async (_event, payload) => {
+    return requestJson(getBackendBaseUrls(), '/api/auth/forgot-password/request', {
+      method: 'POST',
+      body: payload || {}
+    });
+  });
+
+  ipcMain.handle('auth:resetPasswordWithOtp', async (_event, payload) => {
+    return requestJson(getBackendBaseUrls(), '/api/auth/forgot-password/reset', {
+      method: 'POST',
+      body: payload || {}
+    });
+  });
+
   ipcMain.handle('auth:profile', async (_event, token) => {
     return requestJson(getBackendBaseUrls(), '/api/auth/profile', {
       method: 'GET',

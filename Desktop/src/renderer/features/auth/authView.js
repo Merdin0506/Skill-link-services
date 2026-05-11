@@ -2,7 +2,7 @@ import { getElementById, updateText } from '../../core/dom.js';
 import { clearSession, saveSession } from '../../core/storage.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
-import { requestOtpCode } from './otpDialog.js';
+import { requestOtpCode, requestNewPassword } from './otpDialog.js';
 
 async function requestOtpVerification(email) {
   const otp = await requestOtpCode(email);
@@ -22,6 +22,7 @@ export function renderAuthView(onAuthenticated) {
   const authButton = getElementById('loginButton');
   const dashboardSection = getElementById('dashboardSection');
   const loginStatusElement = getElementById('loginStatus');
+  const forgotPasswordButton = getElementById('forgotPasswordButton');
   const body = document.body;
 
   function setupPasswordToggles() {
@@ -65,6 +66,60 @@ export function renderAuthView(onAuthenticated) {
     dashboardSection.classList.add('hidden');
   }
   setupPasswordToggles();
+
+  if (forgotPasswordButton) {
+    forgotPasswordButton.onclick = async () => {
+      const email = getElementById('email')?.value?.trim() || '';
+
+      if (!email) {
+        setLoginStatus('Enter your email first, then click Forgot password.', 'error');
+        return;
+    }
+
+    authButton.disabled = true;
+    forgotPasswordButton.disabled = true;
+    setLoginStatus('Sending password reset code...');
+
+    try {
+      const bridge = getDesktopBridge();
+      const requestResponse = bridge
+        ? await bridge.requestPasswordReset({ email })
+        : await requestJson('/api/auth/forgot-password/request', {
+            method: 'POST',
+            body: { email }
+          });
+
+      setLoginStatus(requestResponse?.message || 'Password reset code sent. Enter the code to continue.', 'success');
+
+      const otp = await requestOtpCode(email, {
+        title: 'Verify reset code',
+        iconClass: 'fas fa-envelope-open-text',
+        submitLabel: 'Continue',
+        message: `Enter the 6-digit reset code sent to ${email}.`
+      });
+      const passwordDetails = await requestNewPassword();
+      const resetResponse = bridge
+        ? await bridge.resetPasswordWithOtp({ email, otp, ...passwordDetails })
+        : await requestJson('/api/auth/forgot-password/reset', {
+            method: 'POST',
+            body: { email, otp, ...passwordDetails }
+          });
+
+      const passwordInput = getElementById('password');
+      if (passwordInput) {
+        passwordInput.value = '';
+        passwordInput.focus();
+      }
+
+      setLoginStatus(resetResponse?.message || 'Password reset successful. You can now sign in.', 'success');
+    } catch (error) {
+      setLoginStatus(error.message || 'Failed to reset password.', 'error');
+    } finally {
+      authButton.disabled = false;
+      forgotPasswordButton.disabled = false;
+    }
+    };
+  }
 
   loginForm.onsubmit = async (event) => {
     event.preventDefault();

@@ -15,6 +15,8 @@ function createUnavailableBridge() {
     register: unavailable,
     verifyOtp: unavailable,
     resendOtp: unavailable,
+    requestPasswordReset: unavailable,
+    resetPasswordWithOtp: unavailable,
     getProfile: unavailable,
     updateProfile: unavailable,
     changePassword: unavailable,
