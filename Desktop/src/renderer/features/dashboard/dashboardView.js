@@ -2173,6 +2173,12 @@ async function renderRoute(state, session, bridge) {
         formatDate,
         formatValue
       });
+      bindCashierPaymentsView(state, session, bridge, {
+        performAuthenticatedRequest,
+        renderRoute,
+        setStatus,
+        updateInlineStatus
+      });
       updateInlineStatus('', null);
       return;
     }

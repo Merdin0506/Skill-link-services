@@ -832,8 +832,77 @@ function confirmCashierAction(message) {
   return window.confirm(message);
 }
 
+function ensureCashierRouteCache(state) {
+  state.cashierRouteCache = state.cashierRouteCache || {
+    payments: { dirty: true },
+    payouts: { dirty: true },
+    reports: { dirty: true }
+  };
+}
+
+function applyCashierCacheToState(state, routeKey) {
+  ensureCashierRouteCache(state);
+  const cache = state.cashierRouteCache?.[routeKey] || null;
+  if (!cache) {
+    return false;
+  }
+
+  if (routeKey === 'payments') {
+    state.routePayments = cache.routePayments || [];
+    state.routePaymentStats = cache.routePaymentStats || {};
+    state.routePaymentMethods = cache.routePaymentMethods || {};
+    state.routeCompletedBookings = cache.routeCompletedBookings || [];
+    state.cashierPendingCustomerBookings = cache.cashierPendingCustomerBookings || [];
+    return true;
+  }
+
+  if (routeKey === 'payouts') {
+    state.routePayments = cache.routePayments || [];
+    state.routeCompletedBookings = cache.routeCompletedBookings || [];
+    state.routeCustomerPayments = cache.routeCustomerPayments || [];
+    state.routePaymentMethods = cache.routePaymentMethods || {};
+    state.cashierPendingPayoutBookings = cache.cashierPendingPayoutBookings || [];
+    return true;
+  }
+
+  if (routeKey === 'reports') {
+    state.routePaymentStats = cache.routePaymentStats || {};
+    state.routeRevenueReport = cache.routeRevenueReport || [];
+    state.routeReportCompletedBookings = cache.routeReportCompletedBookings || [];
+    state.routeReportCustomerPayments = cache.routeReportCustomerPayments || [];
+    return true;
+  }
+
+  return false;
+}
+
+function updateCashierRouteCache(state, routeKey, payload) {
+  ensureCashierRouteCache(state);
+  state.cashierRouteCache[routeKey] = {
+    ...(state.cashierRouteCache[routeKey] || {}),
+    ...payload,
+    dirty: false
+  };
+}
+
+function markCashierRoutesDirty(state, routeKeys = []) {
+  ensureCashierRouteCache(state);
+  routeKeys.forEach((routeKey) => {
+    state.cashierRouteCache[routeKey] = {
+      ...(state.cashierRouteCache[routeKey] || {}),
+      dirty: true
+    };
+  });
+}
+
 export async function loadCashierRouteData(state, session, bridge, performAuthenticatedRequest) {
   if (state.currentRoute === 'payments') {
+    ensureCashierRouteCache(state);
+    if (!state.cashierRouteCache.payments?.dirty && applyCashierCacheToState(state, 'payments')) {
+      await hydrateSelectedPaymentDetails(state, session, bridge, performAuthenticatedRequest);
+      return true;
+    }
+
     const [paymentsResponse, statisticsResponse, methodsResponse, bookingsResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=customer_payment&limit=100', { method: 'GET' }),
       performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }).catch(() => ({ data: {} })),
@@ -860,12 +929,25 @@ export async function loadCashierRouteData(state, session, bridge, performAuthen
     }));
     state.routePayments = mergeBookingDetailsIntoPayments(paymentRows, bookingDetailsMap);
     state.cashierPendingCustomerBookings = computeMissingCustomerPaymentBookings(state.routeCompletedBookings, state.routePayments);
+    updateCashierRouteCache(state, 'payments', {
+      routePayments: state.routePayments,
+      routePaymentStats: state.routePaymentStats,
+      routePaymentMethods: state.routePaymentMethods,
+      routeCompletedBookings: state.routeCompletedBookings,
+      cashierPendingCustomerBookings: state.cashierPendingCustomerBookings
+    });
 
     await hydrateSelectedPaymentDetails(state, session, bridge, performAuthenticatedRequest);
     return true;
   }
 
   if (state.currentRoute === 'payouts') {
+    ensureCashierRouteCache(state);
+    if (!state.cashierRouteCache.payouts?.dirty && applyCashierCacheToState(state, 'payouts')) {
+      await hydrateSelectedPaymentDetails(state, session, bridge, performAuthenticatedRequest);
+      return true;
+    }
+
     const [payoutsResponse, bookingsResponse, customerPaymentsResponse, methodsResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=worker_payout&limit=100', { method: 'GET' }),
       performAuthenticatedRequest(session, bridge, '/api/bookings?status=completed&limit=100', { method: 'GET' }).catch(() => ({ data: [] })),
@@ -898,12 +980,24 @@ export async function loadCashierRouteData(state, session, bridge, performAuthen
       state.routePayments,
       state.routeCustomerPayments
     );
+    updateCashierRouteCache(state, 'payouts', {
+      routePayments: state.routePayments,
+      routeCompletedBookings: state.routeCompletedBookings,
+      routeCustomerPayments: state.routeCustomerPayments,
+      routePaymentMethods: state.routePaymentMethods,
+      cashierPendingPayoutBookings: state.cashierPendingPayoutBookings
+    });
 
     await hydrateSelectedPaymentDetails(state, session, bridge, performAuthenticatedRequest);
     return true;
   }
 
   if (state.currentRoute === 'reports') {
+    ensureCashierRouteCache(state);
+    if (!state.cashierRouteCache.reports?.dirty && applyCashierCacheToState(state, 'reports')) {
+      return true;
+    }
+
     const [statisticsResponse, revenueResponse, completedBookingsResponse, completedCustomerPaymentsResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }),
       performAuthenticatedRequest(session, bridge, '/api/payments/revenue-report', { method: 'GET' }).catch(() => ({ data: [] })),
@@ -929,6 +1023,12 @@ export async function loadCashierRouteData(state, session, bridge, performAuthen
       ...(bookingDetailsMap[Number(booking.id || 0)] || {})
     }));
     state.routeReportCustomerPayments = mergeBookingDetailsIntoPayments(completedCustomerPayments, bookingDetailsMap);
+    updateCashierRouteCache(state, 'reports', {
+      routePaymentStats: state.routePaymentStats,
+      routeRevenueReport: state.routeRevenueReport,
+      routeReportCompletedBookings: state.routeReportCompletedBookings,
+      routeReportCustomerPayments: state.routeReportCustomerPayments
+    });
     return true;
   }
 
@@ -1059,6 +1159,7 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
       });
 
       state.selectedPaymentId = response?.data?.id || null;
+      markCashierRoutesDirty(state, ['payments', 'payouts', 'reports']);
       if (state.selectedPaymentId) {
         state.paymentDetailsById = state.paymentDetailsById || {};
         state.paymentDetailsById[state.selectedPaymentId] = response.data;
@@ -1107,6 +1208,7 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
       });
 
       state.selectedPaymentId = response?.data?.id || null;
+      markCashierRoutesDirty(state, ['payments', 'payouts', 'reports']);
       if (state.selectedPaymentId) {
         state.paymentDetailsById = state.paymentDetailsById || {};
         state.paymentDetailsById[state.selectedPaymentId] = response.data;
@@ -1155,6 +1257,7 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
       });
 
       state.selectedPaymentId = paymentId;
+      markCashierRoutesDirty(state, ['payments', 'payouts', 'reports']);
       state.paymentDetailsById = state.paymentDetailsById || {};
       state.paymentDetailsById[paymentId] = response?.data || null;
       state.selectedPaymentDetails = response?.data || null;
