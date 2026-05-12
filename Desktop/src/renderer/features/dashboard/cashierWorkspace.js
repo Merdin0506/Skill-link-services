@@ -86,6 +86,130 @@ function createReportAnalytics(state) {
   };
 }
 
+function getDefaultCashierFilters() {
+  return {
+    payments: { q: '', status: '', method: '', date_from: '', date_to: '' },
+    payouts: { q: '', status: '', method: '', date_from: '', date_to: '' }
+  };
+}
+
+function ensureCashierFilters(state) {
+  state.cashierFilters = {
+    ...getDefaultCashierFilters(),
+    ...(state.cashierFilters || {}),
+    payments: {
+      ...getDefaultCashierFilters().payments,
+      ...((state.cashierFilters || {}).payments || {})
+    },
+    payouts: {
+      ...getDefaultCashierFilters().payouts,
+      ...((state.cashierFilters || {}).payouts || {})
+    }
+  };
+}
+
+function buildFilterMethodOptions(methods = {}, currentValue = '') {
+  const baseOption = '<option value="">All methods</option>';
+  const entries = Object.entries(methods || {});
+  return baseOption + entries.map(([value, label]) => `
+    <option value="${value}" ${currentValue === value ? 'selected' : ''}>${label}</option>
+  `).join('');
+}
+
+function createCashierFiltersCard(routeKey, state) {
+  ensureCashierFilters(state);
+  const filters = state.cashierFilters?.[routeKey] || getDefaultCashierFilters()[routeKey];
+  const methods = state.routePaymentMethods || {};
+
+  return `
+    <div class="card desktop-card mb-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-filter"></i> Filter Ledger
+      </div>
+      <div class="card-body desktop-card-body">
+        <form data-cashier-filter-form="${routeKey}">
+          <div class="row g-3">
+            <div class="col-md-5">
+              <label class="form-label">Search</label>
+              <input
+                type="search"
+                class="form-control"
+                name="q"
+                value="${String(filters.q || '').replace(/"/g, '&quot;')}"
+                placeholder="Reference, booking, customer, or worker"
+              />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Status</label>
+              <select class="form-select" name="status">
+                <option value="">All statuses</option>
+                <option value="pending" ${filters.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="completed" ${filters.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="failed" ${filters.status === 'failed' ? 'selected' : ''}>Failed</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Payment Method</label>
+              <select class="form-select" name="method">
+                ${buildFilterMethodOptions(methods, filters.method || '')}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">From Date</label>
+              <input type="date" class="form-control" name="date_from" value="${filters.date_from || ''}" />
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">To Date</label>
+              <input type="date" class="form-control" name="date_to" value="${filters.date_to || ''}" />
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-outline-secondary" data-cashier-filter-reset="${routeKey}">Reset</button>
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function applyCashierFilters(payments = [], filters = {}, routeKey = 'payments') {
+  const query = String(filters.q || '').trim().toLowerCase();
+  const status = String(filters.status || '').trim().toLowerCase();
+  const method = String(filters.method || '').trim().toLowerCase();
+  const dateFrom = String(filters.date_from || '').trim();
+  const dateTo = String(filters.date_to || '').trim();
+
+  return (payments || []).filter((payment) => {
+    const matchesStatus = !status || String(payment.status || '').toLowerCase() === status;
+    const matchesMethod = !method || String(payment.payment_method || '').toLowerCase() === method;
+
+    const searchableText = [
+      payment.payment_reference,
+      payment.transaction_id,
+      payment.booking_reference,
+      payment.booking_title,
+      routeKey === 'payments'
+        ? formatPersonName(payment.customer_first_name, payment.customer_last_name)
+        : formatPersonName(payment.worker_first_name, payment.worker_last_name)
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const matchesQuery = !query || searchableText.includes(query);
+    const rawDateValue = payment.payment_date || payment.created_at || '';
+    const recordDate = rawDateValue ? new Date(rawDateValue) : null;
+    const recordDateKey = recordDate && !Number.isNaN(recordDate.getTime())
+      ? recordDate.toISOString().slice(0, 10)
+      : '';
+    const matchesFromDate = !dateFrom || (recordDateKey && recordDateKey >= dateFrom);
+    const matchesToDate = !dateTo || (recordDateKey && recordDateKey <= dateTo);
+
+    return matchesStatus && matchesMethod && matchesQuery && matchesFromDate && matchesToDate;
+  });
+}
+
 function createPaymentRecordingCard(state, helpers) {
   const { createInfoBanner } = helpers;
   const methods = state.routePaymentMethods || {};
@@ -258,7 +382,10 @@ function createCashierPaymentDetails(state, helpers) {
   return `
     <div class="card desktop-card">
       <div class="card-header desktop-card-header">
-        <i class="fas fa-eye"></i> Payment Details
+        <div class="d-flex justify-content-between align-items-center">
+          <span><i class="fas fa-eye"></i> Payment Details</span>
+          <button type="button" class="ghost-button" data-cashier-print-receipt="true">Print Receipt</button>
+        </div>
       </div>
       <div class="card-body desktop-card-body">
         <div class="desktop-insight-grid">
@@ -341,9 +468,63 @@ function createPaymentActionButtons(payment) {
   `;
 }
 
+function buildCashierReceiptHtml(payment) {
+  const receiptTitle = String(payment?.payment_type || '') === 'worker_payout'
+    ? 'Worker Payout Receipt'
+    : 'Customer Collection Receipt';
+
+  const amount = Number(payment?.amount || 0).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
+  const method = String(payment?.payment_method || 'unassigned').replace(/_/g, ' ');
+  const status = String(payment?.status || 'pending').replace(/_/g, ' ');
+  const booking = payment?.booking_reference || payment?.booking_id || '-';
+  const reference = payment?.payment_reference || payment?.id || '-';
+  const paidBy = formatPersonName(payment?.paid_by_first_name, payment?.paid_by_last_name);
+  const paidTo = formatPersonName(payment?.paid_to_first_name, payment?.paid_to_last_name);
+  const processedBy = formatPersonName(payment?.processed_by_first_name, payment?.processed_by_last_name);
+  const paymentDate = payment?.payment_date || payment?.created_at || '';
+  const notes = payment?.notes || 'No notes recorded.';
+
+  return `<!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>${receiptTitle}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 32px; color: #1f2937; }
+        h1 { margin-bottom: 8px; }
+        .muted { color: #6b7280; margin-bottom: 24px; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .card { border: 1px solid #dbe3f0; border-radius: 12px; padding: 16px; }
+        .label { font-size: 12px; text-transform: uppercase; color: #6b7280; margin-bottom: 6px; }
+        .value { font-size: 20px; font-weight: 700; }
+        .notes { border: 1px solid #dbe3f0; border-radius: 12px; padding: 16px; white-space: pre-wrap; }
+      </style>
+    </head>
+    <body>
+      <h1>${receiptTitle}</h1>
+      <div class="muted">Generated from SkillLink Desktop Cashier</div>
+      <div class="grid">
+        <div class="card"><div class="label">Reference</div><div class="value">${reference}</div></div>
+        <div class="card"><div class="label">Booking</div><div class="value">${booking}</div></div>
+        <div class="card"><div class="label">Amount</div><div class="value">${amount}</div></div>
+        <div class="card"><div class="label">Method</div><div class="value">${method}</div></div>
+        <div class="card"><div class="label">Status</div><div class="value">${status}</div></div>
+        <div class="card"><div class="label">Payment Date</div><div class="value">${paymentDate}</div></div>
+        <div class="card"><div class="label">Paid By</div><div class="value">${paidBy}</div></div>
+        <div class="card"><div class="label">Paid To</div><div class="value">${paidTo}</div></div>
+        <div class="card"><div class="label">Processed By</div><div class="value">${processedBy}</div></div>
+      </div>
+      <div class="label">Notes</div>
+      <div class="notes">${notes}</div>
+      <script>window.onload = () => window.print();</script>
+    </body>
+  </html>`;
+}
+
 export function createCashierPaymentsView(state, helpers) {
   const { createInfoBanner, createMetricGrid, formatCurrency, formatDate } = helpers;
-  const payments = state.routePayments || [];
+  ensureCashierFilters(state);
+  const payments = applyCashierFilters(state.routePayments || [], state.cashierFilters?.payments || {}, 'payments');
   const completed = payments.filter((payment) => String(payment.status || '') === 'completed');
   const pending = payments.filter((payment) => String(payment.status || '') === 'pending');
 
@@ -356,6 +537,7 @@ export function createCashierPaymentsView(state, helpers) {
       { icon: 'fas fa-peso-sign', value: completed.reduce((sum, payment) => sum + Number(payment.amount || 0), 0), label: 'Collected Amount', tone: 'info' }
     ])}
 
+    ${createCashierFiltersCard('payments', state)}
     ${createPaymentRecordingCard(state, helpers)}
 
     <div class="desktop-admin-split mt-4">
@@ -414,7 +596,8 @@ export function createCashierPaymentsView(state, helpers) {
 
 export function createCashierPayoutsView(state, helpers) {
   const { createInfoBanner, createMetricGrid, formatCurrency, formatDate } = helpers;
-  const payouts = state.routePayments || [];
+  ensureCashierFilters(state);
+  const payouts = applyCashierFilters(state.routePayments || [], state.cashierFilters?.payouts || {}, 'payouts');
   const completed = payouts.filter((payment) => String(payment.status || '') === 'completed');
 
   return `
@@ -426,6 +609,7 @@ export function createCashierPayoutsView(state, helpers) {
       { icon: 'fas fa-wallet', value: completed.reduce((sum, payout) => sum + Number(payout.amount || 0), 0), label: 'Total Released', tone: 'info' }
     ])}
 
+    ${createCashierFiltersCard('payouts', state)}
     ${createPayoutRecordingCard(state, helpers)}
 
     <div class="desktop-admin-split mt-4">
@@ -640,6 +824,14 @@ function syncAmountInputFromSelection(form) {
   updateAmount();
 }
 
+function confirmCashierAction(message) {
+  if (typeof window.confirm !== 'function') {
+    return true;
+  }
+
+  return window.confirm(message);
+}
+
 export async function loadCashierRouteData(state, session, bridge, performAuthenticatedRequest) {
   if (state.currentRoute === 'payments') {
     const [paymentsResponse, statisticsResponse, methodsResponse, bookingsResponse] = await Promise.all([
@@ -768,6 +960,44 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
     return;
   }
 
+  ensureCashierFilters(state);
+
+  contentElement.querySelectorAll('[data-cashier-filter-form]').forEach((form) => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const routeKey = String(form.getAttribute('data-cashier-filter-form') || '');
+      if (!routeKey || !['payments', 'payouts'].includes(routeKey)) {
+        return;
+      }
+
+      const formData = new FormData(form);
+      state.cashierFilters = state.cashierFilters || getDefaultCashierFilters();
+      state.cashierFilters[routeKey] = {
+        q: String(formData.get('q') || '').trim(),
+        status: String(formData.get('status') || '').trim(),
+        method: String(formData.get('method') || '').trim(),
+        date_from: String(formData.get('date_from') || '').trim(),
+        date_to: String(formData.get('date_to') || '').trim()
+      };
+      await renderRoute(state, session, bridge);
+      updateInlineStatus('Cashier filters applied.', 'success');
+    });
+  });
+
+  contentElement.querySelectorAll('[data-cashier-filter-reset]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const routeKey = String(button.getAttribute('data-cashier-filter-reset') || '');
+      if (!routeKey || !['payments', 'payouts'].includes(routeKey)) {
+        return;
+      }
+
+      state.cashierFilters = state.cashierFilters || getDefaultCashierFilters();
+      state.cashierFilters[routeKey] = { ...getDefaultCashierFilters()[routeKey] };
+      await renderRoute(state, session, bridge);
+      updateInlineStatus('Cashier filters reset.', 'success');
+    });
+  });
+
   contentElement.querySelectorAll('[data-payment-row]').forEach((row) => {
     row.addEventListener('click', async () => {
       const paymentId = Number(row.getAttribute('data-payment-id'));
@@ -806,6 +1036,13 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
 
     if (!bookingId || !paymentMethod || !Number.isFinite(amount) || amount <= 0) {
       updateInlineStatus('Choose a completed booking, payment method, and valid amount first.', 'error');
+      return;
+    }
+
+    const confirmed = confirmCashierAction(
+      `Record this customer collection for ${amount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}?`
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -850,6 +1087,13 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
       return;
     }
 
+    const confirmed = confirmCashierAction(
+      `Create this worker payout for ${amount.toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}?`
+    );
+    if (!confirmed) {
+      return;
+    }
+
     try {
       const response = await performAuthenticatedRequest(session, bridge, '/api/payments/worker', {
         method: 'POST',
@@ -888,6 +1132,17 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
     const formData = new FormData(processPaymentForm);
     const status = String(formData.get('status') || '');
     const transactionId = String(formData.get('transaction_id') || '').trim();
+    const selectedPayment = state.selectedPaymentDetails || null;
+    const actionTarget = selectedPayment?.payment_type === 'worker_payout'
+      ? 'worker payout'
+      : 'customer collection';
+
+    const confirmed = confirmCashierAction(
+      `Mark this ${actionTarget} as ${status.replace(/_/g, ' ')}?`
+    );
+    if (!confirmed) {
+      return;
+    }
 
     try {
       const response = await performAuthenticatedRequest(session, bridge, `/api/payments/${paymentId}/process`, {
@@ -939,5 +1194,25 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
   printReportButton?.addEventListener('click', () => {
     window.print();
     updateInlineStatus('Print dialog opened for the cashier report.', 'success');
+  });
+
+  const printReceiptButton = contentElement.querySelector('[data-cashier-print-receipt="true"]');
+  printReceiptButton?.addEventListener('click', () => {
+    const selectedPayment = state.selectedPaymentDetails || null;
+    if (!selectedPayment) {
+      updateInlineStatus('Select a payment or payout first before printing a receipt.', 'error');
+      return;
+    }
+
+    const receiptWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!receiptWindow) {
+      updateInlineStatus('The receipt window was blocked. Please allow pop-ups and try again.', 'error');
+      return;
+    }
+
+    receiptWindow.document.open();
+    receiptWindow.document.write(buildCashierReceiptHtml(selectedPayment));
+    receiptWindow.document.close();
+    updateInlineStatus('Receipt print view opened successfully.', 'success');
   });
 }

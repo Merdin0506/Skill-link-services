@@ -103,6 +103,138 @@ function getFinancePaymentStatusLabel(record) {
   return 'not recorded';
 }
 
+function getDefaultFinanceDashboardFilters() {
+  return {
+    q: '',
+    status: '',
+    method: '',
+    date_from: '',
+    date_to: ''
+  };
+}
+
+function ensureFinanceDashboardFilters(state) {
+  state.financeDashboardFilters = {
+    ...getDefaultFinanceDashboardFilters(),
+    ...(state.financeDashboardFilters || {})
+  };
+}
+
+function applyFinanceDashboardFilters(rows = [], filters = {}) {
+  const query = String(filters.q || '').trim().toLowerCase();
+  const status = String(filters.status || '').trim().toLowerCase();
+  const method = String(filters.method || '').trim().toLowerCase();
+  const dateFrom = String(filters.date_from || '').trim();
+  const dateTo = String(filters.date_to || '').trim();
+
+  return (rows || []).filter((row) => {
+    const paymentStatus = String(row.payment_status || '').toLowerCase();
+    const paymentMethod = String(row.payment_method || '').toLowerCase();
+    const matchesStatus = !status || paymentStatus === status;
+    const matchesMethod = !method || paymentMethod === method;
+    const searchableText = [
+      row.payment_reference,
+      row.booking_reference,
+      row.title,
+      row.customer_first_name,
+      row.customer_last_name,
+      row.worker_first_name,
+      row.worker_last_name
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    const matchesQuery = !query || searchableText.includes(query);
+    const rawDateValue = row.transaction_created_at || row.created_at || '';
+    const recordDate = rawDateValue ? new Date(rawDateValue) : null;
+    const recordDateKey = recordDate && !Number.isNaN(recordDate.getTime())
+      ? recordDate.toISOString().slice(0, 10)
+      : '';
+    const matchesFromDate = !dateFrom || (recordDateKey && recordDateKey >= dateFrom);
+    const matchesToDate = !dateTo || (recordDateKey && recordDateKey <= dateTo);
+
+    return matchesStatus && matchesMethod && matchesQuery && matchesFromDate && matchesToDate;
+  });
+}
+
+function createFinanceDashboardFilterCard(state) {
+  ensureFinanceDashboardFilters(state);
+  const filters = state.financeDashboardFilters || getDefaultFinanceDashboardFilters();
+
+  return `
+    <div class="card desktop-card mb-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-filter"></i> Filter Recent Transactions
+      </div>
+      <div class="card-body desktop-card-body">
+        <form data-finance-dashboard-filter="true">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Search</label>
+              <input
+                type="search"
+                class="form-control"
+                name="q"
+                value="${escapeHtml(filters.q || '')}"
+                placeholder="Reference, booking, customer, or worker"
+              />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Status</label>
+              <select class="form-select" name="status">
+                <option value="">All statuses</option>
+                <option value="pending" ${filters.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="completed" ${filters.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="failed" ${filters.status === 'failed' ? 'selected' : ''}>Failed</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">Method</label>
+              <select class="form-select" name="method">
+                <option value="">All methods</option>
+                <option value="cash" ${filters.method === 'cash' ? 'selected' : ''}>Cash</option>
+                <option value="gcash" ${filters.method === 'gcash' ? 'selected' : ''}>GCash</option>
+                <option value="paymaya" ${filters.method === 'paymaya' ? 'selected' : ''}>PayMaya</option>
+                <option value="bank_transfer" ${filters.method === 'bank_transfer' ? 'selected' : ''}>Bank Transfer</option>
+                <option value="credit_card" ${filters.method === 'credit_card' ? 'selected' : ''}>Credit Card</option>
+              </select>
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">From Date</label>
+              <input type="date" class="form-control" name="date_from" value="${escapeHtml(filters.date_from || '')}" />
+            </div>
+            <div class="col-md-2">
+              <label class="form-label">To Date</label>
+              <input type="date" class="form-control" name="date_to" value="${escapeHtml(filters.date_to || '')}" />
+            </div>
+          </div>
+          <div class="d-flex justify-content-end gap-2 mt-3">
+            <button type="button" class="btn btn-outline-secondary" data-finance-dashboard-filter-reset="true">Reset</button>
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function createFinanceDashboardSummaryCards(transactions = []) {
+  const completed = transactions.filter((item) => String(item.payment_status || '') === 'completed');
+  const pending = transactions.filter((item) => !item.payment_id || String(item.payment_status || '') === 'pending');
+  const totalAmount = transactions.reduce((sum, item) => sum + Number(item.amount ?? item.total_fee ?? 0), 0);
+  const completedAmount = completed.reduce((sum, item) => sum + Number(item.amount ?? item.total_fee ?? 0), 0);
+
+  return `
+    <div class="row mb-4">
+      ${createStatCard({ icon: 'fas fa-list', value: transactions.length, label: 'Visible Transactions', tone: 'primary' })}
+      ${createStatCard({ icon: 'fas fa-check-circle', value: completed.length, label: 'Visible Completed', tone: 'success' })}
+      ${createStatCard({ icon: 'fas fa-hourglass-half', value: pending.length, label: 'Visible Pending', tone: 'warning' })}
+      ${createStatCard({ icon: 'fas fa-peso-sign', value: formatCurrency(totalAmount), label: 'Visible Amount', tone: 'info' })}
+      ${createStatCard({ icon: 'fas fa-wallet', value: formatCurrency(completedAmount), label: 'Completed Amount', tone: 'success' })}
+    </div>
+  `;
+}
+
 function createPageHeading(icon, title) {
   return `
     <div class="row mb-4">
@@ -1648,6 +1780,9 @@ function renderDashboardHome(contentElement, state) {
   }
 
   const template = getRoleTemplate(state.role);
+  const financeTransactions = state.role === 'finance'
+    ? applyFinanceDashboardFilters(state.bookings || [], state.financeDashboardFilters || {})
+    : state.bookings;
 
   contentElement.innerHTML = `
     <div class="row mb-4">
@@ -1681,6 +1816,9 @@ function renderDashboardHome(contentElement, state) {
       </div>
     </div>
 
+    ${state.role === 'finance' ? createFinanceDashboardFilterCard(state) : ''}
+    ${state.role === 'finance' ? createFinanceDashboardSummaryCards(financeTransactions) : ''}
+
     <div class="row">
       <div class="col-lg-12">
         <div class="card desktop-card">
@@ -1696,7 +1834,7 @@ function renderDashboardHome(contentElement, state) {
                   </tr>
                 </thead>
                 <tbody>
-                  ${renderTableRows(state.bookings, state.role)}
+                  ${renderTableRows(financeTransactions, state.role)}
                 </tbody>
               </table>
             </div>
@@ -1714,6 +1852,32 @@ function bindDashboardHome(state, session, bridge) {
   if (!contentElement || state.role !== 'finance') {
     return;
   }
+
+  ensureFinanceDashboardFilters(state);
+
+  const filterForm = contentElement.querySelector('[data-finance-dashboard-filter="true"]');
+  filterForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const formData = new FormData(filterForm);
+    state.financeDashboardFilters = {
+      q: String(formData.get('q') || '').trim(),
+      status: String(formData.get('status') || '').trim(),
+      method: String(formData.get('method') || '').trim(),
+      date_from: String(formData.get('date_from') || '').trim(),
+      date_to: String(formData.get('date_to') || '').trim()
+    };
+    renderDashboardHome(contentElement, state);
+    bindDashboardHome(state, session, bridge);
+    updateInlineStatus('Finance dashboard filters applied.', 'success');
+  });
+
+  const resetFilterButton = contentElement.querySelector('[data-finance-dashboard-filter-reset="true"]');
+  resetFilterButton?.addEventListener('click', () => {
+    state.financeDashboardFilters = getDefaultFinanceDashboardFilters();
+    renderDashboardHome(contentElement, state);
+    bindDashboardHome(state, session, bridge);
+    updateInlineStatus('Finance dashboard filters reset.', 'success');
+  });
 
   contentElement.querySelectorAll('[data-dashboard-payment-view]').forEach((button) => {
     button.addEventListener('click', () => {
