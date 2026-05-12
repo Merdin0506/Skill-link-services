@@ -15,6 +15,10 @@
                 <i class="fas fa-users"></i>
                 <span>Users</span>
             </a>
+            <a href="<?= base_url('admin/pending-workers') ?>" class="<?= (strpos(current_url(), '/admin/pending-workers') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-user-clock"></i>
+                <span>Pending Workers</span>
+            </a>
             <a href="<?= base_url('admin/bookings') ?>" class="<?= (strpos(current_url(), '/admin/bookings') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-calendar-check"></i>
                 <span>Bookings</span>
@@ -41,15 +45,22 @@
                 <span>Security</span>
             </a>
         <?php elseif (isset($role) && $role === 'worker'): ?>
-            <a href="<?= base_url('worker/available-jobs') ?>" class="<?= (strpos(current_url(), '/worker/available-jobs') !== false) ? 'active' : '' ?>">
+            <?php $isPending = (isset($user) && ($user['status'] ?? '') === 'pending'); ?>
+            <a href="<?= $isPending ? '#' : base_url('worker/available-jobs') ?>" 
+               class="<?= (strpos(current_url(), '/worker/available-jobs') !== false) ? 'active' : '' ?> <?= $isPending ? 'disabled-link' : '' ?>"
+               <?= $isPending ? 'title="This feature is disabled while your account is under review" onclick="return false;"' : '' ?>>
                 <i class="fas fa-briefcase"></i>
                 <span>Available Jobs</span>
             </a>
-            <a href="<?= base_url('worker/my-jobs') ?>" class="<?= (strpos(current_url(), '/worker/my-jobs') !== false) ? 'active' : '' ?>">
+            <a href="<?= $isPending ? '#' : base_url('worker/my-jobs') ?>" 
+               class="<?= (strpos(current_url(), '/worker/my-jobs') !== false) ? 'active' : '' ?> <?= $isPending ? 'disabled-link' : '' ?>"
+               <?= $isPending ? 'title="This feature is disabled while your account is under review" onclick="return false;"' : '' ?>>
                 <i class="fas fa-tasks"></i>
                 <span>My Jobs</span>
             </a>
-            <a href="<?= base_url('worker/earnings') ?>" class="<?= (strpos(current_url(), '/worker/earnings') !== false) ? 'active' : '' ?>">
+            <a href="<?= $isPending ? '#' : base_url('worker/earnings') ?>" 
+               class="<?= (strpos(current_url(), '/worker/earnings') !== false) ? 'active' : '' ?> <?= $isPending ? 'disabled-link' : '' ?>"
+               <?= $isPending ? 'title="This feature is disabled while your account is under review" onclick="return false;"' : '' ?>>
                 <i class="fas fa-wallet"></i>
                 <span>Earnings</span>
             </a>
@@ -95,3 +106,15 @@
         </a>
     </nav>
 </div>
+
+<style>
+.sidebar-nav a.disabled-link {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.sidebar-nav a.disabled-link:hover {
+    background-color: transparent;
+}
+</style>

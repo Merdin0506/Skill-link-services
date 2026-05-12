@@ -240,31 +240,7 @@
             letter-spacing: 0.5px;
         }
 
-        .topbar {
-            background: white;
-            padding: 20px 30px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e8e8e8;
-            margin-bottom: 30px;
-            border-radius: 10px 10px 0 0;
-            margin-left: -30px;
-            margin-right: -30px;
-            margin-top: -30px;
-        }
-
-        .welcome {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .welcome h6 {
-            color: var(--text-dark);
-            font-weight: 600;
-            margin: 0;
-        }
+        /* Use shared topbar/welcome styles from layouts/page_header.php for consistent header sizing */
 
         .welcome .text-muted {
             color: var(--text-muted);
@@ -328,13 +304,7 @@
             .page-content {
                 padding: 20px;
             }
-
-            .topbar {
-                margin-left: -20px;
-                margin-right: -20px;
-                margin-top: -20px;
-                padding: 15px 20px;
-            }
+            /* topbar responsive styles are defined in layouts/page_header.php */
         }
 
         @media (max-width: 768px) {
@@ -346,13 +316,7 @@
                 padding: 15px;
             }
 
-            .topbar {
-                margin-left: -15px;
-                margin-right: -15px;
-                margin-top: -15px;
-                border-radius: 0;
-                gap: 10px;
-            }
+            /* topbar responsive styles are defined in layouts/page_header.php */
 
             .user-profile {
                 width: 100%;
@@ -398,6 +362,7 @@
     // Ensure we have required variables
     $role = session()->get('role') ?? 'customer';
     $user = session()->get('user') ?? ['first_name' => '', 'last_name' => '', 'email' => ''];
+    $isPendingWorker = (($user['user_type'] ?? '') === 'worker') && (($user['status'] ?? '') === 'pending');
     ?>
 
     <!-- Include Sidebar -->
@@ -424,6 +389,18 @@
                 </div>
             </div>
         </div>
+
+        <?php if ($isPendingWorker): ?>
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="pending-worker-icon"><i class="fas fa-hourglass-half"></i></div>
+                    <div>
+                        <h5 class="mb-1">Your account is under review</h5>
+                        <p class="mb-0">Some features are disabled until approval.</p>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
         <!-- Load Role-Specific Dashboard -->
         <?php 

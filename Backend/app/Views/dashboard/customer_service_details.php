@@ -65,6 +65,56 @@ $customCss = null;
                 </div>
             </div>
         </div>
+        <div class="col-lg-7 mt-3">
+            <div class="card h-100">
+                <div class="card-header">
+                    <i class="fas fa-user-friends"></i> Available Workers for this Service
+                </div>
+                <div class="card-body">
+                    <?php $skillMap = \App\Models\UserModel::WORKER_SKILL_OPTIONS; ?>
+                    <?php if (!empty($available_workers)): ?>
+                        <div class="list-group">
+                            <?php foreach ($available_workers as $w): ?>
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong><?= esc(($w['first_name'] ?? '') . ' ' . ($w['last_name'] ?? '')) ?></strong>
+                                        <div class="text-muted small">ID: <?= esc((string) ($w['id'] ?? '-')) ?></div>
+                                        <div class="mt-1 small">
+                                            <?php $codes = \App\Models\UserModel::normalizeWorkerSkills($w['skills'] ?? []); ?>
+                                            <?php if (!empty($codes)): ?>
+                                                <?php foreach ($codes as $code): ?>
+                                                    <span class="badge bg-secondary me-1 mb-1"><?= esc($skillMap[$code] ?? $code) ?></span>
+                                                <?php endforeach; ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">No skills listed</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <a href="<?= base_url('worker/profile/' . (int) ($w['id'] ?? 0)) ?>" class="btn btn-outline-secondary btn-sm me-2">View Profile</a>
+                                        <button class="btn btn-primary btn-sm"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#bookingModal"
+                                                data-service-id="<?= (int) ($service['id'] ?? 0) ?>"
+                                                data-service-name="<?= esc($service['name']) ?>"
+                                                data-service-price="<?= esc($service['base_price']) ?>"
+                                                data-service-duration="<?= esc($service['estimated_duration']) ?>"
+                                                data-worker-id="<?= (int) ($w['id'] ?? 0) ?>">
+                                            Book
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-user-slash fa-2x mb-2 opacity-25"></i>
+                            <p class="mb-0">No approved workers available for this service at the moment.</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
 
         <div class="col-lg-7">
             <div class="card h-100">
@@ -121,6 +171,7 @@ $customCss = null;
             <form action="<?= base_url('bookings/create') ?>" method="POST" id="bookingForm">
                 <?= csrf_field() ?>
                 <input type="hidden" name="service_id" id="modal_service_id">
+                <input type="hidden" name="worker_id" id="modal_worker_id">
 
                 <div class="modal-header" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); color: white;">
                     <h5 class="modal-title" id="bookingModalLabel">
@@ -437,8 +488,10 @@ $customCss = null;
             const serviceName = button.getAttribute('data-service-name');
             const servicePrice = button.getAttribute('data-service-price');
             const serviceDuration = button.getAttribute('data-service-duration');
+            const workerId = button.getAttribute('data-worker-id');
 
             document.getElementById('modal_service_id').value = serviceId;
+            document.getElementById('modal_worker_id').value = workerId || '';
             document.getElementById('modal_service_name').textContent = serviceName;
             document.getElementById('modal_service_price').textContent = parseFloat(servicePrice).toFixed(2);
             document.getElementById('modal_service_duration').textContent = serviceDuration;

@@ -30,6 +30,10 @@ class WorkerActions extends BaseController
         log_message('debug', 'acceptJob called for booking: ' . var_export($bookingId, true));
 
         $workerId = (int) $this->session->get('user_id');
+        if ($this->isPendingWorker($workerId)) {
+            return redirect()->back()->with('warning', 'Your account is under review. Job actions are disabled until approval.');
+        }
+
         $booking = $this->bookingModel->find($bookingId);
 
         if (!$booking) {
@@ -74,6 +78,10 @@ class WorkerActions extends BaseController
     {
 
         $workerId = (int) $this->session->get('user_id');
+        if ($this->isPendingWorker($workerId)) {
+            return redirect()->back()->with('warning', 'Your account is under review. Job actions are disabled until approval.');
+        }
+
         $booking = $this->bookingModel->find($bookingId);
 
         if (!$booking) {
@@ -111,6 +119,10 @@ class WorkerActions extends BaseController
     {
 
         $workerId = (int) $this->session->get('user_id');
+        if ($this->isPendingWorker($workerId)) {
+            return redirect()->back()->with('warning', 'Your account is under review. Job actions are disabled until approval.');
+        }
+
         $booking = $this->bookingModel
             ->select('b.*, c.first_name as customer_first_name, c.last_name as customer_last_name')
             ->from('bookings b')
@@ -147,6 +159,10 @@ class WorkerActions extends BaseController
     {
 
         $workerId = (int) $this->session->get('user_id');
+        if ($this->isPendingWorker($workerId)) {
+            return redirect()->back()->with('warning', 'Your account is under review. Job actions are disabled until approval.');
+        }
+
         $booking = $this->bookingModel->find($bookingId);
 
         if (!$booking) {
@@ -300,5 +316,18 @@ class WorkerActions extends BaseController
             log_message('error', 'Admin assignment error: ' . $e->getMessage());
             return redirect()->back()->with('error', 'An error occurred');
         }
+    }
+
+    private function isPendingWorker(int $workerId): bool
+    {
+        if ($workerId <= 0) {
+            return false;
+        }
+
+        $worker = $this->userModel->find($workerId);
+
+        return is_array($worker)
+            && ($worker['user_type'] ?? '') === 'worker'
+            && ($worker['status'] ?? '') === 'pending';
     }
 }

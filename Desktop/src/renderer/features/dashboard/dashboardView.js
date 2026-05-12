@@ -3517,6 +3517,40 @@ export async function renderDashboardView(session = getSession()) {
     }
 
     setStatus('Dashboard loaded successfully.', 'success');
+    // Start polling for pending worker applications (desktop notification for admins)
+    try {
+      const initialPending = Number(state.stats?.pending_workers || 0);
+      let lastPending = initialPending;
+
+      const pollPending = async () => {
+        try {
+          const resp = bridge
+            ? await bridge.getDashboardData(session.token)
+            : await requestJson('/api/dashboard/data', { method: 'GET', headers: { Authorization: `Bearer ${session.token}` } });
+
+          const data = resp?.data || resp?.stats || {};
+          const newPending = Number(data?.stats?.pending_workers ?? (Array.isArray(resp?.data?.pendingWorkerApplications) ? resp.data.pendingWorkerApplications.length : 0));
+
+          if (Number.isFinite(newPending) && newPending > lastPending) {
+            const diff = newPending - lastPending;
+            try {
+              new Notification('New Worker Applications', { body: `${diff} new application(s) pending approval.` });
+            } catch (nerr) {
+              console.log('Notification failed:', nerr);
+            }
+          }
+
+          lastPending = newPending;
+        } catch (err) {
+          console.error('Pending poll error:', err);
+        }
+      };
+
+      // Poll every 20 seconds
+      setInterval(pollPending, 20000);
+    } catch (e) {
+      console.error('Failed to start pending worker poll:', e);
+    }
   } catch (error) {
     console.error('Dashboard render error:', error);
     setStatus(error.message || 'Failed to load dashboard data.', 'error');

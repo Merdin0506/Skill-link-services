@@ -168,6 +168,7 @@ class DashboardController extends ResourceController
             'total_bookings' => $this->bookingModel->countAll(),
             'total_revenue' => $this->getTotalRevenue(),
             'active_workers' => $this->userModel->where('user_type', 'worker')->where('status', 'active')->countAllResults(),
+            'pending_workers' => $this->userModel->where('user_type', 'worker')->where('status', 'pending')->countAllResults(),
             'pending_bookings' => $this->bookingModel->where('status', 'pending')->countAllResults(),
             'completed_bookings' => $this->bookingModel->where('status', 'completed')->countAllResults(),
         ];
@@ -506,7 +507,7 @@ class DashboardController extends ResourceController
      */
     private function getDashboardData($userId, $userRole)
     {
-        return [
+        $data = [
             'stats' => match ($userRole) {
                 'admin' => $this->getAdminStats(),
                 'owner' => $this->getOwnerStats($userId),
@@ -525,6 +526,25 @@ class DashboardController extends ResourceController
             },
             'recentBookings' => $this->bookingModel->limit(10)->orderBy('created_at', 'DESC')->find()
         ];
+
+        // Include pending worker applications for admin dashboards
+        if ($userRole === 'admin' || $userRole === 'super_admin') {
+            $workers = $this->userModel->where('user_type', 'worker')->where('status', 'pending')->orderBy('created_at', 'DESC')->limit(10)->findAll();
+            $skillLabels = UserModel::WORKER_SKILL_OPTIONS;
+            $data['pendingWorkerApplications'] = array_map(function(array $worker) use ($skillLabels) {
+                $skills = UserModel::normalizeWorkerSkills($worker['skills'] ?? []);
+                return [
+                    'id' => $worker['id'] ?? null,
+                    'full_name' => trim(($worker['first_name'] ?? '') . ' ' . ($worker['last_name'] ?? '')),
+                    'email' => $worker['email'] ?? null,
+                    'skills' => array_map(fn($s) => $skillLabels[$s] ?? $s, $skills),
+                    'created_at' => $worker['created_at'] ?? null,
+                    'status' => $worker['status'] ?? 'pending'
+                ];
+            }, $workers);
+        }
+
+        return $data;
     }
 
     private function getPositiveIntParam(string $name, int $default): int

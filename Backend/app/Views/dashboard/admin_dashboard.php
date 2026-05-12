@@ -1,5 +1,7 @@
 ﻿<!-- Admin Dashboard -->
 <div class="container-fluid">
+    <div id="csrfTokenTemplate" style="display:none"><?= csrf_field() ?></div>
+    <?php $pendingWorkerApplications = $pendingWorkerApplications ?? []; ?>
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
             <div class="stat-card">
@@ -34,6 +36,13 @@
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
             <div class="stat-card danger">
+                <i class="fas fa-user-clock stat-icon" style="color: var(--danger-color);"></i>
+                <div class="stat-value"><?= formatNumber($stats['pending_workers'] ?? 0) ?></div>
+                <div class="stat-label">Pending Workers</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="stat-card danger">
                 <i class="fas fa-hourglass-half stat-icon" style="color: var(--danger-color);"></i>
                 <div class="stat-value"><?= formatNumber($stats['pending_bookings'] ?? 0) ?></div>
                 <div class="stat-label">Pending Bookings</div>
@@ -47,6 +56,113 @@
             </div>
         </div>
     </div>
+
+    <!-- Pending Worker Applications -->
+    <div class="row mb-4">
+        <div class="col-lg-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-user-check"></i> Pending Worker Applications
+                        <span class="badge bg-danger ms-2" id="pendingWorkersCount"><?= formatNumber(count($pendingWorkerApplications ?? [])) ?></span>
+                    </div>
+                    <div>
+                        <a href="/admin/pending-workers" class="btn btn-sm btn-outline-primary">View All Pending</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="pendingWorkerApplications">
+                        <?php if (!empty($pendingWorkerApplications ?? [])): ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Worker</th>
+                                            <th>Email</th>
+                                            <th>Skills</th>
+                                            <th>Registered</th>
+                                            <th>Status</th>
+                                            <th class="text-end">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($pendingWorkerApplications as $worker): ?>
+                                            <?php
+                                                $workerId = (int) ($worker['id'] ?? 0);
+                                                $workerName = (string) ($worker['full_name'] ?? 'Unknown Worker');
+                                                $workerEmail = (string) ($worker['email'] ?? '-');
+                                                $workerSkills = is_array($worker['skills'] ?? null) ? array_map('strval', $worker['skills']) : [];
+                                                $workerCreatedAt = !empty($worker['created_at']) ? date('M d, Y', strtotime((string) $worker['created_at'])) : 'N/A';
+                                            ?>
+                                            <tr>
+                                                <td>
+                                                    <strong><?= esc($workerName) ?></strong>
+                                                    <div class="text-muted small">ID: <?= esc((string) $workerId) ?></div>
+                                                </td>
+                                                <td><?= esc($workerEmail) ?></td>
+                                                <td>
+                                                    <?php if (!empty($workerSkills)): ?>
+                                                        <?php foreach ($workerSkills as $skill): ?>
+                                                            <span class="badge bg-secondary me-1 mb-1"><?= esc((string) $skill) ?></span>
+                                                        <?php endforeach; ?>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">No skills selected</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?= esc($workerCreatedAt) ?>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-warning text-dark">Pending Approval</span>
+                                                </td>
+                                                <td class="text-end">
+                                                    <div class="btn-group btn-group-sm" role="group">
+                                                        <a href="/admin/pending-workers/view/<?= esc((string) $workerId) ?>" class="btn btn-outline-info">View Details</a>
+                                                        <form action="/admin/workers/approve/<?= esc((string) $workerId) ?>" method="post" class="d-inline">
+                                                            <?= csrf_field() ?>
+                                                            <button type="submit" class="btn btn-success">Approve</button>
+                                                        </form>
+                                                        <form action="/admin/workers/reject/<?= esc((string) $workerId) ?>" method="post" class="d-inline">
+                                                            <?= csrf_field() ?>
+                                                            <button type="submit" class="btn btn-outline-danger">Reject</button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php else: ?>
+                            <div class="text-center text-muted py-4">
+                                <i class="fas fa-user-check fa-2x mb-2 opacity-50"></i>
+                                <p class="mb-0">No pending worker applications right now.</p>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+            <!-- Approve / Reject Confirmation Modal -->
+            <div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionLabel" aria-hidden="true">
+                <div class="modal-dialog modal-sm modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="confirmActionLabel">Confirm Action</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p id="confirmActionMessage">Are you sure?</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="button" id="confirmActionButton" class="btn btn-danger">Confirm</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
     <!-- Analytics Section -->
     <div class="row mb-4">
@@ -268,6 +384,7 @@
         const bookingPriorityData = <?= json_encode(array_values($analytics['bookings_by_priority'] ?? [])) ?>;
         const revenueTrendLabels = <?= json_encode(array_keys($analytics['revenue_trend'] ?? [])) ?>;
         const revenueTrendData = <?= json_encode(array_values($analytics['revenue_trend'] ?? [])) ?>;
+        const pendingWorkerApplications = <?= json_encode($pendingWorkerApplications ?? []) ?>;
 
         // Booking Status Chart
         const statusCtx = document.getElementById('bookingStatusChart')?.getContext('2d');
@@ -380,6 +497,8 @@
         } else {
             showEmptyState('revenueTrendChart', 'fa-chart-line', 'No revenue trend data yet.');
         }
+
+        renderPendingWorkerApplications(pendingWorkerApplications);
     });
 
     // Real-time Security Synchronization
@@ -496,6 +615,134 @@
             showSyncStatus('error');
         });
     }
+
+    function loadPendingWorkerApplications() {
+        fetch('/dashboard/refresh-pending-worker-applications', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.status === 'success') {
+                renderPendingWorkerApplications(result.data || []);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading pending worker applications:', error);
+        });
+    }
+
+    function renderPendingWorkerApplications(workers) {
+        const applicationsContainer = document.getElementById('pendingWorkerApplications');
+        const applicationsCount = document.getElementById('pendingWorkersCount');
+
+        if (applicationsCount) {
+            applicationsCount.textContent = workers.length;
+        }
+
+        if (!applicationsContainer) return;
+
+        if (!Array.isArray(workers) || workers.length === 0) {
+            applicationsContainer.innerHTML = `
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-user-check fa-2x mb-2 opacity-50"></i>
+                    <p class="mb-0">No pending worker applications right now.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let tableHtml = `
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Worker</th>
+                            <th>Email</th>
+                            <th>Skills</th>
+                            <th>Registered</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        const csrfTokenHtml = (document.getElementById('csrfTokenTemplate') || {}).innerHTML || '';
+        workers.forEach(worker => {
+            const skills = Array.isArray(worker.skills) && worker.skills.length > 0
+                ? worker.skills.map(skill => `<span class="badge bg-secondary me-1 mb-1">${escapeHtml(skill)}</span>`).join('')
+                : '<span class="text-muted">No skills selected</span>';
+            const registeredAt = worker.created_at ? new Date(worker.created_at).toLocaleDateString() : 'N/A';
+
+            tableHtml += `
+                <tr>
+                    <td>
+                        <strong>${escapeHtml(worker.full_name || 'Unknown Worker')}</strong>
+                        <div class="text-muted small">ID: ${escapeHtml(String(worker.id || '-'))}</div>
+                    </td>
+                    <td>${escapeHtml(worker.email || '-')}</td>
+                    <td>${skills}</td>
+                    <td>${escapeHtml(registeredAt)}</td>
+                    <td><span class="badge bg-warning text-dark">Pending Approval</span></td>
+                    <td class="text-end">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <a href="/admin/pending-workers/view/${encodeURIComponent(worker.id || 0)}" class="btn btn-outline-info">View Details</a>
+                            <form action="/admin/workers/approve/${encodeURIComponent(worker.id || 0)}" method="post" class="d-inline">
+                                ${csrfTokenHtml}
+                                <button type="submit" class="btn btn-success">Approve</button>
+                            </form>
+                            <form action="/admin/workers/reject/${encodeURIComponent(worker.id || 0)}" method="post" class="d-inline">
+                                ${csrfTokenHtml}
+                                <button type="submit" class="btn btn-outline-danger">Reject</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += '</tbody></table></div>';
+        applicationsContainer.innerHTML = tableHtml;
+    }
+
+    // Confirmation modal wiring: intercept approve/reject forms and show modal
+    (function() {
+        const modalEl = document.getElementById('confirmActionModal');
+        const confirmBtn = document.getElementById('confirmActionButton');
+        const confirmMsg = document.getElementById('confirmActionMessage');
+        let pendingFormToSubmit = null;
+
+        if (!modalEl || !confirmBtn || !confirmMsg) return;
+
+        const bsModal = new bootstrap.Modal(modalEl);
+
+        document.addEventListener('click', function(ev) {
+            const btn = ev.target.closest('button[type="submit"]');
+            if (!btn) return;
+            const form = btn.closest('form');
+            if (!form) return;
+
+            // only intercept approve/reject forms (by URL pattern)
+            const action = (form.getAttribute('action') || '').toLowerCase();
+            if (!action.includes('/admin/workers/approve') && !action.includes('/admin/workers/reject')) return;
+
+            ev.preventDefault();
+            pendingFormToSubmit = form;
+            const friendly = action.includes('/approve') ? 'approve this worker' : 'reject this worker';
+            confirmMsg.textContent = `Are you sure you want to ${friendly}?`;
+            confirmBtn.className = friendly.includes('approve') ? 'btn btn-success' : 'btn btn-danger';
+            bsModal.show();
+        });
+
+        confirmBtn.addEventListener('click', function() {
+            if (!pendingFormToSubmit) return;
+            pendingFormToSubmit.submit();
+        });
+    })();
 
     function updateSecurityAlerts(data) {
         console.log('updateSecurityAlerts called with data:', data);
@@ -735,5 +982,16 @@
         console.log('Manual refresh triggered');
         loadSecurityAlerts();
     };
+
+    setInterval(loadPendingWorkerApplications, 30000);
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
 </script>
 

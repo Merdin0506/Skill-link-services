@@ -45,6 +45,12 @@ class CreateUsersTable extends Migration
                 'type' => 'TEXT',
                 'null' => true,
             ],
+            'resume_path' => [
+                'type' => 'VARCHAR',
+                'constraint' => '255',
+                'null' => true,
+                'comment' => 'Stored worker resume file path',
+            ],
             'user_type' => [
                 'type' => 'ENUM',
                 'constraint' => ['super_admin', 'admin', 'finance', 'worker', 'customer'],

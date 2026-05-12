@@ -51,6 +51,10 @@ $customCss = null;
                                         <span class="text-muted"><i class="fas fa-peso-sign"></i> Base Price:</span>
                                         <strong class="text-primary">₱<?= number_format((float)$service['base_price'], 2) ?></strong>
                                     </div>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="text-muted"><i class="fas fa-users"></i> Available Workers:</span>
+                                        <strong class="text-secondary"><?= formatNumber($service['active_workers_count'] ?? 0) ?></strong>
+                                    </div>
                                     <div class="d-flex justify-content-between align-items-center">
                                         <span class="text-muted"><i class="fas fa-clock"></i> Duration:</span>
                                         <span><?= esc($service['estimated_duration']) ?> mins</span>

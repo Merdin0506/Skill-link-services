@@ -19,6 +19,7 @@ $routes->post('auth/doRegister', 'Auth::doRegister');
 $routes->get('auth/verify-otp', 'Auth::verifyOtp');
 $routes->post('auth/doVerifyOtp', 'Auth::doVerifyOtp');
 $routes->post('auth/resendOtp', 'Auth::resendOtp');
+$routes->get('auth/logout', 'Auth::logout');
 $routes->get('logout', 'Auth::logout');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ $routes->get('logout', 'Auth::logout');
 
 $routes->get('dashboard', 'Dashboard::index', ['filter' => ['dashboardauth', 'permission']]);
 $routes->post('dashboard/refresh-security-data', 'Dashboard::refreshSecurityData', ['filter' => ['dashboardauth', 'permission']]);
+$routes->post('dashboard/refresh-pending-worker-applications', 'Dashboard::refreshPendingWorkerApplications', ['filter' => ['dashboardauth', 'permission']]);
+$routes->get('worker/profile/(:num)', 'Dashboard::workerProfile/$1', ['filter' => ['dashboardauth']]);
 $routes->get('security/dashboard', 'SecurityController::dashboard', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/audit-logs', 'SecurityController::auditLogs', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/reports', 'SecurityController::reports', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
@@ -56,6 +59,11 @@ $routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin',
     $routes->post('users/delete/(:num)', 'Dashboard::userDelete/$1');
     $routes->post('users/restore/(:num)', 'Dashboard::userRestore/$1');
     $routes->post('users/delete-permanent/(:num)', 'Dashboard::userPermanentDelete/$1');
+    $routes->post('workers/approve/(:num)', 'Dashboard::approveWorker/$1');
+    $routes->post('workers/reject/(:num)', 'Dashboard::rejectWorker/$1');
+    $routes->get('pending-workers', 'Dashboard::pendingWorkers');
+    $routes->get('pending-workers/view/(:num)', 'Dashboard::viewPendingWorker/$1');
+    $routes->post('pending-workers/send-email/(:num)', 'Dashboard::sendPendingWorkerEmail/$1');
     $routes->get('bookings', 'Dashboard::bookings');
     $routes->get('payments', 'Dashboard::payments');
     $routes->get('backups', 'Dashboard::backups');
@@ -105,6 +113,7 @@ $routes->group('worker', ['filter' => ['dashboardauth', 'role:worker', 'permissi
 
 $routes->group('customer', ['filter' => ['dashboardauth', 'role:customer', 'permission']], function ($routes) {
     $routes->get('bookings', 'Dashboard::myBookings');
+    $routes->get('booking/(:num)', 'Bookings::view/$1');
     $routes->get('services', 'Dashboard::services');
     $routes->get('services/(:num)', 'Dashboard::serviceDetails/$1');
     $routes->get('payments', 'Dashboard::myPayments');
@@ -126,8 +135,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->post('auth/login', 'AuthController::login');
     $routes->post('auth/verify-otp', 'AuthController::verifyOtp');
     $routes->post('auth/resend-otp', 'AuthController::resendOtp');
-    $routes->post('auth/forgot-password/request', 'AuthController::requestPasswordReset');
-    $routes->post('auth/forgot-password/reset', 'AuthController::resetPasswordWithOtp');
     $routes->get('health', static function () {
         return service('response')->setJSON([
             'status' => 'success',
@@ -144,16 +151,12 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'permissionapi']], function ($routes) {
     $routes->get('auth/profile', 'AuthController::profile');
     $routes->put('auth/profile', 'AuthController::updateProfile');
-    $routes->post('auth/change-email/request', 'AuthController::requestEmailChange');
-    $routes->post('auth/change-email/confirm', 'AuthController::confirmEmailChange');
-    $routes->get('auth/settings', 'AuthController::settings');
     $routes->post('auth/change-password', 'AuthController::changePassword');
     $routes->post('auth/logout', 'AuthController::logout');
     $routes->get('dashboard/data', 'DashboardController::data');
     $routes->get('dashboard/stats', 'DashboardController::stats');
     $routes->get('dashboard/analytics', 'DashboardController::analytics');
     $routes->get('dashboard/bookings', 'DashboardController::bookings');
-    $routes->get('payments/mine', 'PaymentsController::myPayments');
     $routes->get('services', 'ServicesController::index');
     $routes->get('services/categories', 'ServicesController::categories');
     $routes->get('services/popular', 'ServicesController::popular');
@@ -220,8 +223,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('users/(:num)', 'UsersController::show/$1');
     $routes->put('users/(:num)', 'UsersController::update/$1');
     $routes->delete('users/(:num)', 'UsersController::delete/$1');
-    $routes->post('users/(:num)/restore', 'UsersController::restore/$1');
-    $routes->delete('users/(:num)/permanent', 'UsersController::permanentDelete/$1');
     $routes->get('users/workers', 'UsersController::workers');
     $routes->get('users/customers', 'UsersController::customers');
     $routes->get('users/admin-staff', 'UsersController::adminStaff');

@@ -86,6 +86,146 @@ class Dashboard extends BaseController
         return view('dashboard/admin_users', $data);
     }
 
+    public function approveWorker($id = null)
+    {
+        return $this->updateWorkerApprovalStatus($id, 'active', 'approved');
+    }
+
+    public function rejectWorker($id = null)
+    {
+        return $this->updateWorkerApprovalStatus($id, 'rejected', 'rejected');
+    }
+
+    /**
+     * List all pending worker applications
+     */
+    public function pendingWorkers()
+    {
+        $workers = $this->userModel
+            ->where('user_type', 'worker')
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'DESC')
+            ->findAll();
+
+        $skillLabels = $this->userModel::WORKER_SKILL_OPTIONS;
+        
+        $pendingWorkers = array_map(function(array $worker) use ($skillLabels) {
+            $skills = $this->userModel::normalizeWorkerSkills($worker['skills'] ?? []);
+            return [
+                ...$worker,
+                'skills' => array_map(fn($s) => $skillLabels[$s] ?? $s, $skills),
+            ];
+        }, $workers);
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'pendingWorkers' => $pendingWorkers,
+        ];
+
+        return view('dashboard/admin_pending_workers', $data);
+    }
+
+    /**
+     * View details of a specific pending worker
+     */
+    public function viewPendingWorker($id = null)
+    {
+        $worker = $this->userModel->find((int) $id);
+        
+        if (!$worker || $worker['status'] !== 'pending' || $worker['user_type'] !== 'worker') {
+            return redirect()->to('/admin/pending-workers')->with('error', 'Pending worker not found.');
+        }
+
+        $skillLabels = $this->userModel::WORKER_SKILL_OPTIONS;
+        $skills = $this->userModel::normalizeWorkerSkills($worker['skills'] ?? []);
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'worker' => $worker,
+            'skills' => array_map(fn($s) => $skillLabels[$s] ?? $s, $skills),
+            'skillLabels' => $skillLabels,
+        ];
+
+        return view('dashboard/admin_pending_worker_detail', $data);
+    }
+
+    /**
+     * Send email to pending worker
+     */
+    public function sendPendingWorkerEmail($id = null)
+    {
+        $worker = $this->userModel->find((int) $id);
+        
+        if (!$worker || $worker['status'] !== 'pending' || $worker['user_type'] !== 'worker') {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Worker not found.'])->setStatusCode(404);
+        }
+
+        // Get email message from JSON or form data
+        $jsonData = $this->request->getJSON();
+        $emailMessage = null;
+        
+        if (is_object($jsonData)) {
+            $emailMessage = $jsonData->email_message ?? null;
+        } elseif (is_array($jsonData)) {
+            $emailMessage = $jsonData['email_message'] ?? null;
+        }
+        
+        if (!$emailMessage) {
+            $emailMessage = $this->request->getPost('email_message');
+        }
+        
+        if (!$emailMessage) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Email message is required.'])->setStatusCode(400);
+        }
+
+        try {
+            $emailService = \Config\Services::email();
+            $emailService->initialize([
+                'protocol' => 'smtp',
+                'SMTPHost' => 'smtp.gmail.com',
+                'SMTPUser' => 'skilllinkservices06@gmail.com',
+                'SMTPPass' => 'rcoh pawt fcsq waxc',
+                'SMTPPort' => 587,
+                'SMTPCrypto' => 'tls',
+                'mailType' => 'html',
+                'charset' => 'UTF-8',
+                'newline' => "\r\n",
+                'CRLF' => "\r\n",
+            ]);
+            $emailService->setTo($worker['email']);
+            $emailService->setFrom('skilllinkservices06@gmail.com', 'SkillLink Services');
+            
+            // CC to admin
+            $currentUser = $this->getCurrentUser();
+            if ($currentUser && isset($currentUser['email'])) {
+                $emailService->setCC($currentUser['email']);
+            }
+            
+            $emailService->setSubject('Message from Skill Link Admin');
+            $emailService->setMessage($emailMessage);
+
+            if (!$emailService->send()) {
+                return $this->response->setJSON([
+                    'status' => 'error',
+                    'message' => 'Failed to send email.',
+                    'debug' => $emailService->printDebugger(['headers', 'subject', 'body']),
+                ])->setStatusCode(500);
+            }
+
+            $this->activityLogger->record('account', 'email_sent_to_worker', 'success', $this->currentUserId(), (int) $id, [
+                'recipient_email' => $worker['email'],
+                'cc_email' => $currentUser['email'] ?? null,
+                'message_length' => strlen($emailMessage),
+            ], 'web');
+
+            return $this->response->setJSON(['status' => 'success', 'message' => 'Email sent successfully.']);
+        } catch (\Exception $e) {
+            return $this->response->setJSON(['status' => 'error', 'message' => $e->getMessage()])->setStatusCode(500);
+        }
+    }
+
     public function userCreate()
     {
 
@@ -105,16 +245,12 @@ class Dashboard extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
             'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]',
+            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/]|is_unique[users.email]',
             'password'   => 'required|min_length[6]',
             'phone'      => 'permit_empty|max_length[20]',
             'address'    => 'permit_empty|max_length[500]',
-            'service_city' => 'permit_empty|max_length[120]',
-            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
-            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
-            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
             'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
-            'status'     => 'required|in_list[active,inactive,suspended]',
+            'status'     => 'required|in_list[pending,active,inactive,suspended,rejected]',
         ];
 
         if (!$this->validate($rules)) {
@@ -142,10 +278,6 @@ class Dashboard extends BaseController
             $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
             $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
-            $userData['service_city'] = trim((string) $this->request->getPost('service_city'));
-            $userData['service_radius_km'] = (float) ($this->request->getPost('service_radius_km') ?: 20);
-            $userData['work_latitude'] = $this->nullIfEmpty($this->request->getPost('work_latitude'));
-            $userData['work_longitude'] = $this->nullIfEmpty($this->request->getPost('work_longitude'));
         }
 
         $db = \Config\Database::connect();
@@ -204,15 +336,11 @@ class Dashboard extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
             'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,' . $id . ']',
+            'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/]|is_unique[users.email,id,' . $id . ']',
             'phone'      => 'permit_empty|max_length[20]',
             'address'    => 'permit_empty|max_length[500]',
-            'service_city' => 'permit_empty|max_length[120]',
-            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
-            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
-            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
             'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
-            'status'     => 'required|in_list[active,inactive,suspended]',
+            'status'     => 'required|in_list[pending,active,inactive,suspended,rejected]',
         ];
 
         if (!$this->validate($rules)) {
@@ -220,7 +348,6 @@ class Dashboard extends BaseController
         }
 
         $userData = [
-            'id' => (int) $id,
             'first_name' => $this->request->getPost('first_name'),
             'last_name' => $this->request->getPost('last_name'),
             'email' => $this->request->getPost('email'),
@@ -250,10 +377,6 @@ class Dashboard extends BaseController
             $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
             $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
             $userData['commission_rate'] = (float) $this->request->getPost('commission_rate') ?? 20.00;
-            $userData['service_city'] = trim((string) $this->request->getPost('service_city'));
-            $userData['service_radius_km'] = (float) ($this->request->getPost('service_radius_km') ?: 20);
-            $userData['work_latitude'] = $this->nullIfEmpty($this->request->getPost('work_latitude'));
-            $userData['work_longitude'] = $this->nullIfEmpty($this->request->getPost('work_longitude'));
         }
 
         $db = \Config\Database::connect();
@@ -431,13 +554,9 @@ class Dashboard extends BaseController
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
             'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,' . $userId . ']',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/]|is_unique[users.email,id,' . $userId . ']',
             'phone' => 'permit_empty|max_length[20]',
             'address' => 'permit_empty|max_length[500]',
-            'service_city' => 'permit_empty|max_length[120]',
-            'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
-            'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
-            'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
         ];
 
         if (!$this->validate($rules)) {
@@ -445,7 +564,6 @@ class Dashboard extends BaseController
         }
 
         $userData = [
-            'id' => (int) $userId,
             'first_name' => $this->request->getPost('first_name'),
             'last_name' => $this->request->getPost('last_name'),
             'email' => $this->request->getPost('email'),
@@ -457,10 +575,6 @@ class Dashboard extends BaseController
         if ($currentUser['user_type'] === 'worker') {
             $userData['skills'] = json_encode($this->request->getPost('skills') ?? []);
             $userData['experience_years'] = (int) $this->request->getPost('experience_years') ?? 0;
-            $userData['service_city'] = trim((string) $this->request->getPost('service_city'));
-            $userData['service_radius_km'] = (float) ($this->request->getPost('service_radius_km') ?: 20);
-            $userData['work_latitude'] = $this->nullIfEmpty($this->request->getPost('work_latitude'));
-            $userData['work_longitude'] = $this->nullIfEmpty($this->request->getPost('work_longitude'));
         }
 
         if ($this->userModel->update($userId, $userData) === false) {
@@ -641,6 +755,40 @@ class Dashboard extends BaseController
         ];
 
         return view('dashboard/admin_backups', $data);
+    }
+
+    private function updateWorkerApprovalStatus($id, string $status, string $actionLabel)
+    {
+        $targetUser = $this->userModel->find((int) $id);
+        if (!$targetUser || ($targetUser['user_type'] ?? '') !== 'worker') {
+            return redirect()->to('/admin')->with('error', 'Worker application not found.');
+        }
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->update((int) $id, ['status' => $status]) === false) {
+                throw new \Exception('Failed to update worker status.');
+            }
+
+            $this->activityLogger->record('account', 'worker_application_' . $actionLabel, 'success', $this->currentUserId(), (int) $id, [
+                'target_email' => $targetUser['email'] ?? null,
+                'target_name' => trim(($targetUser['first_name'] ?? '') . ' ' . ($targetUser['last_name'] ?? '')),
+                'status' => $status,
+            ], 'web');
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database constraint error.');
+            }
+
+            $db->transCommit();
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return redirect()->back()->with('error', 'Transaction Failed: ' . $e->getMessage());
+        }
+
+        return redirect()->back()->with('success', 'Worker application ' . $actionLabel . ' successfully.');
     }
 
     /**
@@ -1061,7 +1209,37 @@ class Dashboard extends BaseController
     {
 
         $workerId = (int) $this->session->get('user_id');
-        $matchingJobs = $this->bookingModel->getAvailableJobsForWorker($workerId, 50);
+        
+        // Get worker's skills
+        $worker = $this->userModel->find($workerId);
+        $workerSkills = $worker ? UserModel::normalizeWorkerSkills($worker['skills'] ?? []) : [];
+
+        // Get all pending jobs
+        $allJobs = $this->bookingModel
+            ->select('bookings.*, customers.first_name AS customer_first_name, customers.last_name AS customer_last_name, services.name AS service_name, services.category AS service_category')
+            ->join('users AS customers', 'customers.id = bookings.customer_id')
+            ->join('services', 'services.id = bookings.service_id', 'left')
+            ->where('bookings.status', 'pending')
+            ->orderBy('bookings.created_at', 'DESC')
+            ->findAll();
+
+        // Filter jobs based on worker's skills
+        $matchingJobs = [];
+        foreach ($allJobs as $job) {
+            $serviceCategory = $job['service_category'] ?? '';
+            $requiredSkillCodes = UserModel::getServiceCategorySkillCodes((string) $serviceCategory);
+            
+            // General category jobs are available to all workers
+            if ($serviceCategory === 'general' || empty($requiredSkillCodes)) {
+                $matchingJobs[] = $job;
+                continue;
+            }
+
+            // Check if worker has matching skills for this job
+            if (array_intersect($requiredSkillCodes, $workerSkills) !== []) {
+                $matchingJobs[] = $job;
+            }
+        }
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -1196,14 +1374,22 @@ class Dashboard extends BaseController
 
     public function services()
     {
-
-        // Load ServiceModel
         $serviceModel = new \App\Models\ServiceModel();
-        
+
         $services = $serviceModel
             ->where('status', 'active')
             ->orderBy('name', 'ASC')
             ->findAll();
+
+        $services = array_values(array_filter(array_map(function (array $service): array {
+            $category = (string) ($service['category'] ?? 'general');
+            $workers = $this->userModel->getWorkersByServiceCategory($category);
+            $service['active_workers_count'] = is_array($workers) ? count($workers) : 0;
+
+            return $service;
+        }, $services), static function (array $service): bool {
+            return (int) ($service['active_workers_count'] ?? 0) > 0;
+        }));
 
         $data = [
             'role' => $this->session->get('user_role'),
@@ -1244,6 +1430,7 @@ class Dashboard extends BaseController
             'role' => $this->session->get('user_role'),
             'user' => $this->getCurrentUser(),
             'service' => $service,
+            'available_workers' => $this->userModel->getWorkersByServiceCategory((string) ($service['category'] ?? 'general')),
             'reviews' => $reviews,
             'reviewStats' => [
                 'total_reviews' => $totalReviews,
@@ -1253,6 +1440,43 @@ class Dashboard extends BaseController
         ];
 
         return view('dashboard/customer_service_details', $data);
+    }
+
+    public function workerProfile($workerId = null)
+    {
+        $worker = $this->userModel
+            ->where('id', (int) $workerId)
+            ->where('user_type', 'worker')
+            ->where('status', 'active')
+            ->first();
+
+        if (!$worker) {
+            return redirect()->to('/customer/services')->with('error', 'Worker not found');
+        }
+
+        $skills = $this->userModel::normalizeWorkerSkills($worker['skills'] ?? []);
+        $averageRating = $this->reviewModel->getWorkerAverageRating((int) $workerId);
+        $detailedRatings = $this->reviewModel->getWorkerDetailedRatings((int) $workerId);
+        $reviews = $this->reviewModel->getWorkerReviews((int) $workerId, 'published');
+
+        $serviceModel = new \App\Models\ServiceModel();
+        $allServices = $serviceModel
+            ->where('status', 'active')
+            ->orderBy('name', 'ASC')
+            ->findAll();
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'worker' => $worker,
+            'skills' => array_map(static fn (string $skill) => UserModel::WORKER_SKILL_OPTIONS[$skill] ?? $skill, $skills),
+            'averageRating' => $averageRating,
+            'detailedRatings' => $detailedRatings,
+            'reviews' => $reviews,
+            'all_services' => $allServices,
+        ];
+
+        return view('dashboard/worker_profile', $data);
     }
 
     public function myPayments()
@@ -1453,6 +1677,32 @@ class Dashboard extends BaseController
             return $this->response->setJSON([
                 'status' => 'error',
                 'message' => 'Failed to refresh security data: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Refresh pending worker applications via AJAX.
+     */
+    public function refreshPendingWorkerApplications()
+    {
+        if (!$this->request || !$this->request->isAJAX()) {
+            return $this->response->setStatusCode(405)->setJSON([
+                'status' => 'error',
+                'message' => 'Invalid request method',
+            ]);
+        }
+
+        try {
+            return $this->response->setJSON([
+                'status' => 'success',
+                'data' => $this->getPendingWorkerApplications(10),
+                'timestamp' => time(),
+            ]);
+        } catch (\Throwable $e) {
+            return $this->response->setStatusCode(500)->setJSON([
+                'status' => 'error',
+                'message' => 'Failed to refresh worker applications: ' . $e->getMessage(),
             ]);
         }
     }
@@ -1676,6 +1926,7 @@ class Dashboard extends BaseController
                 $data['recentBookings'] = $this->getAllRecentBookings(10);
                 $data['analytics'] = $this->getSystemAnalytics();
                 $data['securityData'] = $this->getSecurityData();
+                $data['pendingWorkerApplications'] = $this->getPendingWorkerApplications(8);
                 break;
 
             case 'worker':
@@ -1728,11 +1979,6 @@ class Dashboard extends BaseController
         return is_numeric($userId) ? (int) $userId : null;
     }
 
-    private function nullIfEmpty(mixed $value): mixed
-    {
-        return $value === null || $value === '' ? null : $value;
-    }
-
     /**
      * Admin Dashboard Stats
      */
@@ -1743,6 +1989,7 @@ class Dashboard extends BaseController
             'total_bookings' => $this->bookingModel->countAll(),
             'total_revenue' => $this->getTotalRevenue(),
             'active_workers' => $this->userModel->where('user_type', 'worker')->where('status', 'active')->countAllResults(),
+            'pending_workers' => $this->userModel->where('user_type', 'worker')->where('status', 'pending')->countAllResults(),
             'pending_bookings' => $this->bookingModel->where('status', 'pending')->countAllResults(),
             'completed_bookings' => $this->bookingModel->where('status', 'completed')->countAllResults(),
         ];
@@ -1941,6 +2188,31 @@ class Dashboard extends BaseController
             'revenue_trend' => $this->getRevenueTrend(),
             'user_growth' => $this->getUserGrowth(),
         ];
+    }
+
+    private function getPendingWorkerApplications(int $limit = 10): array
+    {
+        $workers = $this->userModel
+            ->where('user_type', 'worker')
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->findAll();
+
+        $skillLabels = UserModel::WORKER_SKILL_OPTIONS;
+
+        return array_map(static function (array $worker) use ($skillLabels): array {
+            $skills = UserModel::normalizeWorkerSkills($worker['skills'] ?? []);
+
+            return [
+                'id' => $worker['id'] ?? null,
+                'full_name' => trim(($worker['first_name'] ?? '') . ' ' . ($worker['last_name'] ?? '')),
+                'email' => $worker['email'] ?? '-',
+                'skills' => array_map(static fn (string $skill) => $skillLabels[$skill] ?? $skill, $skills),
+                'created_at' => $worker['created_at'] ?? null,
+                'status' => $worker['status'] ?? 'pending',
+            ];
+        }, $workers);
     }
 
     /**

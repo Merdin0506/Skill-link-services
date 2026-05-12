@@ -1,5 +1,91 @@
 /* Unified dashboard layout responsiveness for shared wrappers */
 
+/* Centralized topbar and header styles shared across layouts */
+:root {
+    --primary-color: #1e3c72;
+    --secondary-color: #2a5298;
+    --text-dark: #333;
+    --text-muted: #999;
+}
+
+.topbar {
+    background: white;
+    padding: 20px 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e8e8e8;
+    margin-bottom: 30px;
+    border-radius: 10px 10px 0 0;
+    margin-left: -30px;
+    margin-right: -30px;
+    margin-top: -30px;
+}
+
+.topbar.topbar--small {
+    padding: 12px 30px;
+    margin-top: -18px;
+}
+
+.welcome {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.welcome h6 {
+    color: var(--text-dark);
+    font-weight: 600;
+    margin: 0;
+}
+
+.welcome .text-muted {
+    color: var(--text-muted);
+    font-size: 14px;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    text-align: right;
+}
+
+.user-profile p {
+    margin: 0;
+    font-weight: 500;
+    color: var(--text-dark);
+}
+
+.user-profile small {
+    color: var(--text-muted);
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 8px 15px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+    color: white;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.page-content {
+    padding: 30px;
+}
+
+.footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-top: 30px;
+}
+
+
 @media (max-width: 992px) {
     .page-content {
         padding: 20px;

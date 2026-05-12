@@ -2,6 +2,12 @@
 
     <!-- Page Content -->
     <div class="page-content">
+        <?php if (($user['status'] ?? '') === 'pending'): ?>
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <i class="fas fa-hourglass-half"></i> Your account is under review. Some features are disabled until approval.
+            </div>
+        <?php endif; ?>
+
         <div class="row mb-4">
             <div class="col-12">
                 <h3 class="mb-0"><i class="fas fa-tasks"></i> My Jobs</h3>
@@ -56,7 +62,11 @@
                                     <a href="<?= base_url('worker/job/' . ($row['id'] ?? 0)) ?>" class="btn btn-outline-primary btn-sm me-1" onclick="event.stopPropagation();">
                                         <i class="fas fa-eye"></i> Details
                                     </a>
-                                    <?php if ($row['status'] === 'assigned'): ?>
+                                    <?php if (($user['status'] ?? '') === 'pending'): ?>
+                                        <button type="button" class="btn btn-primary btn-sm" disabled title="Disabled until your account is approved">
+                                            <i class="fas fa-lock"></i> Start
+                                        </button>
+                                    <?php elseif ($row['status'] === 'assigned'): ?>
                                         <form action="<?= base_url('worker/start-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;" onsubmit="event.stopPropagation();">
                                             <?= csrf_field() ?>
                                             <button type="submit" class="btn btn-primary btn-sm" data-confirm-message="Start working on this job?" data-confirm-label="Start job" data-confirm-class="btn-primary">
@@ -64,12 +74,18 @@
                                             </button>
                                         </form>
                                     <?php elseif ($row['status'] === 'in_progress'): ?>
-                                        <a href="<?= base_url('worker/complete-job-form/' . ($row['id'] ?? 0)) ?>" 
-                                           class="btn btn-success btn-sm" 
-                                           onclick="event.stopPropagation();"
-                                           title="Mark job as done and record payment collected from customer">
-                                            <i class="fas fa-check-circle"></i> Done
-                                        </a>
+                                        <?php if (($user['status'] ?? '') === 'pending'): ?>
+                                            <button type="button" class="btn btn-success btn-sm" disabled title="Disabled until your account is approved">
+                                                <i class="fas fa-check-circle"></i> Done
+                                            </button>
+                                        <?php else: ?>
+                                            <a href="<?= base_url('worker/complete-job-form/' . ($row['id'] ?? 0)) ?>" 
+                                               class="btn btn-success btn-sm" 
+                                               onclick="event.stopPropagation();"
+                                               title="Mark job as done and record payment collected from customer">
+                                                <i class="fas fa-check-circle"></i> Done
+                                            </a>
+                                        <?php endif; ?>
                                     <?php elseif ($row['status'] === 'completed'): ?>
                                         <span class="badge bg-success"><i class="fas fa-check"></i> Done</span>
                                     <?php elseif ($row['status'] === 'cancelled'): ?>

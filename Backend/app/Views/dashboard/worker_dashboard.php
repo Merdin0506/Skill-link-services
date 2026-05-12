@@ -2,28 +2,31 @@
 <div class="container-fluid">
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
-            <div class="stat-card">
+            <div class="stat-card <?= ($user['status'] ?? '') === 'pending' ? 'opacity-75' : '' ?>">
                 <i class="fas fa-briefcase stat-icon" style="color: var(--primary-color);"></i>
                 <div class="stat-value"><?= formatNumber($stats['available_bookings'] ?? 0) ?></div>
                 <div class="stat-label">Available Jobs</div>
+                <?php if (($user['status'] ?? '') === 'pending'): ?>
+                    <div class="stat-trend text-warning fw-semibold">Disabled until approval</div>
+                <?php endif; ?>
             </div>
         </div>
         <div class="col-md-3 col-sm-6 mb-3">
-            <div class="stat-card success">
+            <div class="stat-card success <?= ($user['status'] ?? '') === 'pending' ? 'opacity-75' : '' ?>">
                 <i class="fas fa-check-circle stat-icon" style="color: var(--success-color);"></i>
                 <div class="stat-value"><?= formatNumber($stats['assigned_bookings'] ?? 0) ?></div>
                 <div class="stat-label">Assigned Jobs</div>
             </div>
         </div>
         <div class="col-md-3 col-sm-6 mb-3">
-            <div class="stat-card warning">
+            <div class="stat-card warning <?= ($user['status'] ?? '') === 'pending' ? 'opacity-75' : '' ?>">
                 <i class="fas fa-spinner stat-icon" style="color: var(--warning-color);"></i>
                 <div class="stat-value"><?= formatNumber($stats['in_progress_bookings'] ?? 0) ?></div>
                 <div class="stat-label">In Progress</div>
             </div>
         </div>
         <div class="col-md-3 col-sm-6 mb-3">
-            <div class="stat-card info">
+            <div class="stat-card info <?= ($user['status'] ?? '') === 'pending' ? 'opacity-75' : '' ?>">
                 <i class="fas fa-tasks stat-icon" style="color: var(--info-color);"></i>
                 <div class="stat-value"><?= formatNumber($stats['completed_jobs'] ?? 0) ?></div>
                 <div class="stat-label">Completed Jobs</div>
@@ -33,7 +36,7 @@
 
     <div class="row mb-4">
         <div class="col-md-3 col-sm-6 mb-3">
-            <div class="stat-card success">
+            <div class="stat-card success <?= ($user['status'] ?? '') === 'pending' ? 'opacity-75' : '' ?>">
                 <i class="fas fa-wallet stat-icon" style="color: var(--success-color);"></i>
                 <div class="stat-value"><?= formatCurrency($stats['total_earnings'] ?? 0) ?></div>
                 <div class="stat-label">Total Earnings</div>

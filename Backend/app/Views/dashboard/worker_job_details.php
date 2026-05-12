@@ -3,8 +3,15 @@
 <div class="page-content">
     <?php
         $isAdmin = session()->get('user_type') === 'admin' || session()->get('user_type') === 'super_admin';
+        $isPendingWorker = (($user['status'] ?? '') === 'pending') && (($user['user_type'] ?? '') === 'worker');
         $leftClass = $isAdmin ? 'col-lg-5' : 'col-lg-8 offset-lg-2';
     ?>
+    <?php if ($isPendingWorker): ?>
+        <div class="alert alert-warning border-0 shadow-sm mb-4">
+            <i class="fas fa-hourglass-half"></i> Your account is under review. Some features are disabled until approval.
+        </div>
+    <?php endif; ?>
+
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-0"><i class="fas fa-briefcase"></i> Job Details</h3>
         <a href="<?= base_url(($booking['status'] ?? '') === 'pending' ? 'worker/available-jobs' : 'worker/my-jobs') ?>" class="btn btn-outline-secondary">
@@ -77,7 +84,11 @@
                     </div>
 
                     <div class="d-flex gap-2 flex-wrap">
-                        <?php if (($booking['status'] ?? '') === 'pending'): ?>
+                        <?php if ($isPendingWorker): ?>
+                            <button type="button" class="btn btn-success" disabled title="Disabled until your account is approved">
+                                <i class="fas fa-lock"></i> Accept Job
+                            </button>
+                        <?php elseif (($booking['status'] ?? '') === 'pending'): ?>
                             <form action="<?= base_url('worker/accept-job/' . ($booking['id'] ?? 0)) ?>" method="POST">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-success">
@@ -85,16 +96,28 @@
                                 </button>
                             </form>
                         <?php elseif (($booking['status'] ?? '') === 'assigned'): ?>
+                            <?php if ($isPendingWorker): ?>
+                                <button type="button" class="btn btn-primary" disabled title="Disabled until your account is approved">
+                                    <i class="fas fa-lock"></i> Start Job
+                                </button>
+                            <?php else: ?>
                             <form action="<?= base_url('worker/start-job/' . ($booking['id'] ?? 0)) ?>" method="POST" data-confirm-message="Start this job now?" data-confirm-label="Start job" data-confirm-class="btn-primary">
                                 <?= csrf_field() ?>
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fas fa-play"></i> Start Job
                                 </button>
                             </form>
+                            <?php endif; ?>
                         <?php elseif (($booking['status'] ?? '') === 'in_progress'): ?>
-                            <a href="<?= base_url('worker/complete-job-form/' . ($booking['id'] ?? 0)) ?>" class="btn btn-success">
-                                <i class="fas fa-check-circle"></i> Done
-                            </a>
+                            <?php if ($isPendingWorker): ?>
+                                <button type="button" class="btn btn-success" disabled title="Disabled until your account is approved">
+                                    <i class="fas fa-lock"></i> Done
+                                </button>
+                            <?php else: ?>
+                                <a href="<?= base_url('worker/complete-job-form/' . ($booking['id'] ?? 0)) ?>" class="btn btn-success">
+                                    <i class="fas fa-check-circle"></i> Done
+                                </a>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
                 </div>

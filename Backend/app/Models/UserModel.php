@@ -13,18 +13,145 @@ class UserModel extends Model
     protected $returnType = 'array';
     protected $useSoftDeletes = true;
     protected $protectFields = true;
+    public const WORKER_SKILL_OPTIONS = [
+        'plumbing' => 'Plumbing',
+        'car_repair' => 'Car Repair',
+        'electrical_repair' => 'Electrical Repair',
+        'automotive_maintenance' => 'Automotive Maintenance',
+        'air_conditioning_repair' => 'Air Conditioning Repair',
+        'general_home_maintenance' => 'General Home Maintenance',
+        'painting' => 'Painting',
+        'carpentry' => 'Carpentry',
+        'welding' => 'Welding',
+        'appliance_repair' => 'Appliance Repair',
+        'computer_repair' => 'Computer Repair',
+        'motorcycle_repair' => 'Motorcycle Repair',
+        'roofing_repair' => 'Roofing Repair',
+        'tile_installation' => 'Tile Installation',
+        'gardening_landscaping' => 'Gardening / Landscaping',
+    ];
+
+    public const SERVICE_CATEGORY_SKILL_MAP = [
+        'electrician' => ['electrical_repair', 'appliance_repair'],
+        'plumber' => ['plumbing', 'tile_installation', 'general_home_maintenance'],
+        'mechanic' => ['car_repair', 'automotive_maintenance', 'motorcycle_repair'],
+        'technician' => ['air_conditioning_repair', 'computer_repair', 'appliance_repair'],
+        'painting' => ['painting'],
+        'carpentry' => ['carpentry', 'general_home_maintenance'],
+        'welding' => ['welding'],
+        'appliance' => ['appliance_repair'],
+        'gardening' => ['gardening_landscaping', 'general_home_maintenance'],
+        'roofing' => ['roofing_repair'],
+        'tile' => ['tile_installation'],
+        'general' => ['general_home_maintenance'],
+    ];
+
+    private const LEGACY_SKILL_ALIASES = [
+        'electrical' => 'electrical_repair',
+        'electric' => 'electrical_repair',
+        'electrician' => 'electrical_repair',
+        'wiring' => 'electrical_repair',
+        'installation' => 'electrical_repair',
+        'plumbing' => 'plumbing',
+        'pipe repair' => 'plumbing',
+        'pipe_repair' => 'plumbing',
+        'car repair' => 'car_repair',
+        'automotive' => 'automotive_maintenance',
+        'auto repair' => 'automotive_maintenance',
+        'automotive repair' => 'automotive_maintenance',
+        'engine repair' => 'automotive_maintenance',
+        'diagnostics' => 'automotive_maintenance',
+        'ac repair' => 'air_conditioning_repair',
+        'air conditioning' => 'air_conditioning_repair',
+        'air-conditioning repair' => 'air_conditioning_repair',
+        'general home maintenance' => 'general_home_maintenance',
+        'general maintenance' => 'general_home_maintenance',
+        'home maintenance' => 'general_home_maintenance',
+        'painting' => 'painting',
+        'painter' => 'painting',
+        'carpentry' => 'carpentry',
+        'carpenter' => 'carpentry',
+        'woodwork' => 'carpentry',
+        'welding' => 'welding',
+        'welder' => 'welding',
+        'appliance repair' => 'appliance_repair',
+        'appliance' => 'appliance_repair',
+        'computer repair' => 'computer_repair',
+        'computer' => 'computer_repair',
+        'motorcycle repair' => 'motorcycle_repair',
+        'motorcycle' => 'motorcycle_repair',
+        'roofing repair' => 'roofing_repair',
+        'roof repair' => 'roofing_repair',
+        'roofing' => 'roofing_repair',
+        'tile installation' => 'tile_installation',
+        'tile' => 'tile_installation',
+        'gardening' => 'gardening_landscaping',
+        'landscaping' => 'gardening_landscaping',
+        'garden' => 'gardening_landscaping',
+        'gardening / landscaping' => 'gardening_landscaping',
+    ];
+
+    public static function normalizeWorkerSkills($skills): array
+    {
+        if (is_string($skills)) {
+            $decodedSkills = json_decode($skills, true);
+            $skills = is_array($decodedSkills) ? $decodedSkills : [$skills];
+        }
+
+        if (!is_array($skills)) {
+            return [];
+        }
+
+        $normalizedSkills = [];
+        foreach ($skills as $skill) {
+            $skillCode = self::normalizeSkillValue((string) $skill);
+            if ($skillCode === '') {
+                continue;
+            }
+
+            if (array_key_exists($skillCode, self::WORKER_SKILL_OPTIONS)) {
+                $normalizedSkills[] = $skillCode;
+            }
+        }
+
+        return array_values(array_unique($normalizedSkills));
+    }
+
+    private static function normalizeSkillValue(string $skill): string
+    {
+        $skill = strtolower(trim($skill));
+        if ($skill === '') {
+            return '';
+        }
+
+        $skill = str_replace(['-', '/', ','], ' ', $skill);
+        $skill = preg_replace('/\s+/', ' ', $skill) ?? $skill;
+
+        if (array_key_exists($skill, self::LEGACY_SKILL_ALIASES)) {
+            return self::LEGACY_SKILL_ALIASES[$skill];
+        }
+
+        $compact = str_replace(' ', '_', $skill);
+        if (array_key_exists($compact, self::WORKER_SKILL_OPTIONS)) {
+            return $compact;
+        }
+
+        return array_key_exists($skill, self::WORKER_SKILL_OPTIONS) ? $skill : '';
+    }
+
+    public static function getServiceCategorySkillCodes(string $serviceCategory): array
+    {
+        return self::SERVICE_CATEGORY_SKILL_MAP[$serviceCategory] ?? [];
+    }
+
     protected $allowedFields = [
         'first_name',
         'last_name',
         'email',
-        'pending_email',
         'password',
         'phone',
         'address',
-        'service_city',
-        'service_radius_km',
-        'work_latitude',
-        'work_longitude',
+        'resume_path',
         'user_type',
         'status',
         'skills',
@@ -40,9 +167,6 @@ class UserModel extends Model
         'otp',
         'otp_expire',
         'otp_attempts',
-        'email_change_otp',
-        'email_change_otp_expire',
-        'email_change_otp_attempts',
     ];
 
     protected $useTimestamps = true;
@@ -54,22 +178,16 @@ class UserModel extends Model
     protected $afterFind = ['restoreSensitiveFields'];
 
     protected $validationRules = [
-        'id'         => 'permit_empty|integer',
         'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
         'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-        'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email,id,{id}]',
+        'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/]|is_unique[users.email,id,{id}]',
         'password'   => 'required|min_length[8]',
         'user_type'  => 'required|in_list[super_admin,admin,finance,worker,customer]',
-        'status'     => 'required|in_list[active,inactive,suspended]',
-        'phone'      => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
-        'service_city' => 'permit_empty|max_length[120]',
-        'service_radius_km' => 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]',
-        'work_latitude' => 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]',
-        'work_longitude' => 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]',
+        'status'     => 'required|in_list[pending,active,inactive,suspended,rejected]',
+        'phone'      => 'permit_empty|regex_match[/^(09\d{9}|\+639\d{8})$/]',
         'commission_rate'  => 'permit_empty|numeric|greater_than_equal_to[0]|less_than_equal_to[100]',
         'experience_years' => 'permit_empty|integer|greater_than_equal_to[0]'
     ];
-
     protected $validationMessages = [
         'first_name' => [
             'regex_match' => 'First name can only contain letters and spaces.',
@@ -79,7 +197,7 @@ class UserModel extends Model
         ],
         'email' => [
             'valid_email' => 'Please provide a valid email address.',
-            'regex_match' => 'Email may only use letters, numbers, dots, and underscores before @.',
+            'regex_match' => 'Email local part may use letters, numbers, dots (not as first character), hyphens (-) and underscores (_).',
             'is_unique'   => 'Email already exists.',
         ],
     ];
@@ -121,184 +239,31 @@ class UserModel extends Model
                     ->findAll();
     }
 
-    public function getWorkersForBooking(array $booking, string $serviceCategory): array
-    {
-        $workers = $this->getWorkersByServiceCategory($serviceCategory);
-        $matchingWorkers = [];
-
-        foreach ($workers as $worker) {
-            if (!$this->workerCanCoverBooking($worker, $booking)) {
-                continue;
-            }
-
-            $worker['distance_km'] = $this->calculateDistanceToBooking($worker, $booking);
-            $matchingWorkers[] = $worker;
-        }
-
-        usort($matchingWorkers, static function (array $left, array $right): int {
-            $leftDistance = $left['distance_km'] ?? PHP_FLOAT_MAX;
-            $rightDistance = $right['distance_km'] ?? PHP_FLOAT_MAX;
-
-            return $leftDistance <=> $rightDistance;
-        });
-
-        return $matchingWorkers;
-    }
-
-    public function workerCanCoverBooking(array $worker, array $booking): bool
-    {
-        $workerCity = $this->normalizeAreaName((string) ($worker['service_city'] ?? ''));
-        $bookingCity = $this->extractBookingCity($booking);
-
-        $hasWorkerCoords = $this->hasCoordinates($worker['work_latitude'] ?? null, $worker['work_longitude'] ?? null);
-        $hasBookingCoords = $this->hasCoordinates($booking['latitude'] ?? null, $booking['longitude'] ?? null);
-
-        if ($hasWorkerCoords && $hasBookingCoords) {
-            $distanceKm = $this->calculateDistanceKm(
-                (float) $worker['work_latitude'],
-                (float) $worker['work_longitude'],
-                (float) $booking['latitude'],
-                (float) $booking['longitude']
-            );
-
-            $radiusKm = (float) ($worker['service_radius_km'] ?? 0);
-            if ($radiusKm <= 0) {
-                $radiusKm = 20.0;
-            }
-
-            return $distanceKm <= $radiusKm;
-        }
-
-        if ($workerCity === '' || $bookingCity === '') {
-            return false;
-        }
-
-        return $workerCity === $bookingCity;
-    }
-
-    public function extractBookingCity(array $booking): string
-    {
-        return $this->extractCityFromAddress((string) ($booking['location_address'] ?? ''));
-    }
-
-    public function calculateDistanceToBooking(array $worker, array $booking): ?float
-    {
-        $hasWorkerCoords = $this->hasCoordinates($worker['work_latitude'] ?? null, $worker['work_longitude'] ?? null);
-        $hasBookingCoords = $this->hasCoordinates($booking['latitude'] ?? null, $booking['longitude'] ?? null);
-
-        if (!$hasWorkerCoords || !$hasBookingCoords) {
-            return null;
-        }
-
-        return round($this->calculateDistanceKm(
-            (float) $worker['work_latitude'],
-            (float) $worker['work_longitude'],
-            (float) $booking['latitude'],
-            (float) $booking['longitude']
-        ), 2);
-    }
-
     /**
      * Get workers matching a service category
      */
     public function getWorkersByServiceCategory($serviceCategory)
     {
-        // Map service categories to skill keywords
-        $skillMap = [
-            'electrician' => ['electrical', 'electrician', 'wiring'],
-            'plumber' => ['plumbing', 'plumber', 'pipe'],
-            'mechanic' => ['automotive', 'mechanic', 'engine'],
-            'technician' => ['technician', 'technical', 'repair'],
-            'general' => [] // general workers can have any skill
-        ];
-
         $workers = $this->where('user_type', 'worker')
                         ->where('status', 'active')
                         ->findAll();
 
-        // If general category, return all active workers
-        if ($serviceCategory === 'general' || !isset($skillMap[$serviceCategory])) {
-            return $workers;
+        $requiredSkillCodes = self::getServiceCategorySkillCodes((string) $serviceCategory);
+
+        // Unknown categories should not match anyone.
+        if (empty($requiredSkillCodes)) {
+            return [];
         }
 
-        // Filter workers whose skills match the category
         $matchingWorkers = [];
-        $keywords = $skillMap[$serviceCategory];
-
         foreach ($workers as $worker) {
-            $workerSkills = json_decode($worker['skills'] ?? '[]', true);
-            if (!is_array($workerSkills)) {
-                continue;
-            }
-
-            // Check if any worker skill contains any of the keywords
-            foreach ($workerSkills as $skill) {
-                $skillLower = strtolower($skill);
-                foreach ($keywords as $keyword) {
-                    if (stripos($skillLower, $keyword) !== false) {
-                        $matchingWorkers[] = $worker;
-                        break 2; // Break both loops once matched
-                    }
-                }
+            $workerSkills = self::normalizeWorkerSkills($worker['skills'] ?? []);
+            if (array_intersect($requiredSkillCodes, $workerSkills) !== []) {
+                $matchingWorkers[] = $worker;
             }
         }
 
         return $matchingWorkers;
-    }
-
-    public function extractCityFromAddress(string $address): string
-    {
-        $normalized = trim($address);
-        if ($normalized === '') {
-            return '';
-        }
-
-        $parts = array_values(array_filter(array_map('trim', explode(',', $normalized))));
-        $priorityPatterns = [
-            'general santos',
-            'gensan',
-            'davao',
-            'koronadal',
-            'polomolok',
-            'south cotabato',
-            'cotabato',
-        ];
-
-        foreach ($parts as $part) {
-            $normalizedPart = $this->normalizeAreaName($part);
-            foreach ($priorityPatterns as $pattern) {
-                if (str_contains($normalizedPart, $pattern)) {
-                    return $normalizedPart === 'gensan' ? 'general santos' : $normalizedPart;
-                }
-            }
-        }
-
-        for ($index = count($parts) - 1; $index >= 0; $index--) {
-            $candidate = $this->normalizeAreaName($parts[$index]);
-            if ($candidate === '' || preg_match('/^\d+$/', $candidate)) {
-                continue;
-            }
-
-            if (str_contains($candidate, 'philippines') || str_contains($candidate, 'region')) {
-                continue;
-            }
-
-            return $candidate === 'gensan' ? 'general santos' : $candidate;
-        }
-
-        return '';
-    }
-
-    public function getWorkerRating($workerId)
-    {
-        $reviewModel = new ReviewModel();
-        return $reviewModel->getWorkerAverageRating($workerId);
-    }
-
-    public function getWorkerEarnings($workerId, $startDate = null, $endDate = null)
-    {
-        $paymentModel = new PaymentModel();
-        return $paymentModel->getWorkerEarnings($workerId, $startDate, $endDate);
     }
 
     public function updateProfileImage($userId, $imagePath)
@@ -492,38 +457,5 @@ class UserModel extends Model
         }
 
         return $row;
-    }
-
-    private function hasCoordinates(mixed $latitude, mixed $longitude): bool
-    {
-        return is_numeric($latitude) && is_numeric($longitude);
-    }
-
-    private function calculateDistanceKm(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $earthRadiusKm = 6371.0;
-
-        $latDelta = deg2rad($lat2 - $lat1);
-        $lonDelta = deg2rad($lon2 - $lon1);
-
-        $a = sin($latDelta / 2) ** 2
-            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadiusKm * $c;
-    }
-
-    private function normalizeAreaName(string $value): string
-    {
-        $value = strtolower(trim($value));
-        $value = preg_replace('/\s+city$/', '', $value) ?? $value;
-        $value = preg_replace('/[^a-z0-9\s]/', ' ', $value) ?? $value;
-        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
-
-        if ($value === 'gensan') {
-            return 'general santos';
-        }
-
-        return trim($value);
     }
 }

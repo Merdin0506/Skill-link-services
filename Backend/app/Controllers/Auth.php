@@ -45,7 +45,9 @@ class Auth extends BaseController
             return redirect()->to('/dashboard');
         }
 
-        return view('auth/register');
+        return view('auth/register', [
+            'skillOptions' => UserModel::WORKER_SKILL_OPTIONS,
+        ]);
     }
 
     /**
@@ -63,7 +65,7 @@ class Auth extends BaseController
         ]);
 
         $validation->setRules([
-            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/]',
             'password' => 'required|min_length[8]'
         ]);
 
@@ -145,7 +147,9 @@ class Auth extends BaseController
                     ->with('error', 'That email or password does not look right.');
             }
 
-            if (($user['status'] ?? null) !== 'active') {
+            $isPendingWorker = (($user['status'] ?? '') === 'pending') && (($user['user_type'] ?? '') === 'worker');
+
+            if (($user['status'] ?? null) !== 'active' && !$isPendingWorker) {
                 log_message('notice', 'Login blocked: inactive account. email={email}, status={status}', [
                     'email' => $email,
                     'status' => (string) ($user['status'] ?? 'null'),
@@ -158,7 +162,7 @@ class Auth extends BaseController
 
                 return redirect()->back()
                     ->withInput()
-                    ->with('error', 'Your account is not active right now. Please contact support.');
+                    ->with('error', $this->getApprovalStateMessage((string) ($user['status'] ?? '')));
             }
 
             $this->userModel->clearFailedLogins((int) $user['id']);
@@ -209,25 +213,62 @@ class Auth extends BaseController
     public function doRegister()
     {
         $validation = \Config\Services::validation();
+        $isWorker = $this->request->getPost('user_type') === 'worker';
 
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
             'last_name' => 'required|min_length[2]|max_length[100]',
-            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]',
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9][A-Za-z0-9._-]*@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/]',
             'password' => 'required|min_length[8]',
             'password_confirm' => 'required|matches[password]',
             'user_type' => 'required|in_list[customer,worker]',
-            'phone' => 'permit_empty|max_length[20]|regex_match[/^\+?[0-9]+$/]',
+            'phone' => $isWorker
+                ? 'required|regex_match[/^(09\d{9}|\+639\d{8})$/]'
+                : 'permit_empty|regex_match[/^(09\d{9}|\+639\d{8})$/]',
             'address' => 'max_length[500]'
         ];
 
+        $messages = [
+            'email' => [
+                'valid_email' => 'Invalid email address.',
+                'regex_match' => 'Invalid email address.',
+            ],
+            'password' => [
+                'required' => 'Please enter password.',
+                'min_length' => 'Password must be at least 8 characters.',
+            ],
+            'password_confirm' => [
+                'required' => 'Please confirm password.',
+                'matches' => 'Passwords do not match.',
+            ],
+            'phone' => [
+                'required' => 'Invalid phone number.',
+                'regex_match' => 'Invalid phone number.',
+            ],
+            'resume_upload' => [
+                'uploaded' => 'Please upload your resume.',
+                'max_size' => 'Resume must be 5MB or smaller.',
+                'ext_in' => 'Resume must be a PDF file.',
+            ],
+            'skills' => [
+                'required' => 'Select at least one skill.',
+            ],
+            'experience_years' => [
+                'required' => 'Enter years of experience.',
+                'numeric' => 'Years of experience must be a number.',
+                'greater_than_equal_to' => 'Years of experience must be between 0 and 99.',
+                'less_than_equal_to' => 'Years of experience must be between 0 and 99.',
+            ],
+        ];
+
         // Add worker-specific validation
-        if ($this->request->getPost('user_type') === 'worker') {
+        if ($isWorker) {
             $rules['skills'] = 'required';
             $rules['experience_years'] = 'required|numeric|greater_than_equal_to[0]|less_than_equal_to[99]';
+            $rules['resume_upload'] = 'uploaded[resume_upload]|max_size[resume_upload,5120]|ext_in[resume_upload,pdf]';
         }
 
-        $validation->setRules($rules);
+        $validation->setRules($rules, $messages);
 
         if (!$validation->withRequest($this->request)->run()) {
             $this->activityLogger->record('account', 'user_registration', 'validation_failed', null, null, [
@@ -235,18 +276,81 @@ class Auth extends BaseController
                 'errors' => $validation->getErrors(),
             ], 'web');
 
+            $errors = $validation->getErrors();
+            $posted = $this->request->getPost();
+            $emailValue = trim((string) ($posted['email'] ?? ''));
+            $skills = $posted['skills'] ?? [];
+            if (!is_array($skills)) {
+                $skills = [$skills];
+            }
+
+            $isCompletelyEmpty = trim((string) ($posted['first_name'] ?? '')) === ''
+                && trim((string) ($posted['last_name'] ?? '')) === ''
+                && $emailValue === ''
+                && trim((string) ($posted['password'] ?? '')) === ''
+                && trim((string) ($posted['password_confirm'] ?? '')) === ''
+                && trim((string) ($posted['user_type'] ?? '')) === ''
+                && trim((string) ($posted['phone'] ?? '')) === ''
+                && trim((string) ($posted['address'] ?? '')) === ''
+                && trim((string) ($posted['experience_years'] ?? '')) === ''
+                && empty(array_filter($skills, static fn ($skill) => trim((string) $skill) !== ''))
+                && ($this->request->getFile('resume_upload') === null || $this->request->getFile('resume_upload')->getName() === '');
+
+            if ($isCompletelyEmpty) {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('errors', $errors)
+                    ->with('error', 'Please enter all required information.');
+            }
+
+            if ($emailValue === '') {
+                return redirect()->back()
+                    ->withInput()
+                    ->with('errors', $errors)
+                    ->with('error', 'Please enter all required information.');
+            }
+
+            $fieldShort = [
+                'email' => 'Invalid email address.',
+                'phone' => 'Invalid phone number.',
+                'resume_upload' => 'Resume must be a PDF ≤5MB.',
+                'skills' => 'Select at least one skill.',
+                'experience_years' => 'Enter years of experience (0-99).',
+            ];
+
+            $shortMessage = '';
+            $priorityFields = ['email', 'password', 'password_confirm', 'phone', 'resume_upload', 'skills', 'experience_years', 'first_name', 'last_name', 'user_type'];
+            foreach ($priorityFields as $f) {
+                if (isset($errors[$f])) {
+                    $shortMessage = $fieldShort[$f] ?? $errors[$f];
+                    break;
+                }
+            }
+
+            if ($shortMessage === '') {
+                $shortMessage = 'Please enter all required information.';
+            }
+
             return redirect()->back()
                 ->withInput()
-                ->with('errors', $validation->getErrors());
+                ->with('errors', $errors)
+                ->with('error', $shortMessage);
         }
 
         $db = \Config\Database::connect();
         $db->transStart();
+        $storedResumePath = null;
 
         try {
             $email = (string) $this->request->getPost('email');
 
-            if ($this->userModel->where('email', $email)->first()) {
+            // Check if email exists AND user is not rejected (rejected users can try again)
+            $existingUser = $this->userModel
+                ->where('email', $email)
+                ->whereIn('status', ['active', 'pending'])
+                ->first();
+                
+            if ($existingUser) {
                 throw new \Exception('That email is already being used.');
             }
 
@@ -258,25 +362,94 @@ class Auth extends BaseController
                 'user_type' => $this->request->getPost('user_type'),
                 'phone' => $this->request->getPost('phone'),
                 'address' => $this->request->getPost('address'),
-                'status' => 'active',
                 'password_changed_at' => date('Y-m-d H:i:s'),
             ];
 
             // Add worker-specific fields
             if ($this->request->getPost('user_type') === 'worker') {
-                $postData['skills'] = $this->request->getPost('skills');
+                $skills = UserModel::normalizeWorkerSkills($this->request->getPost('skills'));
+                if (empty($skills)) {
+                    throw new \Exception('Please select at least one skill.');
+                }
+
+                if (! $db->fieldExists('resume_path', 'users')) {
+                    $dbforge = \Config\Database::forge();
+                    $dbforge->addColumn('users', [
+                        'resume_path' => [
+                            'type' => 'VARCHAR',
+                            'constraint' => '255',
+                            'null' => true,
+                            'after' => 'address',
+                            'comment' => 'Stored worker resume file path',
+                        ],
+                    ]);
+                }
+
+                $resumeUpload = $this->request->getFile('resume_upload');
+                if (!$resumeUpload || !$resumeUpload->isValid() || $resumeUpload->hasMoved()) {
+                    throw new \Exception('Please upload a valid resume file.');
+                }
+
+                if (strtolower((string) $resumeUpload->getClientExtension()) !== 'pdf') {
+                    throw new \Exception('Resume file must be a PDF.');
+                }
+
+                $resumeDirectory = WRITEPATH . 'uploads/resumes';
+                if (!is_dir($resumeDirectory) && !mkdir($resumeDirectory, 0775, true) && !is_dir($resumeDirectory)) {
+                    throw new \Exception('We could not prepare storage for your resume.');
+                }
+
+                $resumeName = $resumeUpload->getRandomName();
+                $resumeUpload->move($resumeDirectory, $resumeName);
+                $storedResumePath = 'uploads/resumes/' . $resumeName;
+                $postData['resume_path'] = json_encode([$storedResumePath]);
+
+                $postData['skills'] = json_encode($skills);
                 $postData['experience_years'] = $this->request->getPost('experience_years');
                 $postData['commission_rate'] = 20.00;
+                $postData['status'] = 'pending';
+            } else {
+                $postData['status'] = 'active';
             }
 
-            $userId = $this->userModel->insert($postData);
+            // Skip validation since we already validated and checked email uniqueness
+            $userId = $this->userModel->skipValidation(true)->insert($postData);
             if (!$userId) {
+                $modelErrors = $this->userModel->errors();
+                if (!empty($modelErrors)) {
+                    log_message('error', 'Registration insert failed with model errors: {errors}', [
+                        'errors' => json_encode($modelErrors),
+                    ]);
+
+                    throw new \Exception(implode(' ', $modelErrors));
+                }
+
                 throw new \Exception('We could not create your account. Please try again.');
             }
 
             $this->activityLogger->record('account', 'user_registered', 'success', (int) $userId, (int) $userId, [
                 'created_fields' => $this->activityLogger->changedFields([], $postData, array_keys($postData)),
             ], 'web');
+
+            if ($this->request->getPost('user_type') === 'customer') {
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    throw new \Exception('Transaction failed');
+                }
+
+                return redirect()->to('/auth/login')->with('success', 'Registration successful! You can log in now.');
+            }
+
+            if ($this->request->getPost('user_type') === 'worker') {
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    throw new \Exception('Transaction failed');
+                }
+
+                return redirect()->to('/auth/login')->with('warning', $this->getRegistrationPendingMessage());
+            }
 
             $otp = sprintf("%06d", mt_rand(0, 999999));
             $expire = date("Y-m-d H:i:s", strtotime("+5 minutes"));
@@ -308,9 +481,20 @@ class Auth extends BaseController
             }
         } catch (\Throwable $e) {
             $db->transRollback();
+            if ($storedResumePath !== null) {
+                $resumeFile = WRITEPATH . $storedResumePath;
+                if (is_file($resumeFile)) {
+                    @unlink($resumeFile);
+                }
+            }
+
+            $fallbackMessage = $isWorker
+                ? 'Your worker application was not submitted. Please check your email, 11-digit phone number, selected skills, and PDF resume.'
+                : 'Your registration was not submitted. Please check the form and try again.';
+
             return redirect()->back()
                 ->withInput()
-                ->with('error', $e->getMessage() ?: 'We could not create your account right now. Please try again.');
+                ->with('error', ($e->getMessage() ?: $fallbackMessage) . ' ' . ($isWorker ? '' : 'Please try again.'));
         }
     }
 
@@ -368,6 +552,20 @@ class Auth extends BaseController
                     'email_verified_at' => $user['email_verified_at'] ?: date('Y-m-d H:i:s'),
                 ]);
 
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    throw new \Exception('Transaction failed');
+                }
+
+                $this->session->remove('temp_user_id');
+                $this->session->remove('temp_email');
+
+                $isPendingWorker = (($user['status'] ?? '') === 'pending') && (($user['user_type'] ?? '') === 'worker');
+                if (($user['status'] ?? '') !== 'active' && !$isPendingWorker) {
+                    return redirect()->to('/auth/login')->with('warning', $this->getApprovalStateMessage((string) ($user['status'] ?? '')));
+                }
+
                 $this->session->set([
                     'user_id' => $user['id'],
                     'role' => $user['user_type'],
@@ -397,15 +595,6 @@ class Auth extends BaseController
                 ], 'web', $trackedSessionKey);
                 */
 
-                $db->transComplete();
-
-                if ($db->transStatus() === false) {
-                    throw new \Exception('Transaction failed');
-                }
-
-                $this->session->remove('temp_user_id');
-                $this->session->remove('temp_email');
-
                 // Record successful login in security events.
                 $securityController = new SecurityController();
                 $securityController->logEvent(
@@ -419,7 +608,7 @@ class Auth extends BaseController
                 // Explicitly save session before redirect
                 session_write_close();
 
-                return redirect()->to('/dashboard')->with('success', 'Verification successful. Welcome!');
+                return redirect()->to('/dashboard')->with('success', $isPendingWorker ? 'Verification successful. Your account is under review.' : 'Verification successful. Welcome!');
             } catch (\Throwable $e) {
                 $db->transRollback();
                 log_message('error', 'Login Error: ' . $e->getMessage());
@@ -430,6 +619,30 @@ class Auth extends BaseController
             $db->table('users')->where('id', $userId)->update(['otp_attempts' => $newAttempts]);
             return redirect()->back()->with('error', 'Invalid OTP code. Tries left: ' . (3 - $newAttempts));
         }
+    }
+
+    /**
+     * Allowed worker skill codes for registration forms.
+     *
+     * @return array<string, string>
+     */
+    public function getWorkerSkillOptions(): array
+    {
+        return UserModel::WORKER_SKILL_OPTIONS;
+    }
+
+    private function getApprovalStateMessage(string $status): string
+    {
+        return match ($status) {
+            'pending' => 'Your application has been submitted. Please wait for admin approval. You can log in, but some features are disabled until approval is completed.',
+            'rejected' => 'Your worker application was rejected. Please check your email for the reason and any next steps, or contact support.',
+            default => 'Your account is not active right now. Please contact support.',
+        };
+    }
+
+    private function getRegistrationPendingMessage(): string
+    {
+        return 'Your application has been submitted. Please wait for admin approval. You can log in, but some features are disabled until approval is completed.';
     }
 
     /**

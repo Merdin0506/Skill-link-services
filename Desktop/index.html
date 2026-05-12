@@ -137,8 +137,25 @@
 
           <div id="worker-fields" class="worker-fields hidden">
             <div class="field">
-              <label for="skills">Skills</label>
-              <textarea id="skills" name="skills" placeholder="e.g., Electrical work, Plumbing, Carpentry, Painting"></textarea>
+              <label>Skills</label>
+              <div class="skills-grid" id="skills-grid">
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="plumbing"><span>Plumbing</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="car_repair"><span>Car Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="electrical_repair"><span>Electrical Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="automotive_maintenance"><span>Automotive Maintenance</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="air_conditioning_repair"><span>Air Conditioning Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="general_home_maintenance"><span>General Home Maintenance</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="painting"><span>Painting</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="carpentry"><span>Carpentry</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="welding"><span>Welding</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="appliance_repair"><span>Appliance Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="computer_repair"><span>Computer Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="motorcycle_repair"><span>Motorcycle Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="roofing_repair"><span>Roofing Repair</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="tile_installation"><span>Tile Installation</span></label>
+                <label class="skill-card"><input type="checkbox" name="skills[]" value="gardening_landscaping"><span>Gardening / Landscaping</span></label>
+              </div>
+              <small class="skill-note">Pick one or more fixed skills so the system can match you to the right jobs.</small>
             </div>
             <div class="field">
               <label for="experience_years">Years of Experience</label>

@@ -15,6 +15,35 @@ async function requestOtpVerification(email) {
       });
 }
 
+function collectRegisterPayload(registerForm) {
+  const formData = new FormData(registerForm);
+  const payload = {};
+
+  for (const [key, value] of formData.entries()) {
+    if (key === 'skills[]') {
+      if (!Array.isArray(payload.skills)) {
+        payload.skills = [];
+      }
+
+      payload.skills.push(value);
+      continue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      if (!Array.isArray(payload[key])) {
+        payload[key] = [payload[key]];
+      }
+
+      payload[key].push(value);
+      continue;
+    }
+
+    payload[key] = value;
+  }
+
+  return payload;
+}
+
 export function renderRegisterView(onRegisterSuccess) {
   const registerSection = getElementById('registerSection');
   const authSection = getElementById('authSection');
@@ -44,18 +73,28 @@ export function renderRegisterView(onRegisterSuccess) {
   // Toggle worker fields based on account type
   function toggleWorkerFields() {
     const userType = userTypeSelect?.value;
-    const skillsInput = getElementById('skills');
     const experienceInput = getElementById('experience_years');
+    const skillCards = document.querySelectorAll('.skill-card');
 
     if (userType === 'worker') {
       workerFields?.classList.remove('hidden');
-      skillsInput?.setAttribute('required', '');
       experienceInput?.setAttribute('required', '');
     } else {
       workerFields?.classList.add('hidden');
-      skillsInput?.removeAttribute('required');
       experienceInput?.removeAttribute('required');
     }
+
+    skillCards.forEach((card) => {
+      const checkbox = card.querySelector('input[type="checkbox"]');
+      if (!checkbox) {
+        return;
+      }
+
+      card.classList.toggle('is-selected', checkbox.checked);
+      checkbox.onchange = () => {
+        card.classList.toggle('is-selected', checkbox.checked);
+      };
+    });
   }
 
   // Toggle password visibility
@@ -116,8 +155,12 @@ export function renderRegisterView(onRegisterSuccess) {
     e.preventDefault();
     setRegisterStatus('Registering...', null);
 
-    const formData = new FormData(registerForm);
-    const payload = Object.fromEntries(formData);
+    const payload = collectRegisterPayload(registerForm);
+
+    if (payload.user_type === 'worker' && (!Array.isArray(payload.skills) || payload.skills.length === 0)) {
+      setRegisterStatus('Please select at least one skill.', 'error');
+      return;
+    }
 
     try {
       const bridge = getDesktopBridge();
@@ -130,7 +173,17 @@ export function renderRegisterView(onRegisterSuccess) {
 
       if (response?.requires_otp) {
         setRegisterStatus('Verification code sent. Waiting for OTP...', 'success');
-        await requestOtpVerification(response?.data?.email || payload.email);
+        const otpResponse = await requestOtpVerification(response?.data?.email || payload.email);
+
+        if (otpResponse?.approval_required) {
+          setRegisterStatus(otpResponse.message || 'Registration submitted successfully. Please wait for admin approval of your worker application. The admin will contact you through your email once reviewed. You cannot log in until approval is completed.', 'success');
+          setTimeout(() => {
+            showLogin();
+            registerForm.reset();
+          }, 1000);
+          return;
+        }
+
         setRegisterStatus('Registration verified. You can now log in.', 'success');
         setTimeout(() => {
           if (onRegisterSuccess) {

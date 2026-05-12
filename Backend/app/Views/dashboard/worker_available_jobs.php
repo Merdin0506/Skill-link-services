@@ -2,6 +2,12 @@
 
     <!-- Page Content -->
     <div class="page-content">
+        <?php if (($user['status'] ?? '') === 'pending'): ?>
+            <div class="alert alert-warning border-0 shadow-sm mb-4">
+                <i class="fas fa-hourglass-half"></i> Your account is under review. Some features are disabled until approval.
+            </div>
+        <?php endif; ?>
+
         <div class="row mb-4">
             <div class="col-12">
                 <h3 class="mb-0"><i class="fas fa-briefcase"></i> Available Jobs</h3>
@@ -44,12 +50,18 @@
                                     <a href="<?= base_url('worker/job/' . ($row['id'] ?? 0)) ?>" class="btn btn-outline-primary btn-sm me-1">
                                         <i class="fas fa-eye"></i> Details
                                     </a>
-                                    <form action="<?= base_url('worker/accept-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;">
-                                        <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-success btn-sm">
+                                    <?php if (($user['status'] ?? '') === 'pending'): ?>
+                                        <button type="button" class="btn btn-success btn-sm" disabled title="Disabled until your account is approved">
                                             <i class="fas fa-check"></i> Accept
                                         </button>
-                                    </form>
+                                    <?php else: ?>
+                                        <form action="<?= base_url('worker/accept-job/' . ($row['id'] ?? 0)) ?>" method="POST" style="display:inline;">
+                                            <?= csrf_field() ?>
+                                            <button type="submit" class="btn btn-success btn-sm">
+                                                <i class="fas fa-check"></i> Accept
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>

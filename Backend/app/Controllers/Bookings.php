@@ -59,6 +59,17 @@ class Bookings extends BaseController
         }
 
         $customerId = (int) $this->session->get('user_id');
+        $workerId = $this->request->getPost('worker_id');
+        
+        // If worker_id is provided, validate it
+        if ($workerId) {
+            $workerId = (int) $workerId;
+            $worker = $this->userModel->find($workerId);
+            
+            if (!$worker || $worker['user_type'] !== 'worker' || $worker['status'] !== 'active') {
+                return redirect()->back()->with('error', 'Selected worker is not available');
+            }
+        }
 
         // Prepare booking data
         $data = [
@@ -77,6 +88,11 @@ class Bookings extends BaseController
             'status' => 'pending',
             'notes' => $this->request->getPost('notes')
         ];
+        
+        // Add worker_id if provided
+        if ($workerId) {
+            $data['worker_id'] = $workerId;
+        }
 
         try {
             $bookingId = $this->bookingModel->createBooking($data);

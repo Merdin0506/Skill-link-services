@@ -28,8 +28,8 @@
             border-radius: 15px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             width: 100%;
-            max-width: 450px;
-            padding: 50px 40px;
+            max-width: 420px;
+            padding: 45px 14px;
             animation: slideUp 0.5s ease-out;
         }
 
@@ -46,55 +46,55 @@
 
         .logo-section {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
 
         .logo {
-            width: 70px;
-            height: 70px;
-            margin: 0 auto 20px;
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 12px;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-            border-radius: 15px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
+            font-size: 32px;
             color: white;
             box-shadow: 0 10px 30px rgba(30, 60, 114, 0.3);
         }
 
         h1 {
             color: #333;
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
         }
 
         .subtitle {
             color: #999;
-            font-size: 15px;
+            font-size: 13px;
             margin-bottom: 0;
         }
 
         .form-group {
-            margin-bottom: 25px;
-        }
+            margin-bottom: 18px;
+        }}
 
         label {
             display: block;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
             color: #333;
-            font-weight: 600;
-            font-size: 14px;
+            font-weight: 700;
+            font-size: 15px;
         }
 
         input[type="email"],
         input[type="password"],
         input[type="text"] {
             width: 100%;
-            padding: 12px 15px;
+            padding: 13px 16px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 14px;
             font-size: 14px;
             transition: all 0.3s ease;
             background: #f9f9f9;
@@ -106,14 +106,14 @@
 
         .password-field input[type="password"],
         .password-field input[type="text"] {
-            padding-right: 45px;
+            padding-right: 48px;
         }
 
         .toggle-password {
             position: absolute;
             top: 0;
             bottom: 0;
-            right: 12px;
+            right: 14px;
             margin: auto 0;
             border: none;
             background: transparent;
@@ -129,8 +129,8 @@
         }
 
         .toggle-password svg {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             display: block;
             stroke: currentColor;
             fill: none;
@@ -187,6 +187,12 @@
             border: 1px solid #bfe7cf;
         }
 
+        .auth-notice.warning {
+            color: #8a6100;
+            background: #fff8e1;
+            border: 1px solid #f2d58c;
+        }
+
         .auth-notice i {
             font-size: 15px;
             flex-shrink: 0;
@@ -217,10 +223,10 @@
 
         .register-link {
             text-align: center;
-            margin-top: 25px;
-            padding-top: 25px;
+            margin-top: 16px;
+            padding-top: 16px;
             border-top: 1px solid #e0e0e0;
-            font-size: 14px;
+            font-size: 12px;
             color: #666;
         }
 
@@ -266,6 +272,13 @@
             <div class="auth-notice success">
                 <i class="fas fa-circle-check"></i>
                 <span><?= esc(session('success')) ?></span>
+            </div>
+        <?php endif; ?>
+
+        <?php if (session()->has('warning')): ?>
+            <div class="auth-notice warning">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span><?= esc(session('warning')) ?></span>
             </div>
         <?php endif; ?>
 
@@ -322,6 +335,8 @@
             Don't have an account? <a href="<?= base_url('auth/register') ?>">Register here</a>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         document.querySelectorAll('.toggle-password').forEach(function (toggleButton) {

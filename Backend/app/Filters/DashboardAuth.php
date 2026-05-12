@@ -2,6 +2,7 @@
 
 namespace App\Filters;
 
+use App\Models\UserModel;
 use CodeIgniter\Filters\FilterInterface;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -27,6 +28,18 @@ class DashboardAuth implements FilterInterface
 
         if (!in_array($userRole, $validRoles)) {
             return redirect()->to('/login')->with('error', 'Invalid user role');
+        }
+
+        $currentUser = (new UserModel())->find((int) $session->get('user_id'));
+        // Allow pending workers to access dashboard but they'll see restricted pending-approval view
+        // if ($currentUser && ($currentUser['status'] ?? '') === 'pending' && ($currentUser['user_type'] ?? '') === 'worker') {
+        //     return redirect()->to('/dashboard')->with('info', 'Your account is under review.');
+        // }
+
+        if ($currentUser && ($currentUser['status'] ?? '') === 'rejected') {
+            $session->destroy();
+
+            return redirect()->to('/login')->with('warning', 'Your worker application was rejected. Please check your email for the reason and any next steps, or contact support.');
         }
 
         /* 

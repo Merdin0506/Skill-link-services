@@ -151,6 +151,11 @@ export function renderAuthView(onAuthenticated) {
         finalResponse = await requestOtpVerification(response?.data?.email || email);
       }
 
+      if (finalResponse?.approval_required) {
+        setLoginStatus(finalResponse.message || 'Your worker account is pending approval.', 'error');
+        return;
+      }
+
       const token = finalResponse?.data?.token;
       const user = finalResponse?.data?.user;
 
