@@ -22,6 +22,8 @@ class PaymentsController extends BaseController
 
     public function index()
     {
+        $this->paymentModel->syncPendingWorkerPayouts();
+
         $status = $this->request->getVar('status');
         $paymentType = $this->request->getVar('payment_type');
         $userId = $this->request->getVar('user_id');
@@ -39,15 +41,7 @@ class PaymentsController extends BaseController
                 return $this->fail('Invalid user type');
             }
         } else {
-            $payments = $this->paymentModel
-                ->when($status, function($query, $status) {
-                    return $query->where('status', $status);
-                })
-                ->when($paymentType, function($query, $paymentType) {
-                    return $query->where('payment_type', $paymentType);
-                })
-                ->limit($limit)
-                ->findAll();
+            $payments = $this->paymentModel->getPaymentsForFinance($status, $paymentType, $limit);
         }
 
         return $this->respond([
@@ -64,6 +58,8 @@ class PaymentsController extends BaseController
         if (!$userId || !$userRole) {
             return $this->failUnauthorized('User not authenticated');
         }
+
+        $this->paymentModel->syncPendingWorkerPayouts();
 
         $payments = match ($userRole) {
             'customer' => $this->paymentModel->getCustomerPayments($userId),
@@ -255,15 +251,45 @@ class PaymentsController extends BaseController
             return $this->fail($this->validator->getErrors());
         }
 
+        $requestedStatus = (string) $this->request->getVar('status');
+        $processedBy = $this->request->getVar('processed_by');
+        $transactionId = $this->request->getVar('transaction_id');
+
         try {
             $success = $this->paymentModel->processPayment(
                 $id,
-                $this->request->getVar('status'),
-                $this->request->getVar('transaction_id'),
-                $this->request->getVar('processed_by')
+                $requestedStatus,
+                $transactionId,
+                $processedBy
             );
 
             if ($success) {
+                if (
+                    $requestedStatus === 'completed' &&
+                    (string) ($payment['payment_type'] ?? '') === 'customer_payment'
+                ) {
+                    $booking = $this->bookingModel->find($payment['booking_id'] ?? null);
+                    $existingPayout = $this->paymentModel
+                        ->where('booking_id', $payment['booking_id'] ?? 0)
+                        ->where('payment_type', 'worker_payout')
+                        ->first();
+
+                    if (
+                        $booking &&
+                        (string) ($booking['status'] ?? '') === 'completed' &&
+                        !empty($booking['worker_id']) &&
+                        !$existingPayout
+                    ) {
+                        $this->paymentModel->createWorkerPayout(
+                            $booking['id'],
+                            $processedBy,
+                            $booking['worker_earnings'] ?? null,
+                            null,
+                            'Auto-created when customer payment was completed.'
+                        );
+                    }
+                }
+
                 $updatedPayment = $this->paymentModel->getPaymentWithDetails($id);
                 return $this->respond([
                     'status' => 'success',
@@ -290,6 +316,8 @@ class PaymentsController extends BaseController
 
     public function statistics()
     {
+        $this->paymentModel->syncPendingWorkerPayouts();
+
         $todayPayments = $this->paymentModel->getTodayPayments();
         $monthlyRevenue = $this->paymentModel->getMonthlyRevenue();
 
@@ -325,6 +353,8 @@ class PaymentsController extends BaseController
         if (!$workerId) {
             return $this->fail('Worker ID is required');
         }
+
+        $this->paymentModel->syncPendingWorkerPayouts();
 
         $startDate = $this->request->getVar('start_date');
         $endDate = $this->request->getVar('end_date');

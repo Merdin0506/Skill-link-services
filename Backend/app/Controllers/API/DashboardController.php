@@ -148,7 +148,7 @@ class DashboardController extends ResourceController
             'owner' => $this->bookingModel->where('customer_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'worker' => $this->bookingModel->where('worker_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'customer' => $this->bookingModel->where('customer_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
-            'finance' => $this->bookingModel->limit($limit)->orderBy('created_at', 'DESC')->find(),
+            'finance' => $this->getFinanceDashboardBookings($limit),
             default => []
         };
 
@@ -218,6 +218,41 @@ class DashboardController extends ResourceController
             'total_collected' => $this->getTotalRevenueCompleted(),
             'today_collections' => $this->getTodayCollections(),
         ];
+    }
+
+    private function getFinanceDashboardBookings(int $limit): array
+    {
+        $db = \Config\Database::connect();
+        $paymentSubquery = $db->table('payments')
+            ->select('MAX(id) AS payment_id, booking_id')
+            ->where('payment_type', 'customer_payment')
+            ->groupBy('booking_id')
+            ->getCompiledSelect();
+
+        return $db->table('bookings')
+            ->select("
+                bookings.*,
+                latest_payment.payment_id,
+                payments.payment_reference,
+                payments.payment_method,
+                payments.status AS payment_status,
+                payments.amount,
+                payments.transaction_id,
+                payments.payment_date,
+                payments.created_at AS transaction_created_at,
+                customers.first_name AS customer_first_name,
+                customers.last_name AS customer_last_name,
+                workers.first_name AS worker_first_name,
+                workers.last_name AS worker_last_name
+            ")
+            ->join("({$paymentSubquery}) AS latest_payment", 'latest_payment.booking_id = bookings.id', 'left')
+            ->join('payments', 'payments.id = latest_payment.payment_id', 'left')
+            ->join('users AS customers', 'customers.id = bookings.customer_id', 'left')
+            ->join('users AS workers', 'workers.id = bookings.worker_id', 'left')
+            ->orderBy('bookings.created_at', 'DESC')
+            ->limit($limit)
+            ->get()
+            ->getResultArray();
     }
 
     // ========== Analytics Methods ==========

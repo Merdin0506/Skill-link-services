@@ -161,6 +161,97 @@ class PaymentModel extends Model
                     ->findAll();
     }
 
+    public function getPaymentsForFinance(?string $status = null, ?string $paymentType = null, int $limit = 50): array
+    {
+        $query = $this->select('
+                payments.*,
+                bookings.booking_reference,
+                bookings.title AS booking_title,
+                bookings.title AS service_name,
+                bookings.worker_earnings,
+                bookings.commission_amount,
+                customers.first_name AS customer_first_name,
+                customers.last_name AS customer_last_name,
+                workers.first_name AS worker_first_name,
+                workers.last_name AS worker_last_name,
+                paid_by_user.first_name AS paid_by_first_name,
+                paid_by_user.last_name AS paid_by_last_name,
+                paid_to_user.first_name AS paid_to_first_name,
+                paid_to_user.last_name AS paid_to_last_name
+            ')
+            ->join('bookings', 'bookings.id = payments.booking_id', 'left')
+            ->join('users AS customers', 'customers.id = bookings.customer_id', 'left')
+            ->join('users AS workers', 'workers.id = bookings.worker_id', 'left')
+            ->join('users AS paid_by_user', 'paid_by_user.id = payments.paid_by', 'left')
+            ->join('users AS paid_to_user', 'paid_to_user.id = payments.paid_to', 'left');
+
+        if ($status) {
+            $query->where('payments.status', $status);
+        }
+
+        if ($paymentType) {
+            $query->where('payments.payment_type', $paymentType);
+        }
+
+        return $query
+            ->orderBy('payments.created_at', 'DESC')
+            ->limit($limit)
+            ->findAll();
+    }
+
+    public function syncPendingWorkerPayouts(): int
+    {
+        $db = $this->db;
+        $customerPaymentSubquery = $db->table('payments')
+            ->select('MAX(id) AS payment_id, booking_id')
+            ->where('payment_type', 'customer_payment')
+            ->where('status', 'completed')
+            ->groupBy('booking_id')
+            ->getCompiledSelect();
+
+        $rows = $db->table('bookings')
+            ->select('
+                bookings.id,
+                bookings.worker_id,
+                bookings.worker_earnings,
+                customer_payments.processed_by AS customer_payment_processed_by
+            ')
+            ->join("({$customerPaymentSubquery}) AS latest_customer_payment", 'latest_customer_payment.booking_id = bookings.id', 'inner')
+            ->join('payments AS customer_payments', 'customer_payments.id = latest_customer_payment.payment_id', 'inner')
+            ->join(
+                'payments AS worker_payouts',
+                "worker_payouts.booking_id = bookings.id AND worker_payouts.payment_type = 'worker_payout'",
+                'left'
+            )
+            ->where('bookings.status', 'completed')
+            ->where('bookings.worker_id IS NOT NULL', null, false)
+            ->where('worker_payouts.id IS NULL', null, false)
+            ->get()
+            ->getResultArray();
+
+        if (!$rows) {
+            return 0;
+        }
+
+        $inserted = 0;
+
+        foreach ($rows as $row) {
+            $created = $this->createWorkerPayout(
+                (int) $row['id'],
+                !empty($row['customer_payment_processed_by']) ? (int) $row['customer_payment_processed_by'] : null,
+                $row['worker_earnings'] ?? null,
+                null,
+                'Auto-created from completed customer payment backlog.'
+            );
+
+            if ($created) {
+                $inserted++;
+            }
+        }
+
+        return $inserted;
+    }
+
     public function getWorkerEarnings($workerId, $startDate = null, $endDate = null)
     {
         $query = $this->select('SUM(amount) as total_earnings')

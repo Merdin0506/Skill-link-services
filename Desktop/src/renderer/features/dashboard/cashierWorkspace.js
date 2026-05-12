@@ -599,13 +599,16 @@ export function createCashierPayoutsView(state, helpers) {
   ensureCashierFilters(state);
   const payouts = applyCashierFilters(state.routePayments || [], state.cashierFilters?.payouts || {}, 'payouts');
   const completed = payouts.filter((payment) => String(payment.status || '') === 'completed');
+  const recordedPending = payouts.filter((payment) => String(payment.status || '') !== 'completed');
+  const readyUnrecorded = state.cashierPendingPayoutBookings || [];
+  const totalPendingWork = recordedPending.length + readyUnrecorded.length;
 
   return `
     ${createInfoBanner(state.routeNotice)}
     ${createMetricGrid([
       { icon: 'fas fa-hand-holding-usd', value: payouts.length, label: 'Payout Records', tone: 'primary' },
       { icon: 'fas fa-check-circle', value: completed.length, label: 'Paid Out', tone: 'success' },
-      { icon: 'fas fa-hourglass-half', value: payouts.length - completed.length, label: 'Pending Payouts', tone: 'warning' },
+      { icon: 'fas fa-hourglass-half', value: totalPendingWork, label: 'Pending Payouts', tone: 'warning', subtitle: readyUnrecorded.length ? `${readyUnrecorded.length} awaiting record` : 'All pending records shown' },
       { icon: 'fas fa-wallet', value: completed.reduce((sum, payout) => sum + Number(payout.amount || 0), 0), label: 'Total Released', tone: 'info' }
     ])}
 
