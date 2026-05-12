@@ -28,8 +28,62 @@ function createCandidateOptions(bookings = [], amountKey = 'total_fee') {
   }
 
   return bookings.map((booking) => `
-    <option value="${booking.id}">${createBookingOptionLabel(booking, amountKey)}</option>
+    <option value="${booking.id}" data-amount="${Number(booking?.[amountKey] || 0).toFixed(2)}">${createBookingOptionLabel(booking, amountKey)}</option>
   `).join('');
+}
+
+async function fetchBookingDetailsMap(session, bridge, performAuthenticatedRequest, bookingIds = []) {
+  const uniqueBookingIds = [...new Set((bookingIds || []).map((id) => Number(id || 0)).filter(Boolean))];
+  const entries = await Promise.all(uniqueBookingIds.map(async (bookingId) => {
+    try {
+      const response = await performAuthenticatedRequest(session, bridge, `/api/bookings/${bookingId}`, { method: 'GET' });
+      return [bookingId, response?.data || null];
+    } catch {
+      return [bookingId, null];
+    }
+  }));
+
+  return Object.fromEntries(entries);
+}
+
+function mergeBookingDetailsIntoPayments(payments = [], bookingDetailsMap = {}) {
+  return (payments || []).map((payment) => {
+    const details = bookingDetailsMap[Number(payment.booking_id || 0)] || null;
+    if (!details) {
+      return payment;
+    }
+
+    return {
+      ...payment,
+      booking_reference: payment.booking_reference || details.booking_reference,
+      booking_title: payment.booking_title || details.title,
+      service_name: payment.service_name || details.service_name,
+      customer_first_name: payment.customer_first_name || details.customer_first_name,
+      customer_last_name: payment.customer_last_name || details.customer_last_name,
+      worker_first_name: payment.worker_first_name || details.worker_first_name,
+      worker_last_name: payment.worker_last_name || details.worker_last_name,
+      commission_amount: details.commission_amount ?? payment.commission_amount,
+      worker_earnings: details.worker_earnings ?? payment.worker_earnings
+    };
+  });
+}
+
+function createReportAnalytics(state) {
+  const completedBookings = state.routeReportCompletedBookings || [];
+  const completedCustomerPayments = state.routeReportCustomerPayments || [];
+  const paymentMethodCounts = completedCustomerPayments.reduce((accumulator, payment) => {
+    const methodKey = String(payment.payment_method || 'unknown');
+    accumulator[methodKey] = (accumulator[methodKey] || 0) + 1;
+    return accumulator;
+  }, {});
+
+  return {
+    completedJobs: completedBookings.length,
+    totalCommission: completedBookings.reduce((sum, booking) => sum + Number(booking.commission_amount || 0), 0),
+    paymentMethods: Object.entries(paymentMethodCounts)
+      .map(([method, count]) => ({ method, count }))
+      .sort((left, right) => right.count - left.count)
+  };
 }
 
 function createPaymentRecordingCard(state, helpers) {
@@ -46,17 +100,35 @@ function createPaymentRecordingCard(state, helpers) {
         ${createInfoBanner('Use this when a worker has already collected payment for a completed booking, but finance still needs to record it in the ledger.')}
         <form data-cashier-create-customer-payment="true">
           <div class="row g-3">
-            <div class="col-md-7">
+            <div class="col-md-6">
               <label class="form-label">Completed Booking</label>
               <select class="form-select" name="booking_id" ${candidates.length ? '' : 'disabled'}>
                 ${createCandidateOptions(candidates, 'total_fee')}
               </select>
             </div>
-            <div class="col-md-5">
+            <div class="col-md-3">
               <label class="form-label">Payment Method</label>
               <select class="form-select" name="payment_method" ${Object.keys(methods).length ? '' : 'disabled'}>
                 ${buildMethodOptions(methods)}
               </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Amount</label>
+              <input
+                type="number"
+                class="form-control"
+                name="amount"
+                min="0"
+                step="0.01"
+                value="${candidates.length ? Number(candidates[0]?.total_fee || 0).toFixed(2) : ''}"
+                ${candidates.length ? '' : 'disabled'}
+              />
+            </div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-12">
+              <label class="form-label">Notes</label>
+              <textarea class="form-control" name="notes" rows="3" maxlength="500" placeholder="Optional note about the customer collection." ${candidates.length ? '' : 'disabled'}></textarea>
             </div>
           </div>
           <div class="d-flex justify-content-between align-items-center mt-3">
@@ -84,11 +156,35 @@ function createPayoutRecordingCard(state, helpers) {
         ${createInfoBanner('Only completed bookings with a completed customer collection can move to worker payout processing.')}
         <form data-cashier-create-worker-payout="true">
           <div class="row g-3">
-            <div class="col-md-12">
+            <div class="col-md-6">
               <label class="form-label">Eligible Booking</label>
               <select class="form-select" name="booking_id" ${candidates.length ? '' : 'disabled'}>
                 ${createCandidateOptions(candidates, 'worker_earnings')}
               </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Payment Method</label>
+              <select class="form-select" name="payment_method" ${(candidates.length && Object.keys(state.routePaymentMethods || {}).length) ? '' : 'disabled'}>
+                ${buildMethodOptions(state.routePaymentMethods || {})}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Amount</label>
+              <input
+                type="number"
+                class="form-control"
+                name="amount"
+                min="0"
+                step="0.01"
+                value="${candidates.length ? Number(candidates[0]?.worker_earnings || 0).toFixed(2) : ''}"
+                ${candidates.length ? '' : 'disabled'}
+              />
+            </div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-md-12">
+              <label class="form-label">Notes</label>
+              <textarea class="form-control" name="notes" rows="3" maxlength="500" placeholder="Optional note about this worker payout." ${candidates.length ? '' : 'disabled'}></textarea>
             </div>
           </div>
           <div class="d-flex justify-content-between align-items-center mt-3">
@@ -274,6 +370,7 @@ export function createCashierPaymentsView(state, helpers) {
                 <tr>
                   <th>Reference</th>
                   <th>Booking</th>
+                  <th>Customer</th>
                   <th>Method</th>
                   <th>Status</th>
                   <th>Amount</th>
@@ -290,6 +387,7 @@ export function createCashierPaymentsView(state, helpers) {
                   >
                     <td><strong>${payment.payment_reference || payment.transaction_id || payment.id}</strong></td>
                     <td>${payment.booking_reference || payment.booking_title || payment.booking_id || '-'}</td>
+                    <td>${formatPersonName(payment.customer_first_name, payment.customer_last_name)}</td>
                     <td>${String(payment.payment_method || 'unassigned').replace(/_/g, ' ')}</td>
                     <td><span class="badge badge-${payment.status || 'pending'}">${String(payment.status || 'pending').replace(/_/g, ' ')}</span></td>
                     <td>${formatCurrency(payment.amount || 0)}</td>
@@ -298,7 +396,7 @@ export function createCashierPaymentsView(state, helpers) {
                   </tr>
                 `).join('') : `
                   <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No customer collection records have been returned for this page yet.</td>
+                    <td colspan="8" class="text-center text-muted py-4">No customer collection records have been returned for this page yet.</td>
                   </tr>
                 `}
               </tbody>
@@ -342,6 +440,7 @@ export function createCashierPayoutsView(state, helpers) {
                 <tr>
                   <th>Reference</th>
                   <th>Booking</th>
+                  <th>Worker</th>
                   <th>Status</th>
                   <th>Method</th>
                   <th>Amount</th>
@@ -358,6 +457,7 @@ export function createCashierPayoutsView(state, helpers) {
                   >
                     <td><strong>${payout.payment_reference || payout.id}</strong></td>
                     <td>${payout.booking_reference || payout.booking_id || '-'}</td>
+                    <td>${formatPersonName(payout.worker_first_name, payout.worker_last_name)}</td>
                     <td><span class="badge badge-${payout.status || 'pending'}">${String(payout.status || 'pending').replace(/_/g, ' ')}</span></td>
                     <td>${String(payout.payment_method || 'internal').replace(/_/g, ' ')}</td>
                     <td>${formatCurrency(payout.amount || 0)}</td>
@@ -366,7 +466,7 @@ export function createCashierPayoutsView(state, helpers) {
                   </tr>
                 `).join('') : `
                   <tr>
-                    <td colspan="7" class="text-center text-muted py-4">No worker payout records have been returned for this page yet.</td>
+                    <td colspan="8" class="text-center text-muted py-4">No worker payout records have been returned for this page yet.</td>
                   </tr>
                 `}
               </tbody>
@@ -386,6 +486,7 @@ export function createCashierReportsView(state, helpers) {
   const { createInfoBanner, createMetricGrid, formatCurrency, formatDate, formatValue } = helpers;
   const stats = state.routePaymentStats || {};
   const report = state.routeRevenueReport || [];
+  const analytics = createReportAnalytics(state);
 
   return `
     ${createInfoBanner(state.routeNotice)}
@@ -393,37 +494,79 @@ export function createCashierReportsView(state, helpers) {
       { icon: 'fas fa-peso-sign', value: stats.total_revenue ?? 0, label: 'Total Revenue', tone: 'success' },
       { icon: 'fas fa-calendar-day', value: stats.today_payments ?? 0, label: 'Today Payments', tone: 'info' },
       { icon: 'fas fa-chart-line', value: stats.monthly_revenue ?? 0, label: 'Monthly Revenue', tone: 'primary' },
-      { icon: 'fas fa-hourglass-half', value: stats.pending_payments ?? 0, label: 'Pending Payments', tone: 'warning' }
+      { icon: 'fas fa-hourglass-half', value: stats.pending_payments ?? 0, label: 'Pending Payments', tone: 'warning' },
+      { icon: 'fas fa-percentage', value: analytics.totalCommission, label: 'Total Commission', tone: 'secondary' },
+      { icon: 'fas fa-check-circle', value: analytics.completedJobs, label: 'Completed Jobs', tone: 'primary' }
     ])}
 
-    <div class="card desktop-card">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-chart-bar"></i> Revenue Timeline
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-chart-bar"></i> Revenue Timeline</span>
+            <div class="d-flex gap-2">
+              <button type="button" class="ghost-button" data-cashier-export-report="csv">Export CSV</button>
+              <button type="button" class="ghost-button" data-cashier-print-report="true">Print</button>
+            </div>
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Revenue</th>
+                    <th>Transactions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${report.length ? report.map((entry) => `
+                    <tr>
+                      <td><strong>${formatDate(entry.date)}</strong></td>
+                      <td>${formatCurrency(entry.revenue || 0)}</td>
+                      <td>${formatValue(entry.count || 0)}</td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colspan="3" class="text-center text-muted py-4">No revenue report rows available yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card-body desktop-card-body">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Revenue</th>
-                <th>Transactions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${report.length ? report.map((entry) => `
-                <tr>
-                  <td><strong>${formatDate(entry.date)}</strong></td>
-                  <td>${formatCurrency(entry.revenue || 0)}</td>
-                  <td>${formatValue(entry.count || 0)}</td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td colspan="3" class="text-center text-muted py-4">No revenue report rows available yet.</td>
-                </tr>
-              `}
-            </tbody>
-          </table>
+
+      <div class="col-lg-4">
+        <div class="card desktop-card">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-chart-pie"></i> Payment Method Distribution
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="table-responsive">
+              <table class="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Method</th>
+                    <th>Count</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${analytics.paymentMethods.length ? analytics.paymentMethods.map((entry) => `
+                    <tr>
+                      <td>${String(entry.method || 'unknown').replace(/_/g, ' ')}</td>
+                      <td>${formatValue(entry.count || 0)}</td>
+                    </tr>
+                  `).join('') : `
+                    <tr>
+                      <td colspan="2" class="text-center text-muted py-4">No payment method data yet.</td>
+                    </tr>
+                  `}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -470,6 +613,33 @@ function computeMissingPayoutBookings(bookings, payouts, completedCustomerPaymen
   ));
 }
 
+function syncAmountInputFromSelection(form) {
+  if (!form) {
+    return;
+  }
+
+  const bookingSelect = form.querySelector('select[name="booking_id"]');
+  const amountInput = form.querySelector('input[name="amount"]');
+  if (!bookingSelect || !amountInput) {
+    return;
+  }
+
+  const updateAmount = () => {
+    const selectedOption = bookingSelect.selectedOptions?.[0];
+    if (!selectedOption) {
+      return;
+    }
+
+    const selectedAmount = selectedOption.getAttribute('data-amount');
+    if (selectedAmount) {
+      amountInput.value = selectedAmount;
+    }
+  };
+
+  bookingSelect.addEventListener('change', updateAmount);
+  updateAmount();
+}
+
 export async function loadCashierRouteData(state, session, bridge, performAuthenticatedRequest) {
   if (state.currentRoute === 'payments') {
     const [paymentsResponse, statisticsResponse, methodsResponse, bookingsResponse] = await Promise.all([
@@ -479,10 +649,24 @@ export async function loadCashierRouteData(state, session, bridge, performAuthen
       performAuthenticatedRequest(session, bridge, '/api/bookings?status=completed&limit=100', { method: 'GET' }).catch(() => ({ data: [] }))
     ]);
 
-    state.routePayments = paymentsResponse?.data || [];
+    const paymentRows = paymentsResponse?.data || [];
     state.routePaymentStats = statisticsResponse?.data || {};
     state.routePaymentMethods = methodsResponse?.data || {};
     state.routeCompletedBookings = bookingsResponse?.data || [];
+    const bookingDetailsMap = await fetchBookingDetailsMap(
+      session,
+      bridge,
+      performAuthenticatedRequest,
+      [
+        ...state.routeCompletedBookings.map((booking) => booking.id),
+        ...paymentRows.map((payment) => payment.booking_id)
+      ]
+    );
+    state.routeCompletedBookings = state.routeCompletedBookings.map((booking) => ({
+      ...booking,
+      ...(bookingDetailsMap[Number(booking.id || 0)] || {})
+    }));
+    state.routePayments = mergeBookingDetailsIntoPayments(paymentRows, bookingDetailsMap);
     state.cashierPendingCustomerBookings = computeMissingCustomerPaymentBookings(state.routeCompletedBookings, state.routePayments);
 
     await hydrateSelectedPaymentDetails(state, session, bridge, performAuthenticatedRequest);
@@ -490,15 +674,33 @@ export async function loadCashierRouteData(state, session, bridge, performAuthen
   }
 
   if (state.currentRoute === 'payouts') {
-    const [payoutsResponse, bookingsResponse, customerPaymentsResponse] = await Promise.all([
+    const [payoutsResponse, bookingsResponse, customerPaymentsResponse, methodsResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=worker_payout&limit=100', { method: 'GET' }),
       performAuthenticatedRequest(session, bridge, '/api/bookings?status=completed&limit=100', { method: 'GET' }).catch(() => ({ data: [] })),
-      performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=customer_payment&limit=100', { method: 'GET' }).catch(() => ({ data: [] }))
+      performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=customer_payment&limit=100', { method: 'GET' }).catch(() => ({ data: [] })),
+      performAuthenticatedRequest(session, bridge, '/api/payments/methods', { method: 'GET' }).catch(() => ({ data: {} }))
     ]);
 
-    state.routePayments = payoutsResponse?.data || [];
+    const payoutRows = payoutsResponse?.data || [];
     state.routeCompletedBookings = bookingsResponse?.data || [];
-    state.routeCustomerPayments = customerPaymentsResponse?.data || [];
+    const customerPaymentRows = customerPaymentsResponse?.data || [];
+    const bookingDetailsMap = await fetchBookingDetailsMap(
+      session,
+      bridge,
+      performAuthenticatedRequest,
+      [
+        ...state.routeCompletedBookings.map((booking) => booking.id),
+        ...payoutRows.map((payment) => payment.booking_id),
+        ...customerPaymentRows.map((payment) => payment.booking_id)
+      ]
+    );
+    state.routeCompletedBookings = state.routeCompletedBookings.map((booking) => ({
+      ...booking,
+      ...(bookingDetailsMap[Number(booking.id || 0)] || {})
+    }));
+    state.routePayments = mergeBookingDetailsIntoPayments(payoutRows, bookingDetailsMap);
+    state.routeCustomerPayments = mergeBookingDetailsIntoPayments(customerPaymentRows, bookingDetailsMap);
+    state.routePaymentMethods = methodsResponse?.data || {};
     state.cashierPendingPayoutBookings = computeMissingPayoutBookings(
       state.routeCompletedBookings,
       state.routePayments,
@@ -510,13 +712,31 @@ export async function loadCashierRouteData(state, session, bridge, performAuthen
   }
 
   if (state.currentRoute === 'reports') {
-    const [statisticsResponse, revenueResponse] = await Promise.all([
+    const [statisticsResponse, revenueResponse, completedBookingsResponse, completedCustomerPaymentsResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, '/api/payments/statistics', { method: 'GET' }),
-      performAuthenticatedRequest(session, bridge, '/api/payments/revenue-report', { method: 'GET' }).catch(() => ({ data: [] }))
+      performAuthenticatedRequest(session, bridge, '/api/payments/revenue-report', { method: 'GET' }).catch(() => ({ data: [] })),
+      performAuthenticatedRequest(session, bridge, '/api/bookings?status=completed&limit=100', { method: 'GET' }).catch(() => ({ data: [] })),
+      performAuthenticatedRequest(session, bridge, '/api/payments?payment_type=customer_payment&status=completed&limit=100', { method: 'GET' }).catch(() => ({ data: [] }))
     ]);
 
     state.routePaymentStats = statisticsResponse?.data || {};
     state.routeRevenueReport = revenueResponse?.data || [];
+    const completedBookings = completedBookingsResponse?.data || [];
+    const completedCustomerPayments = completedCustomerPaymentsResponse?.data || [];
+    const bookingDetailsMap = await fetchBookingDetailsMap(
+      session,
+      bridge,
+      performAuthenticatedRequest,
+      [
+        ...completedBookings.map((booking) => booking.id),
+        ...completedCustomerPayments.map((payment) => payment.booking_id)
+      ]
+    );
+    state.routeReportCompletedBookings = completedBookings.map((booking) => ({
+      ...booking,
+      ...(bookingDetailsMap[Number(booking.id || 0)] || {})
+    }));
+    state.routeReportCustomerPayments = mergeBookingDetailsIntoPayments(completedCustomerPayments, bookingDetailsMap);
     return true;
   }
 
@@ -574,15 +794,18 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
   });
 
   const createCustomerPaymentForm = contentElement.querySelector('[data-cashier-create-customer-payment]');
+  syncAmountInputFromSelection(createCustomerPaymentForm);
   createCustomerPaymentForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const formData = new FormData(createCustomerPaymentForm);
     const bookingId = Number(formData.get('booking_id'));
     const paymentMethod = String(formData.get('payment_method') || '');
+    const amount = Number(formData.get('amount'));
+    const notes = String(formData.get('notes') || '').trim();
 
-    if (!bookingId || !paymentMethod) {
-      updateInlineStatus('Choose a completed booking and a payment method first.', 'error');
+    if (!bookingId || !paymentMethod || !Number.isFinite(amount) || amount <= 0) {
+      updateInlineStatus('Choose a completed booking, payment method, and valid amount first.', 'error');
       return;
     }
 
@@ -592,6 +815,8 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
         body: {
           booking_id: bookingId,
           payment_method: paymentMethod,
+          amount,
+          notes,
           processed_by: state.profile?.id || session.user?.id || null
         }
       });
@@ -610,14 +835,18 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
   });
 
   const createWorkerPayoutForm = contentElement.querySelector('[data-cashier-create-worker-payout]');
+  syncAmountInputFromSelection(createWorkerPayoutForm);
   createWorkerPayoutForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const formData = new FormData(createWorkerPayoutForm);
     const bookingId = Number(formData.get('booking_id'));
+    const paymentMethod = String(formData.get('payment_method') || '');
+    const amount = Number(formData.get('amount'));
+    const notes = String(formData.get('notes') || '').trim();
 
-    if (!bookingId) {
-      updateInlineStatus('Choose a booking that is ready for payout first.', 'error');
+    if (!bookingId || !paymentMethod || !Number.isFinite(amount) || amount <= 0) {
+      updateInlineStatus('Choose a ready booking, payout method, and valid amount first.', 'error');
       return;
     }
 
@@ -626,6 +855,9 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
         method: 'POST',
         body: {
           booking_id: bookingId,
+          payment_method: paymentMethod,
+          amount,
+          notes,
           processed_by: state.profile?.id || session.user?.id || null
         }
       });
@@ -677,5 +909,35 @@ export function bindCashierPaymentsView(state, session, bridge, actions) {
       updateInlineStatus(error.message || 'Failed to complete this cashier action.', 'error');
       setStatus(error.message || 'Failed to complete this cashier action.', 'error');
     }
+  });
+
+  const exportReportButton = contentElement.querySelector('[data-cashier-export-report="csv"]');
+  exportReportButton?.addEventListener('click', () => {
+    const rows = state.routeRevenueReport || [];
+    const header = ['Date', 'Revenue', 'Transactions'];
+    const body = rows.map((entry) => [
+      entry.date || '',
+      Number(entry.revenue || 0),
+      Number(entry.count || 0)
+    ]);
+    const csv = [header, ...body]
+      .map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'cashier-financial-report.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    updateInlineStatus('Cashier report exported as CSV.', 'success');
+  });
+
+  const printReportButton = contentElement.querySelector('[data-cashier-print-report="true"]');
+  printReportButton?.addEventListener('click', () => {
+    window.print();
+    updateInlineStatus('Print dialog opened for the cashier report.', 'success');
   });
 }

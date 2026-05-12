@@ -100,6 +100,8 @@ class PaymentsController extends BaseController
         $rules = [
             'booking_id' => 'required|integer',
             'payment_method' => 'required|in_list[cash,gcash,paymaya,bank_transfer,credit_card]',
+            'amount' => 'permit_empty|numeric|greater_than[0]',
+            'notes' => 'permit_empty|string|max_length[500]',
             'processed_by' => 'integer'
         ];
 
@@ -132,7 +134,9 @@ class PaymentsController extends BaseController
             $paymentId = $this->paymentModel->createCustomerPayment(
                 $bookingId,
                 $this->request->getVar('payment_method'),
-                $this->request->getVar('processed_by')
+                $this->request->getVar('processed_by'),
+                $this->request->getVar('amount'),
+                $this->request->getVar('notes')
             );
 
             if ($paymentId) {
@@ -154,6 +158,9 @@ class PaymentsController extends BaseController
     {
         $rules = [
             'booking_id' => 'required|integer',
+            'amount' => 'permit_empty|numeric|greater_than[0]',
+            'payment_method' => 'permit_empty|in_list[cash,gcash,paymaya,bank_transfer,credit_card]',
+            'notes' => 'permit_empty|string|max_length[500]',
             'processed_by' => 'integer'
         ];
 
@@ -174,6 +181,11 @@ class PaymentsController extends BaseController
 
         if (!$booking['worker_id']) {
             return $this->fail('No worker assigned to this booking');
+        }
+
+        $requestedAmount = $this->request->getVar('amount');
+        if ($requestedAmount !== null && $requestedAmount !== '' && (float) $requestedAmount > (float) ($booking['worker_earnings'] ?? 0)) {
+            return $this->fail('Payout amount cannot be greater than worker earnings');
         }
 
         // Check if customer payment is completed
@@ -200,7 +212,10 @@ class PaymentsController extends BaseController
         try {
             $payoutId = $this->paymentModel->createWorkerPayout(
                 $bookingId,
-                $this->request->getVar('processed_by')
+                $this->request->getVar('processed_by'),
+                $this->request->getVar('amount'),
+                $this->request->getVar('payment_method'),
+                $this->request->getVar('notes')
             );
 
             if ($payoutId) {

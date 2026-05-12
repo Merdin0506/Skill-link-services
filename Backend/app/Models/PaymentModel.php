@@ -50,7 +50,7 @@ class PaymentModel extends Model
         return $reference;
     }
 
-    public function createCustomerPayment($bookingId, $paymentMethod, $processedBy = null)
+    public function createCustomerPayment($bookingId, $paymentMethod, $processedBy = null, $amount = null, $notes = null)
     {
         $bookingModel = new BookingModel();
         $booking = $bookingModel->find($bookingId);
@@ -62,16 +62,17 @@ class PaymentModel extends Model
         return $this->insert([
             'booking_id' => $bookingId,
             'payment_reference' => $this->generatePaymentReference('CUST'),
-            'amount' => $booking['total_fee'],
+            'amount' => $amount !== null ? (float) $amount : (float) $booking['total_fee'],
             'payment_method' => $paymentMethod,
             'payment_type' => 'customer_payment',
             'status' => 'pending',
             'paid_by' => $booking['customer_id'],
-            'processed_by' => $processedBy
+            'processed_by' => $processedBy,
+            'notes' => $notes
         ]);
     }
 
-    public function createWorkerPayout($bookingId, $processedBy = null)
+    public function createWorkerPayout($bookingId, $processedBy = null, $amount = null, $paymentMethod = null, $notes = null)
     {
         $bookingModel = new BookingModel();
         $booking = $bookingModel->find($bookingId);
@@ -83,12 +84,13 @@ class PaymentModel extends Model
         return $this->insert([
             'booking_id' => $bookingId,
             'payment_reference' => $this->generatePaymentReference('WORK'),
-            'amount' => $booking['worker_earnings'],
-            'payment_method' => 'gcash', // Default payout method
+            'amount' => $amount !== null ? (float) $amount : (float) $booking['worker_earnings'],
+            'payment_method' => $paymentMethod ?: 'gcash',
             'payment_type' => 'worker_payout',
             'status' => 'pending',
             'paid_to' => $booking['worker_id'],
-            'processed_by' => $processedBy
+            'processed_by' => $processedBy,
+            'notes' => $notes
         ]);
     }
 

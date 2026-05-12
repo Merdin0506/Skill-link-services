@@ -77,6 +77,32 @@ function getSeverityTone(value) {
   return 'secondary';
 }
 
+function getFinancePaymentMethodLabel(record) {
+  const paymentMethod = String(record?.payment_method || '').trim();
+  if (paymentMethod) {
+    return paymentMethod.replace(/_/g, ' ');
+  }
+
+  if (Number(record?.payment_id || 0)) {
+    return 'Method not set';
+  }
+
+  return 'Not recorded';
+}
+
+function getFinancePaymentStatusLabel(record) {
+  const paymentStatus = String(record?.payment_status || '').trim();
+  if (paymentStatus) {
+    return paymentStatus.replace(/_/g, ' ');
+  }
+
+  if (Number(record?.payment_id || 0)) {
+    return 'pending';
+  }
+
+  return 'not recorded';
+}
+
 function createPageHeading(icon, title) {
   return `
     <div class="row mb-4">
@@ -166,13 +192,17 @@ function renderTableRows(bookings, role) {
     const statusClass = `badge-${status}`;
 
     if (role === 'finance') {
+      const financeStatusClass = Number(booking.payment_id || 0)
+        ? `badge-${String(booking.payment_status || 'pending')}`
+        : 'badge-secondary';
+
       return `
         <tr>
           <td><strong>#${booking.payment_reference || reference}</strong></td>
           <td>${reference}</td>
           <td>${formatCurrency(booking.amount ?? booking.total_fee ?? 0)}</td>
-          <td><span class="badge bg-secondary">${String(booking.payment_method || 'Unpaid').replace(/_/g, ' ')}</span></td>
-          <td><span class="badge ${statusClass}">${status.replace(/_/g, ' ')}</span></td>
+          <td><span class="badge bg-secondary">${getFinancePaymentMethodLabel(booking)}</span></td>
+          <td><span class="badge ${financeStatusClass}">${getFinancePaymentStatusLabel(booking)}</span></td>
           <td>${formatDate(booking.transaction_created_at || booking.created_at)}</td>
           <td>
             <button
@@ -235,8 +265,9 @@ function createFinanceDashboardDetailCard(state) {
     return '';
   }
 
-  const paymentStatus = String(transaction.payment_status || transaction.status || 'pending').replace(/_/g, ' ');
+  const paymentStatus = getFinancePaymentStatusLabel(transaction);
   const bookingStatus = String(transaction.booking_status || transaction.status || 'pending').replace(/_/g, ' ');
+  const paymentMethod = getFinancePaymentMethodLabel(transaction);
 
   return `
     <div class="row mt-4">
@@ -266,7 +297,7 @@ function createFinanceDashboardDetailCard(state) {
               </div>
               <div class="desktop-insight-tile">
                 <span>Payment Method</span>
-                <strong>${escapeHtml(String(transaction.payment_method || 'unpaid').replace(/_/g, ' '))}</strong>
+                <strong>${escapeHtml(paymentMethod)}</strong>
               </div>
               <div class="desktop-insight-tile">
                 <span>Payment Status</span>
