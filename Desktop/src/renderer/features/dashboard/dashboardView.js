@@ -647,6 +647,32 @@ function formatSettingsUserName(row, prefix) {
   return fullName || row?.[`${prefix}_email`] || 'Unknown';
 }
 
+function formatSettingsSessionType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'api') {
+    return 'Desktop App';
+  }
+
+  if (normalized === 'web') {
+    return 'Website';
+  }
+
+  return normalized ? normalized.replace(/_/g, ' ') : '-';
+}
+
+function formatSettingsIpAddress(value) {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '-';
+  }
+
+  if (normalized === '::1' || normalized === '127.0.0.1') {
+    return 'Localhost';
+  }
+
+  return normalized;
+}
+
 function createSettingsForm(state) {
   const settings = state.routeSettingsSummary || {};
   const currentSession = settings.currentSession || null;
@@ -688,12 +714,27 @@ function createSettingsForm(state) {
       </div>
       <div class="card-body desktop-card-body">
         ${currentSession ? `
-          <div class="row g-3">
-            <div class="col-md-4"><strong>Session Type</strong><div>${escapeHtml(currentSession.session_type || '-')}</div></div>
-            <div class="col-md-4"><strong>Logged In At</strong><div>${formatDate(currentSession.logged_in_at)}</div></div>
-            <div class="col-md-4"><strong>Last Activity</strong><div>${formatDate(currentSession.last_activity_at)}</div></div>
-            <div class="col-md-6"><strong>IP Address</strong><div>${escapeHtml(currentSession.ip_address || '-')}</div></div>
-            <div class="col-md-6"><strong>Device</strong><div>${escapeHtml(currentSession.device_label || '-')}</div></div>
+          <div class="desktop-settings-session-grid">
+            <div class="desktop-settings-stat">
+              <span class="desktop-settings-label">Session Type</span>
+              <strong>${escapeHtml(formatSettingsSessionType(currentSession.session_type))}</strong>
+            </div>
+            <div class="desktop-settings-stat">
+              <span class="desktop-settings-label">Logged In At</span>
+              <strong>${formatDate(currentSession.logged_in_at)}</strong>
+            </div>
+            <div class="desktop-settings-stat">
+              <span class="desktop-settings-label">Last Activity</span>
+              <strong>${formatDate(currentSession.last_activity_at)}</strong>
+            </div>
+            <div class="desktop-settings-stat">
+              <span class="desktop-settings-label">IP Address</span>
+              <strong>${escapeHtml(formatSettingsIpAddress(currentSession.ip_address))}</strong>
+            </div>
+            <div class="desktop-settings-stat desktop-settings-stat-wide">
+              <span class="desktop-settings-label">Device</span>
+              <strong>${escapeHtml(currentSession.device_label || '-')}</strong>
+            </div>
           </div>
         ` : `
           <p class="text-muted mb-0">No tracked session information is available for the current login.</p>
@@ -779,7 +820,7 @@ function createSettingsForm(state) {
         <i class="fas fa-history"></i> My Account Activity
       </div>
       <div class="card-body desktop-card-body">
-        <div class="table-responsive">
+        <div class="table-responsive desktop-settings-scroll">
           <table class="table table-hover">
             <thead>
               <tr>
@@ -812,11 +853,11 @@ function createSettingsForm(state) {
 
     ${isAdmin ? `
       <div class="card desktop-card mb-4">
-        <div class="card-header desktop-card-header">
-          <i class="fas fa-clipboard-list"></i> Recent System Activity
-        </div>
-        <div class="card-body desktop-card-body">
-          <div class="table-responsive">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-clipboard-list"></i> Recent System Activity
+      </div>
+      <div class="card-body desktop-card-body">
+          <div class="table-responsive desktop-settings-scroll">
             <table class="table table-hover">
               <thead>
                 <tr>
