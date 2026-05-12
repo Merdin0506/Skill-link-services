@@ -3,6 +3,7 @@ import { clearSession, getSession, saveSession } from '../../core/storage.js';
 import { setStatus } from '../../core/status.js';
 import { requestJson } from '../../services/apiClient.js';
 import { getDesktopBridge } from '../../services/desktopBridge.js';
+import { requestOtpCode } from '../auth/otpDialog.js';
 import { getRoleTemplate } from './roleTemplates.js';
 import {
   bindCashierPaymentsView,
@@ -562,7 +563,7 @@ function createProfileForm(profile) {
           <div class="form-row">
             <div class="field">
               <label for="profile_email">Email</label>
-              <input id="profile_email" type="email" value="${profile.email || ''}" disabled />
+              <input id="profile_email" name="email" type="email" value="${profile.email || ''}" required />
             </div>
             <div class="field">
               <label for="profile_phone">Phone</label>
@@ -584,6 +585,24 @@ function createProfileForm(profile) {
               <label for="profile_experience_years">Years of Experience</label>
               <input id="profile_experience_years" name="experience_years" type="number" min="0" max="99" value="${profile.experience_years || 0}" />
             </div>
+            <div class="field">
+              <label for="profile_service_city">Service City / Area</label>
+              <input id="profile_service_city" name="service_city" type="text" value="${profile.service_city || ''}" placeholder="e.g., General Santos" />
+            </div>
+            <div class="field">
+              <label for="profile_service_radius_km">Coverage Radius (km)</label>
+              <input id="profile_service_radius_km" name="service_radius_km" type="number" min="1" max="500" step="0.1" value="${profile.service_radius_km ?? 20}" />
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="profile_work_latitude">Base Latitude</label>
+                <input id="profile_work_latitude" name="work_latitude" type="number" min="-90" max="90" step="0.00000001" value="${profile.work_latitude || ''}" />
+              </div>
+              <div class="field">
+                <label for="profile_work_longitude">Base Longitude</label>
+                <input id="profile_work_longitude" name="work_longitude" type="number" min="-180" max="180" step="0.00000001" value="${profile.work_longitude || ''}" />
+              </div>
+            </div>
           ` : ''}
 
           <div class="desktop-form-actions">
@@ -595,9 +614,244 @@ function createProfileForm(profile) {
   `;
 }
 
-function createSettingsForm() {
+function formatSettingsActivityDetails(details) {
+  if (!details || typeof details !== 'object') {
+    return '-';
+  }
+
+  if (details.reason) {
+    return String(details.reason).replace(/_/g, ' ');
+  }
+
+  if (details.method) {
+    return String(details.method).replace(/_/g, ' ');
+  }
+
+  if (details.changed_fields && typeof details.changed_fields === 'object') {
+    const fields = Object.keys(details.changed_fields);
+    return fields.length ? fields.join(', ') : '-';
+  }
+
+  if (details.created_fields && typeof details.created_fields === 'object') {
+    const fields = Object.keys(details.created_fields);
+    return fields.length ? `Created: ${fields.join(', ')}` : '-';
+  }
+
+  return 'Details available';
+}
+
+function formatSettingsUserName(row, prefix) {
+  const firstName = String(row?.[`${prefix}_first_name`] || '').trim();
+  const lastName = String(row?.[`${prefix}_last_name`] || '').trim();
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || row?.[`${prefix}_email`] || 'Unknown';
+}
+
+function createSettingsForm(state) {
+  const settings = state.routeSettingsSummary || {};
+  const currentSession = settings.currentSession || null;
+  const myActiveSessions = settings.myActiveSessions || [];
+  const recentActiveSessions = settings.recentActiveSessions || [];
+  const myActivityLogs = settings.myActivityLogs || [];
+  const recentActivityLogs = settings.recentActivityLogs || [];
+  const isAdmin = ['admin', 'super_admin'].includes(String(state.role || '').toLowerCase());
+
   return `
     ${createPageHeading('fas fa-cog', 'Settings')}
+    ${state.routeNotice ? createInfoBanner(state.routeNotice) : ''}
+
+    <div class="card desktop-card mb-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-sliders-h"></i> Application Settings
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <strong>Environment</strong>
+            <div>${escapeHtml(settings.environment || '-')}</div>
+          </div>
+          <div class="col-md-4">
+            <strong>Base URL</strong>
+            <div>${escapeHtml(settings.baseUrl || '-')}</div>
+          </div>
+          <div class="col-md-4">
+            <strong>Current Role</strong>
+            <div>${escapeHtml(String(settings.role || state.role || '-').replace(/_/g, ' '))}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card desktop-card mb-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-user-clock"></i> Current Session
+      </div>
+      <div class="card-body desktop-card-body">
+        ${currentSession ? `
+          <div class="row g-3">
+            <div class="col-md-4"><strong>Session Type</strong><div>${escapeHtml(currentSession.session_type || '-')}</div></div>
+            <div class="col-md-4"><strong>Logged In At</strong><div>${formatDate(currentSession.logged_in_at)}</div></div>
+            <div class="col-md-4"><strong>Last Activity</strong><div>${formatDate(currentSession.last_activity_at)}</div></div>
+            <div class="col-md-6"><strong>IP Address</strong><div>${escapeHtml(currentSession.ip_address || '-')}</div></div>
+            <div class="col-md-6"><strong>Device</strong><div>${escapeHtml(currentSession.device_label || '-')}</div></div>
+          </div>
+        ` : `
+          <p class="text-muted mb-0">No tracked session information is available for the current login.</p>
+        `}
+      </div>
+    </div>
+
+    <div class="card desktop-card mb-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-layer-group"></i> My Active Sessions
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Logged In</th>
+                <th>Last Activity</th>
+                <th>IP Address</th>
+                <th>Device</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${myActiveSessions.length ? myActiveSessions.map((trackedSession) => `
+                <tr>
+                  <td>${escapeHtml(trackedSession.session_type || '-')}</td>
+                  <td>${formatDate(trackedSession.logged_in_at)}</td>
+                  <td>${formatDate(trackedSession.last_activity_at)}</td>
+                  <td>${escapeHtml(trackedSession.ip_address || '-')}</td>
+                  <td>${escapeHtml(trackedSession.device_label || '-')}</td>
+                </tr>
+              `).join('') : `
+                <tr><td colspan="5" class="text-center text-muted py-4">No tracked active sessions were returned.</td></tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    ${isAdmin ? `
+      <div class="card desktop-card mb-4">
+        <div class="card-header desktop-card-header">
+          <i class="fas fa-shield-alt"></i> Active Session Monitor
+        </div>
+        <div class="card-body desktop-card-body">
+          <div class="mb-3"><strong>Total Active Sessions:</strong> ${formatValue(settings.activeSessionCount ?? 0)}</div>
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>User</th>
+                  <th>Role</th>
+                  <th>Type</th>
+                  <th>Last Activity</th>
+                  <th>IP Address</th>
+                  <th>Device</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recentActiveSessions.length ? recentActiveSessions.map((trackedSession) => `
+                  <tr>
+                    <td>${escapeHtml(`${trackedSession.first_name || ''} ${trackedSession.last_name || ''}`.trim() || trackedSession.email || 'Unknown')}</td>
+                    <td>${escapeHtml(trackedSession.user_type || '-')}</td>
+                    <td>${escapeHtml(trackedSession.session_type || '-')}</td>
+                    <td>${formatDate(trackedSession.last_activity_at)}</td>
+                    <td>${escapeHtml(trackedSession.ip_address || '-')}</td>
+                    <td>${escapeHtml(trackedSession.device_label || '-')}</td>
+                  </tr>
+                `).join('') : `
+                  <tr><td colspan="6" class="text-center text-muted py-4">No recent active sessions were returned.</td></tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    <div class="card desktop-card mb-4">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-history"></i> My Account Activity
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Category</th>
+                <th>Action</th>
+                <th>Result</th>
+                <th>Source</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${myActivityLogs.length ? myActivityLogs.map((activityLog) => `
+                <tr>
+                  <td>${formatDate(activityLog.created_at)}</td>
+                  <td>${escapeHtml(String(activityLog.event_type || '-').replace(/_/g, ' '))}</td>
+                  <td>${escapeHtml(String(activityLog.action || '-').replace(/_/g, ' '))}</td>
+                  <td>${escapeHtml(String(activityLog.outcome || '-').replace(/_/g, ' '))}</td>
+                  <td>${escapeHtml(String(activityLog.source || '-').toUpperCase())}</td>
+                  <td>${escapeHtml(formatSettingsActivityDetails(activityLog.details || {}))}</td>
+                </tr>
+              `).join('') : `
+                <tr><td colspan="6" class="text-center text-muted py-4">No account activity has been recorded yet.</td></tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    ${isAdmin ? `
+      <div class="card desktop-card mb-4">
+        <div class="card-header desktop-card-header">
+          <i class="fas fa-clipboard-list"></i> Recent System Activity
+        </div>
+        <div class="card-body desktop-card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Actor</th>
+                  <th>Target</th>
+                  <th>Category</th>
+                  <th>Action</th>
+                  <th>Result</th>
+                  <th>Source</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recentActivityLogs.length ? recentActivityLogs.map((activityLog) => `
+                  <tr>
+                    <td>${formatDate(activityLog.created_at)}</td>
+                    <td>${escapeHtml(formatSettingsUserName(activityLog, 'actor'))}</td>
+                    <td>${escapeHtml(formatSettingsUserName(activityLog, 'target'))}</td>
+                    <td>${escapeHtml(String(activityLog.event_type || '-').replace(/_/g, ' '))}</td>
+                    <td>${escapeHtml(String(activityLog.action || '-').replace(/_/g, ' '))}</td>
+                    <td>${escapeHtml(String(activityLog.outcome || '-').replace(/_/g, ' '))}</td>
+                    <td>${escapeHtml(String(activityLog.source || '-').toUpperCase())}</td>
+                    <td>${escapeHtml(formatSettingsActivityDetails(activityLog.details || {}))}</td>
+                  </tr>
+                `).join('') : `
+                  <tr><td colspan="8" class="text-center text-muted py-4">No recent system activity was returned.</td></tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
     <div class="card desktop-card">
       <div class="card-header desktop-card-header">
         <i class="fas fa-shield-alt"></i> Change Password
@@ -2086,7 +2340,7 @@ async function renderRoute(state, session, bridge) {
     }
 
     if (state.currentRoute === 'settings') {
-      contentElement.innerHTML = createSettingsForm();
+      contentElement.innerHTML = createSettingsForm(state);
       bindPasswordForm(session, bridge);
       return;
     }
@@ -2212,6 +2466,7 @@ function resetRouteState(state) {
   state.routePaymentStats = {};
   state.routeRevenueReport = [];
   state.routeRecords = [];
+  state.routeSettingsSummary = {};
   state.routeSecurityDashboard = {};
   state.routeSecurityStats = {};
   state.routeSecurityEvents = [];
@@ -2231,6 +2486,9 @@ function bindProfileForm(state, session, bridge) {
     saveButton.textContent = 'Saving...';
 
     const payload = Object.fromEntries(new FormData(form).entries());
+    const requestedEmail = String(payload.email || '').trim().toLowerCase();
+    const currentEmail = String(state.profile?.email || '').trim().toLowerCase();
+    delete payload.email;
 
     try {
       const response = await performAuthenticatedRequest(
@@ -2246,9 +2504,49 @@ function bindProfileForm(state, session, bridge) {
       );
 
       state.profile = response?.data || state.profile;
+
+      let successMessage = response?.message || 'Profile updated successfully.';
+      if (requestedEmail && requestedEmail !== currentEmail) {
+        const requestResponse = await performAuthenticatedRequest(
+          session,
+          bridge,
+          '/api/auth/change-email/request',
+          {
+            method: 'POST',
+            body: {
+              email: requestedEmail,
+            }
+          }
+        );
+
+        updateInlineStatus(requestResponse?.message || 'Verification code sent to your new email address.', 'success');
+        const otp = await requestOtpCode(requestedEmail, {
+          title: 'Verify new email',
+          iconClass: 'fas fa-envelope-open-text',
+          submitLabel: 'Update Email',
+          message: `Enter the 6-digit code sent to ${requestedEmail}.`
+        });
+
+        const confirmResponse = await performAuthenticatedRequest(
+          session,
+          bridge,
+          '/api/auth/change-email/confirm',
+          {
+            method: 'POST',
+            body: {
+              email: requestedEmail,
+              otp,
+            }
+          }
+        );
+
+        state.profile = confirmResponse?.data || state.profile;
+        successMessage = confirmResponse?.message || 'Profile and email updated successfully.';
+      }
+
       saveSession(session.token, state.profile);
-      updateInlineStatus(response?.message || 'Profile updated successfully.', 'success');
-      setStatus('Profile updated successfully.', 'success');
+      updateInlineStatus(successMessage, 'success');
+      setStatus(successMessage, 'success');
     } catch (error) {
       updateInlineStatus(error.message || 'Failed to update profile.', 'error');
       setStatus(error.message || 'Failed to update profile.', 'error');
@@ -2394,6 +2692,13 @@ async function ensureRouteData(state, session, bridge) {
   if (state.currentRoute === 'earnings' && state.role === 'worker') {
     const earningsResponse = await performAuthenticatedRequest(session, bridge, `/api/payments/worker-earnings/${state.profile.id}`, { method: 'GET' });
     state.earningsData = earningsResponse?.data || { total_earnings: 0, payouts: [] };
+    return;
+  }
+
+  if (state.currentRoute === 'settings') {
+    const settingsResponse = await performAuthenticatedRequest(session, bridge, '/api/auth/settings', { method: 'GET' });
+    state.routeSettingsSummary = settingsResponse?.data || {};
+    state.routeNotice = 'Settings data is loaded from the backend session and activity trackers.';
     return;
   }
 

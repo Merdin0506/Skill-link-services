@@ -17,6 +17,7 @@ class UserModel extends Model
         'first_name',
         'last_name',
         'email',
+        'pending_email',
         'password',
         'phone',
         'address',
@@ -39,6 +40,9 @@ class UserModel extends Model
         'otp',
         'otp_expire',
         'otp_attempts',
+        'email_change_otp',
+        'email_change_otp_expire',
+        'email_change_otp_attempts',
     ];
 
     protected $useTimestamps = true;

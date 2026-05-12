@@ -4,6 +4,7 @@ namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
 use App\Libraries\ActivityLogger;
+use App\Models\ActivityLogModel;
 use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
 use Firebase\JWT\JWT;
@@ -459,6 +460,13 @@ class AuthController extends BaseController
             'address'    => 'max_length[500]',
         ];
 
+        if (($this->request->authUser['user_type'] ?? '') === 'worker') {
+            $rules['service_city'] = 'permit_empty|max_length[120]';
+            $rules['service_radius_km'] = 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]';
+            $rules['work_latitude'] = 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]';
+            $rules['work_longitude'] = 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]';
+        }
+
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
         }
@@ -473,6 +481,10 @@ class AuthController extends BaseController
         if (($this->request->authUser['user_type'] ?? '') === 'worker') {
             $data['skills']           = $this->request->getVar('skills');
             $data['experience_years'] = $this->request->getVar('experience_years');
+            $data['service_city'] = trim((string) ($this->request->getVar('service_city') ?? ''));
+            $data['service_radius_km'] = (float) ($this->request->getVar('service_radius_km') ?: 20);
+            $data['work_latitude'] = $this->request->getVar('work_latitude') ?: null;
+            $data['work_longitude'] = $this->request->getVar('work_longitude') ?: null;
         }
 
         $db = \Config\Database::connect();
@@ -555,6 +567,174 @@ class AuthController extends BaseController
         }
     }
 
+    public function requestEmailChange()
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $currentUser = $this->userModel->find($userId);
+
+        if (! $currentUser) {
+            return $this->failNotFound('User not found');
+        }
+
+        $rules = [
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $newEmail = strtolower(trim((string) $this->request->getVar('email')));
+        $currentEmail = strtolower(trim((string) ($currentUser['email'] ?? '')));
+
+        if ($newEmail === $currentEmail) {
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'That email is already your current email address.',
+                'data' => [
+                    'email' => $currentEmail,
+                ],
+            ]);
+        }
+
+        $existingUser = $this->userModel->where('email', $newEmail)->where('id !=', $userId)->first();
+        if ($existingUser) {
+            return $this->fail('That email address is already in use.');
+        }
+
+        $otp = $this->issueEmailChangeOtpForUser($userId, $newEmail);
+
+        try {
+            if (! $this->sendOtpEmail($newEmail, $otp, 'change_email')) {
+                return $this->failServerError('We could not send the verification code to the new email address.');
+            }
+        } catch (Exception) {
+            return $this->failServerError('We could not send the verification code to the new email address.');
+        }
+
+        $this->activityLogger->record('account', 'email_change_requested', 'success', $userId, $userId, [
+            'pending_email' => $newEmail,
+            'delivery' => 'email_otp',
+        ], 'api', $this->request->authSessionKey ?? null);
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'A verification code has been sent to your new email address.',
+            'data' => [
+                'email' => $newEmail,
+            ],
+        ]);
+    }
+
+    public function confirmEmailChange()
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $currentUser = $this->userModel->find($userId);
+
+        if (! $currentUser) {
+            return $this->failNotFound('User not found');
+        }
+
+        $rules = [
+            'email' => 'required|valid_email',
+            'otp' => 'required|exact_length[6]|numeric',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $pendingEmail = strtolower(trim((string) $this->request->getVar('email')));
+        $otpInput = trim((string) $this->request->getVar('otp'));
+
+        if (strtolower(trim((string) ($currentUser['pending_email'] ?? ''))) !== $pendingEmail) {
+            return $this->fail('No pending email change matches that email address. Please request a new code.');
+        }
+
+        if (((int) ($currentUser['email_change_otp_attempts'] ?? 0)) >= 3) {
+            return $this->fail('Max OTP attempts reached. Please request a new code.');
+        }
+
+        if (! empty($currentUser['email_change_otp_expire']) && strtotime((string) $currentUser['email_change_otp_expire']) < time()) {
+            return $this->fail('OTP has expired. Please request a new code.');
+        }
+
+        if (($currentUser['email_change_otp'] ?? '') !== $otpInput || empty($currentUser['email_change_otp'])) {
+            $newAttempts = ((int) ($currentUser['email_change_otp_attempts'] ?? 0)) + 1;
+            $this->userModel->update($userId, ['email_change_otp_attempts' => $newAttempts]);
+            return $this->fail('Invalid OTP code. Tries left: ' . max(0, 3 - $newAttempts));
+        }
+
+        $existingUser = $this->userModel->where('email', $pendingEmail)->where('id !=', $userId)->first();
+        if ($existingUser) {
+            return $this->fail('That email address is already in use.');
+        }
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->update($userId, [
+                'email' => $pendingEmail,
+                'pending_email' => null,
+                'email_change_otp' => null,
+                'email_change_otp_expire' => null,
+                'email_change_otp_attempts' => 0,
+                'email_verified_at' => date('Y-m-d H:i:s'),
+            ]) === false) {
+                throw new \Exception('Failed to update email address.');
+            }
+
+            $updatedUser = $this->userModel->find($userId);
+            unset($updatedUser['password']);
+
+            $this->activityLogger->record('account', 'email_changed', 'success', $userId, $userId, [
+                'email' => $pendingEmail,
+                'method' => 'email_otp',
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Email updated successfully.',
+                'data' => $updatedUser,
+            ]);
+        } catch (\Exception $e) {
+            $db->transRollback();
+            return $this->fail('Email change failed: ' . $e->getMessage());
+        }
+    }
+
+    public function settings()
+    {
+        $user = $this->request->authUser;
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $role = (string) ($this->request->authUserRole ?? ($user['user_type'] ?? ''));
+        $isAdmin = in_array($role, ['super_admin', 'admin'], true);
+        $activityLogModel = new ActivityLogModel();
+        $sessionKey = (string) ($this->request->authSessionKey ?? '');
+
+        return $this->respond([
+            'status' => 'success',
+            'data' => [
+                'role' => $role,
+                'baseUrl' => base_url(),
+                'environment' => ENVIRONMENT,
+                'currentSession' => $sessionKey !== '' ? $this->sessionTracker->validateTrackedSession($sessionKey) : null,
+                'myActiveSessions' => $this->sessionTracker->getActiveSessionsForUser($userId),
+                'activeSessionCount' => $isAdmin ? $this->sessionTracker->getActiveSessionCount() : null,
+                'recentActiveSessions' => $isAdmin ? $this->sessionTracker->getActiveSessions(10) : [],
+                'myActivityLogs' => $activityLogModel->getRecentForUser($userId, 15),
+                'recentActivityLogs' => $isAdmin ? $activityLogModel->getRecentWithUsers(25) : [],
+            ],
+        ]);
+    }
+
     public function logout()
     {
         $userId = $this->request->authUserId ?? null;
@@ -577,6 +757,21 @@ class AuthController extends BaseController
             'otp' => $otp,
             'otp_expire' => $expire,
             'otp_attempts' => 0,
+        ]);
+
+        return $otp;
+    }
+
+    private function issueEmailChangeOtpForUser(int $userId, string $pendingEmail): string
+    {
+        $otp = sprintf('%06d', mt_rand(0, 999999));
+        $expire = date('Y-m-d H:i:s', strtotime('+5 minutes'));
+
+        $this->userModel->update($userId, [
+            'pending_email' => $pendingEmail,
+            'email_change_otp' => $otp,
+            'email_change_otp_expire' => $expire,
+            'email_change_otp_attempts' => 0,
         ]);
 
         return $otp;
@@ -623,6 +818,7 @@ class AuthController extends BaseController
             'register' => 'Verify your SkillLink account',
             'login' => 'SkillLink login verification code',
             'forgot_password' => 'SkillLink password reset code',
+            'change_email' => 'Verify your new SkillLink email',
             default => 'Your new SkillLink verification code',
         };
         $mail->Body = $this->generateOtpEmailMessage($otp, $recipientEmail, $context);
@@ -670,6 +866,7 @@ class AuthController extends BaseController
         $action = match ($context) {
             'register' => 'verifying a newly created SkillLink account',
             'forgot_password' => 'resetting a SkillLink account password',
+            'change_email' => 'confirming a new email address for SkillLink Services',
             default => 'logging into SkillLink Services',
         };
         $prompt = "Write a very short, professional and welcoming security email for a user with email $email who is $action.
@@ -717,7 +914,9 @@ class AuthController extends BaseController
             ? 'Thanks for creating your SkillLink account.'
             : ($context === 'forgot_password'
                 ? 'We received a request to reset your SkillLink password.'
-                : 'We received a request to verify your SkillLink sign-in.');
+                : ($context === 'change_email'
+                    ? 'We received a request to change the email address on your SkillLink account.'
+                    : 'We received a request to verify your SkillLink sign-in.'));
 
         return "<p>{$intro}</p><p>Your verification code is <b>{$otp}</b>.</p><p>This code expires in 5 minutes.</p>";
     }

@@ -144,6 +144,9 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'permissionapi']], function ($routes) {
     $routes->get('auth/profile', 'AuthController::profile');
     $routes->put('auth/profile', 'AuthController::updateProfile');
+    $routes->post('auth/change-email/request', 'AuthController::requestEmailChange');
+    $routes->post('auth/change-email/confirm', 'AuthController::confirmEmailChange');
+    $routes->get('auth/settings', 'AuthController::settings');
     $routes->post('auth/change-password', 'AuthController::changePassword');
     $routes->post('auth/logout', 'AuthController::logout');
     $routes->get('dashboard/data', 'DashboardController::data');
