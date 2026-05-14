@@ -55,6 +55,21 @@ final class AccessControlPolicyTest extends CIUnitTestCase
         $this->assertFalse($this->policy->isAllowed('customer', 'reviews', 'delete'));
     }
 
+    public function testRecordsPermissionsMatchCrossRoleDesktopAccess(): void
+    {
+        $this->assertTrue($this->policy->isAllowed('finance', 'records', 'read'));
+        $this->assertTrue($this->policy->isAllowed('finance', 'records', 'write'));
+        $this->assertTrue($this->policy->isAllowed('finance', 'records', 'update'));
+        $this->assertFalse($this->policy->isAllowed('finance', 'records', 'delete'));
+
+        $this->assertTrue($this->policy->isAllowed('worker', 'records', 'read'));
+        $this->assertTrue($this->policy->isAllowed('worker', 'records', 'update'));
+        $this->assertFalse($this->policy->isAllowed('worker', 'records', 'write'));
+
+        $this->assertTrue($this->policy->isAllowed('customer', 'records', 'read'));
+        $this->assertFalse($this->policy->isAllowed('customer', 'records', 'update'));
+    }
+
     public function testResourceAliasNormalizationWorks(): void
     {
         $this->assertSame('users', $this->policy->normalizeResource('user'));

@@ -188,6 +188,13 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->post('security/unblock-ip/(:num)', 'SecurityController::unblockIP/$1');
     $routes->get('security/statistics', 'SecurityController::statistics');
     $routes->get('security/report', 'SecurityController::report');
+    $routes->get('security/settings', 'SecurityController::settings');
+    $routes->put('security/settings', 'SecurityController::updateSettings');
+    $routes->get('security/sync/initialize', 'SyncController::initialize');
+    $routes->get('security/sync', 'SyncController::sync');
+    $routes->get('security/sync/poll', 'SyncController::poll');
+    $routes->post('security/sync/refresh', 'SyncController::refresh');
+    $routes->get('security/sync/stats', 'SyncController::stats');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -44,7 +44,8 @@ import {
   bindAdminSecurityView,
   createAdminSecurityView,
   loadAdminSecurityRouteData,
-  getDefaultAdminSecurityFilters
+  getDefaultAdminSecurityFilters,
+  stopAdminSecuritySync
 } from './adminSecurityWorkspace.js';
 import { bindServicesView as bindServicesWorkspaceView, createServicesView as createServicesWorkspaceView, getDefaultServiceFilters } from './servicesWorkspace.js';
 
@@ -585,6 +586,9 @@ function getViewTitle(route, role) {
 
 function createProfileForm(profile) {
   const isWorker = profile.user_type === 'worker';
+  const workerLocationMapUrl = profile.work_latitude && profile.work_longitude
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${profile.work_latitude},${profile.work_longitude}`)}`
+    : (profile.address ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(profile.address)}` : '');
 
   return `
     ${createPageHeading('fas fa-user-circle', 'Profile')}
@@ -637,6 +641,25 @@ function createProfileForm(profile) {
             <div class="field">
               <label for="profile_service_radius_km">Coverage Radius (km)</label>
               <input id="profile_service_radius_km" name="service_radius_km" type="number" min="1" max="500" step="0.1" value="${profile.service_radius_km ?? 20}" />
+            </div>
+            <div class="card desktop-card mb-0">
+              <div class="card-header desktop-card-header">
+                <i class="fas fa-location-dot"></i> Coverage Location
+              </div>
+              <div class="card-body desktop-card-body">
+                <div class="desktop-form-actions">
+                  <button id="profileUseLocationButton" type="button" class="ghost-button">Use Current Location</button>
+                  <a id="profileLocationPreviewLink" href="${workerLocationMapUrl || '#'}" target="_blank" rel="noopener noreferrer" class="ghost-button ${workerLocationMapUrl ? '' : 'hidden'}">Preview on Map</a>
+                  <button id="profileLocationClearButton" type="button" class="ghost-button">Clear Coordinates</button>
+                </div>
+                <div class="desktop-settings-session-grid mt-3">
+                  <div class="desktop-settings-stat desktop-settings-stat-wide">
+                    <span class="desktop-settings-label">Coverage Coordinates</span>
+                    <strong id="profileLocationCoordinates">${profile.work_latitude && profile.work_longitude ? `${profile.work_latitude}, ${profile.work_longitude}` : 'No coordinates captured yet'}</strong>
+                  </div>
+                </div>
+                <p id="profileLocationStatus" class="desktop-table-subtext mb-0">${profile.work_latitude && profile.work_longitude ? 'Current saved coordinates are ready to preview.' : 'Use current location to capture your base coverage point for customer matching.'}</p>
+              </div>
             </div>
             <div class="form-row">
               <div class="field">
@@ -1647,52 +1670,202 @@ function createPaymentsView(state) {
 function createRecordsView(state) {
   const records = state.routeRecords || [];
   const role = String(state.role || '').toLowerCase();
+  const selectedRecord = state.selectedRecord || null;
+  const selectedRecordId = Number(state.selectedRecordId || 0);
   const counterpartHeader = role === 'customer' ? 'Worker' : 'Customer';
+  const canEdit = role === 'worker' && selectedRecord && Number(selectedRecord.provider_id || 0) === Number(state.profile?.id || 0);
 
   return `
     ${createInfoBanner(state.routeNotice || 'Service records help operations track field work, notes, and payment status.')}
-    <div class="card desktop-card">
-      <div class="card-header desktop-card-header">
-        <i class="fas fa-file-invoice"></i> Service Records
+    <div class="desktop-admin-split">
+      <div class="card desktop-card">
+        <div class="card-header desktop-card-header">
+          <i class="fas fa-file-invoice"></i> Service Records
+        </div>
+        <div class="card-body desktop-card-body">
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th>Record</th>
+                  <th>${counterpartHeader}</th>
+                  <th>Status</th>
+                  <th>Payment Status</th>
+                  <th>Total</th>
+                  <th>Scheduled</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${records.length ? records.map((record) => `
+                  <tr class="${selectedRecordId === Number(record.id) ? 'desktop-row-selected' : ''} desktop-clickable-row" data-record-row="true" data-record-id="${record.id}">
+                    <td>
+                      <strong>${escapeHtml(record.payment_ref || `Record #${record.id}`)}</strong>
+                      <div class="desktop-table-subtext">${escapeHtml(record.service_name || `Service record #${record.id}`)}</div>
+                    </td>
+                    <td>${escapeHtml(
+                      role === 'customer'
+                        ? ([record.provider_first_name, record.provider_last_name].filter(Boolean).join(' ') || record.provider_id || 'Not assigned yet')
+                        : ([record.customer_first_name, record.customer_last_name].filter(Boolean).join(' ') || record.customer_id || '-')
+                    )}</td>
+                    <td><span class="badge badge-${record.status || 'pending'}">${escapeHtml(String(record.status || 'pending').replace(/_/g, ' '))}</span></td>
+                    <td><span class="badge bg-secondary">${escapeHtml(String(record.payment_status || 'unpaid').replace(/_/g, ' '))}</span></td>
+                    <td>${formatCurrency(record.total_amount || 0)}</td>
+                    <td>${formatDate(record.scheduled_at || record.created_at)}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="6" class="text-center text-muted py-4">No service records matched your account yet.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-      <div class="card-body desktop-card-body">
-        <div class="table-responsive">
-          <table class="table table-hover">
-            <thead>
-              <tr>
-                <th>Record</th>
-                <th>${counterpartHeader}</th>
-                <th>Status</th>
-                <th>Payment Status</th>
-                <th>Total</th>
-                <th>Scheduled</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${records.length ? records.map((record) => `
-                <tr>
-                  <td><strong>${record.id}</strong></td>
-                  <td>${
-                    role === 'customer'
-                      ? ([record.provider_first_name, record.provider_last_name].filter(Boolean).join(' ') || record.provider_id || 'Not assigned yet')
-                      : ([record.customer_first_name, record.customer_last_name].filter(Boolean).join(' ') || record.customer_id || '-')
-                  }</td>
-                  <td><span class="badge badge-${record.status || 'pending'}">${String(record.status || 'pending').replace(/_/g, ' ')}</span></td>
-                  <td><span class="badge bg-secondary">${String(record.payment_status || 'unpaid').replace(/_/g, ' ')}</span></td>
-                  <td>${formatCurrency(record.total_amount || 0)}</td>
-                  <td>${formatDate(record.scheduled_at || record.created_at)}</td>
-                </tr>
-              `).join('') : `
-                <tr>
-                  <td colspan="6" class="text-center text-muted py-4">No service records matched your account yet.</td>
-                </tr>
+
+      <div class="card desktop-card">
+        <div class="card-header desktop-card-header">
+          <i class="fas fa-circle-info"></i> Record Details
+        </div>
+        <div class="card-body desktop-card-body">
+          ${selectedRecord ? `
+            <h5 class="mb-2">${escapeHtml(selectedRecord.service_name || `Record #${selectedRecord.id}`)}</h5>
+            <p class="text-muted mb-3">${escapeHtml(selectedRecord.payment_ref || `Record #${selectedRecord.id}`)}</p>
+
+            <div class="desktop-insight-grid">
+              <div class="desktop-insight-tile">
+                <span>${counterpartHeader}</span>
+                <strong>${escapeHtml(
+                  role === 'customer'
+                    ? ([selectedRecord.provider_first_name, selectedRecord.provider_last_name].filter(Boolean).join(' ') || selectedRecord.provider_id || 'Not assigned yet')
+                    : ([selectedRecord.customer_first_name, selectedRecord.customer_last_name].filter(Boolean).join(' ') || selectedRecord.customer_id || '-')
+                )}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Status</span>
+                <strong>${escapeHtml(String(selectedRecord.status || 'pending').replace(/_/g, ' '))}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Payment</span>
+                <strong>${escapeHtml(String(selectedRecord.payment_status || 'unpaid').replace(/_/g, ' '))}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Total</span>
+                <strong>${formatCurrency(selectedRecord.total_amount || 0)}</strong>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="text-muted mb-2">Address</h6>
+              <div class="border rounded p-3">${escapeHtml(selectedRecord.address_text || 'No address recorded.')}</div>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="text-muted mb-2">Customer Note</h6>
+              <div class="border rounded p-3">${escapeHtml(selectedRecord.customer_note || 'No customer note recorded.')}</div>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="text-muted mb-2">Worker Note</h6>
+              ${canEdit ? `
+                <form id="recordDetailForm" class="desktop-form-grid">
+                  <input type="hidden" name="id" value="${escapeHtml(selectedRecord.id || '')}" />
+                  <div class="field">
+                    <label for="record_detail_status">Status</label>
+                    <select id="record_detail_status" name="status">
+                      ${['scheduled', 'in_progress', 'completed', 'cancelled'].map((status) => `
+                        <option value="${status}" ${String(selectedRecord.status || '').toLowerCase() === status ? 'selected' : ''}>${status.replace(/_/g, ' ')}</option>
+                      `).join('')}
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="record_detail_provider_note">Progress Note</label>
+                    <textarea id="record_detail_provider_note" name="provider_note">${escapeHtml(selectedRecord.provider_note || '')}</textarea>
+                  </div>
+                  <div class="desktop-form-actions">
+                    <button id="recordDetailSaveButton" type="submit" class="action-button">Save Progress</button>
+                  </div>
+                </form>
+              ` : `
+                <div class="border rounded p-3">${escapeHtml(selectedRecord.provider_note || 'No worker note recorded.')}</div>
               `}
-            </tbody>
-          </table>
+            </div>
+
+            <div class="mt-4">
+              <h6 class="text-muted mb-2">Timeline</h6>
+              <div class="desktop-table-subtext">Scheduled ${escapeHtml(formatDate(selectedRecord.scheduled_at || selectedRecord.created_at))}</div>
+              <div class="desktop-table-subtext">Last updated ${escapeHtml(formatDate(selectedRecord.updated_at || selectedRecord.created_at))}</div>
+            </div>
+          ` : `
+            <div class="chart-placeholder desktop-placeholder-card">
+              <div>
+                <h5 class="mb-2">Select a record</h5>
+                <p class="mb-0 text-muted">Choose a service record to review service details, notes, and schedule updates.</p>
+              </div>
+            </div>
+          `}
         </div>
       </div>
     </div>
   `;
+}
+
+function bindRecordsView(state, session, bridge) {
+  const contentElement = getElementById('desktopContentArea');
+  if (!contentElement) {
+    return;
+  }
+
+  contentElement.querySelectorAll('[data-record-row]').forEach((row) => {
+    row.addEventListener('click', async () => {
+      const recordId = Number(row.getAttribute('data-record-id') || 0);
+      if (!recordId) {
+        return;
+      }
+
+      state.selectedRecordId = recordId;
+      state.selectedRecord = (state.routeRecords || []).find((record) => Number(record.id) === recordId) || null;
+      await renderRoute(state, session, bridge);
+    });
+  });
+
+  const detailForm = getElementById('recordDetailForm');
+  const saveButton = getElementById('recordDetailSaveButton');
+  if (!detailForm || !saveButton) {
+    return;
+  }
+
+  detailForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(detailForm).entries());
+    const recordId = Number(payload.id || 0);
+    delete payload.id;
+
+    if (!recordId) {
+      updateInlineStatus('Unable to save this record because the record ID is missing.', 'error');
+      return;
+    }
+
+    saveButton.disabled = true;
+    saveButton.textContent = 'Saving...';
+
+    try {
+      const response = await performAuthenticatedRequest(session, bridge, `/api/records/${recordId}`, {
+        method: 'PUT',
+        body: payload
+      });
+
+      updateInlineStatus(response?.message || 'Record progress saved successfully.', 'success');
+      setStatus(response?.message || 'Record progress saved successfully.', 'success');
+      await renderRoute(state, session, bridge);
+    } catch (error) {
+      updateInlineStatus(error.message || 'Failed to save this record.', 'error');
+      setStatus(error.message || 'Failed to save this record.', 'error');
+    } finally {
+      saveButton.disabled = false;
+      saveButton.textContent = 'Save Progress';
+    }
+  });
 }
 
 function createPendingWorkersEmptyPanel() {
@@ -1863,6 +2036,13 @@ function createPendingWorkersView(state) {
 function getBookingActionButtons(booking, role, route) {
   const status = String(booking.status || '');
   const actions = [];
+  const mapQuery = booking.latitude && booking.longitude
+    ? `${booking.latitude},${booking.longitude}`
+    : String(booking.location_address || '').trim();
+
+  if (mapQuery) {
+    actions.push(`<button type="button" class="ghost-button table-action" data-booking-action="map" data-booking-map-query="${escapeHtml(mapQuery)}">Map</button>`);
+  }
 
   if (role === 'worker' && route === 'available-jobs' && status === 'pending') {
     actions.push(`<button type="button" class="ghost-button table-action" data-booking-action="accept" data-booking-id="${booking.id}">Accept</button>`);
@@ -2643,6 +2823,8 @@ async function renderRoute(state, session, bridge) {
       return;
     }
 
+    stopAdminSecuritySync(state);
+
     if (state.currentRoute === 'records') {
       if (['admin', 'super_admin', 'finance'].includes(state.role)) {
         contentElement.innerHTML = createAdminRecordsView(state, {
@@ -2671,6 +2853,7 @@ async function renderRoute(state, session, bridge) {
         });
       } else {
         contentElement.innerHTML = createRecordsView(state);
+        bindRecordsView(state, session, bridge);
       }
       updateInlineStatus('', null);
       return;
@@ -2752,12 +2935,15 @@ function resetRouteState(state) {
   state.routeRevenueReport = [];
   state.routeRecords = [];
   state.selectedAdminRecord = null;
+  state.selectedRecord = null;
   state.routeSettingsSummary = {};
   state.routeSecurityDashboard = {};
   state.routeSecurityStats = {};
   state.routeSecurityEvents = [];
   state.routeSecurityNotifications = [];
   state.routeBlockedIps = [];
+  state.routeSecuritySettings = {};
+  state.routeSecuritySyncMeta = {};
 }
 
 function bindProfileForm(state, session, bridge) {
@@ -2766,6 +2952,87 @@ function bindProfileForm(state, session, bridge) {
   if (!form || !saveButton) {
     return;
   }
+
+  const workerLocationButton = getElementById('profileUseLocationButton');
+  const workerLocationPreviewLink = getElementById('profileLocationPreviewLink');
+  const workerLocationClearButton = getElementById('profileLocationClearButton');
+  const workerLatitudeField = getElementById('profile_work_latitude');
+  const workerLongitudeField = getElementById('profile_work_longitude');
+  const workerAddressField = getElementById('profile_address');
+  const workerLocationCoordinates = getElementById('profileLocationCoordinates');
+  const workerLocationStatus = getElementById('profileLocationStatus');
+
+  const updateWorkerLocationPreview = () => {
+    const latitude = String(workerLatitudeField?.value || '').trim();
+    const longitude = String(workerLongitudeField?.value || '').trim();
+    const address = String(workerAddressField?.value || '').trim();
+    const query = latitude && longitude ? `${latitude},${longitude}` : address;
+    const mapUrl = query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : '';
+
+    if (workerLocationPreviewLink) {
+      workerLocationPreviewLink.href = mapUrl || '#';
+      workerLocationPreviewLink.classList.toggle('hidden', !mapUrl);
+    }
+
+    if (workerLocationCoordinates) {
+      workerLocationCoordinates.textContent = latitude && longitude ? `${latitude}, ${longitude}` : 'No coordinates captured yet';
+    }
+  };
+
+  updateWorkerLocationPreview();
+  workerLatitudeField?.addEventListener('input', updateWorkerLocationPreview);
+  workerLongitudeField?.addEventListener('input', updateWorkerLocationPreview);
+  workerAddressField?.addEventListener('input', updateWorkerLocationPreview);
+
+  workerLocationButton?.addEventListener('click', async () => {
+    if (!navigator.geolocation) {
+      if (workerLocationStatus) {
+        workerLocationStatus.textContent = 'This device does not support location access. Enter your coordinates manually instead.';
+      }
+      return;
+    }
+
+    workerLocationButton.disabled = true;
+    workerLocationButton.textContent = 'Locating...';
+
+    navigator.geolocation.getCurrentPosition((position) => {
+      if (workerLatitudeField) {
+        workerLatitudeField.value = position.coords.latitude.toFixed(8);
+      }
+      if (workerLongitudeField) {
+        workerLongitudeField.value = position.coords.longitude.toFixed(8);
+      }
+      if (workerLocationStatus) {
+        workerLocationStatus.textContent = 'Current location captured. Save your profile to keep this coverage point.';
+      }
+      updateWorkerLocationPreview();
+      workerLocationButton.disabled = false;
+      workerLocationButton.textContent = 'Use Current Location';
+    }, () => {
+      if (workerLocationStatus) {
+        workerLocationStatus.textContent = 'Location access was denied. You can still enter the coordinates manually.';
+      }
+      workerLocationButton.disabled = false;
+      workerLocationButton.textContent = 'Use Current Location';
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    });
+  });
+
+  workerLocationClearButton?.addEventListener('click', () => {
+    if (workerLatitudeField) {
+      workerLatitudeField.value = '';
+    }
+    if (workerLongitudeField) {
+      workerLongitudeField.value = '';
+    }
+    if (workerLocationStatus) {
+      workerLocationStatus.textContent = 'Coordinates cleared. You can capture them again at any time.';
+    }
+    updateWorkerLocationPreview();
+  });
 
   form.onsubmit = async (event) => {
     event.preventDefault();
@@ -2905,6 +3172,7 @@ function bindSidebarNavigation(state, session, bridge) {
       return;
     }
 
+    stopAdminSecuritySync(state);
     state.currentRoute = route;
     setActiveNav(route);
     await renderRoute(state, session, bridge);
@@ -3121,11 +3389,28 @@ async function ensureRouteData(state, session, bridge) {
     try {
       const recordsResponse = await performAuthenticatedRequest(session, bridge, '/api/records?limit=50', { method: 'GET' });
       state.routeRecords = recordsResponse?.data || [];
+      const selectedRecordId = Number(state.selectedRecordId || 0);
+      const selectedFromList = state.routeRecords.find((record) => Number(record.id) === selectedRecordId)
+        || state.routeRecords[0]
+        || null;
+      state.selectedRecordId = selectedFromList ? Number(selectedFromList.id) : null;
+      if (selectedFromList) {
+        try {
+          const detailResponse = await performAuthenticatedRequest(session, bridge, `/api/records/${selectedFromList.id}`, { method: 'GET' });
+          state.selectedRecord = detailResponse?.data || selectedFromList;
+        } catch {
+          state.selectedRecord = selectedFromList;
+        }
+      } else {
+        state.selectedRecord = null;
+      }
       state.routeNotice = state.role === 'customer'
         ? 'Track the service records tied to your bookings here.'
         : 'Track the service records assigned to your field work here.';
     } catch (error) {
       state.routeRecords = [];
+      state.selectedRecordId = null;
+      state.selectedRecord = null;
       state.routeNotice = error.message || 'Service records are not available in the desktop flow yet.';
     }
   }
@@ -3158,6 +3443,14 @@ function bindBookingsView(state, session, bridge) {
         if (panel) {
           panel.innerHTML = createReviewForm(bookingId, workerId);
           bindReviewForm(state, session, bridge);
+        }
+        return;
+      }
+
+      if (action === 'map') {
+        const mapQuery = String(button.getAttribute('data-booking-map-query') || '').trim();
+        if (mapQuery) {
+          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`, '_blank', 'noopener');
         }
         return;
       }
@@ -3857,6 +4150,8 @@ export async function renderDashboardView(session = getSession()) {
       adminRecordFilters: getDefaultAdminRecordFilters(),
       selectedAdminRecordId: null,
       selectedAdminRecord: null,
+      selectedRecordId: null,
+      selectedRecord: null,
       selectedAdminBookingId: null,
       selectedAdminBooking: null,
       selectedAdminBookingWorkers: [],
@@ -3866,13 +4161,19 @@ export async function renderDashboardView(session = getSession()) {
       userEditorMode: 'idle',
       selectedUserId: null,
       selectedUser: null,
-      userDetailsById: {}
+      userDetailsById: {},
+      securitySyncTimer: null,
+      routeSecurityLastSync: null,
+      routeSecuritySyncMeta: {},
+      routeSecuritySettings: {}
     };
 
     const performLogout = async (event) => {
       if (event) {
         event.preventDefault();
       }
+
+      stopAdminSecuritySync(state);
 
       try {
         await performAuthenticatedRequest(

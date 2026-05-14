@@ -7,6 +7,7 @@ use App\Controllers\SecurityController as BaseSecurityController;
 use App\Models\SecurityEventModel;
 use App\Models\SecurityNotificationModel;
 use App\Models\BlockedIPModel;
+use App\Models\SecuritySettingModel;
 use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
 
@@ -18,6 +19,7 @@ class SecurityController extends BaseController
     protected $securityEventModel;
     protected $securityNotificationModel;
     protected $blockedIPModel;
+    protected $securitySettingModel;
     protected $userModel;
     
     public function __construct()
@@ -26,6 +28,7 @@ class SecurityController extends BaseController
         $this->securityEventModel = new SecurityEventModel();
         $this->securityNotificationModel = new SecurityNotificationModel();
         $this->blockedIPModel = new BlockedIPModel();
+        $this->securitySettingModel = new SecuritySettingModel();
         $this->userModel = new UserModel();
     }
     
@@ -355,6 +358,25 @@ class SecurityController extends BaseController
         return $this->respond([
             'status' => 'success',
             'data' => $report
+        ]);
+    }
+
+    public function settings()
+    {
+        return $this->respond([
+            'status' => 'success',
+            'data' => $this->securitySettingModel->getSettings(),
+        ]);
+    }
+
+    public function updateSettings()
+    {
+        $settings = $this->securitySettingModel->saveSettings((array) ($this->request->getJSON(true) ?: $this->request->getRawInput() ?: []));
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'Security settings updated successfully.',
+            'data' => $settings,
         ]);
     }
 

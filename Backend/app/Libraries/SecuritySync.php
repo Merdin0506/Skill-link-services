@@ -91,11 +91,9 @@ class SecuritySync
      */
     public function hasNewEvents($sinceTimestamp)
     {
-        $newEvents = $this->db->table('security_events')
-            ->where('UNIX_TIMESTAMP(created_at) >', $sinceTimestamp)
-            ->countAllResults();
-            
-        return $newEvents > 0;
+        return $this->getSecurityEventsCountSince($sinceTimestamp) > 0
+            || $this->getSecurityNotificationsCountSince($sinceTimestamp) > 0
+            || $this->getBlockedIpCountSince($sinceTimestamp) > 0;
     }
     
     /**
@@ -114,7 +112,38 @@ class SecuritySync
                 ->orderBy('created_at', 'DESC')
                 ->get()
                 ->getResultArray(),
-            'updated_stats' => $this->getCurrentStatistics()
+            'blocked_ips' => $this->db->table('blocked_ips')
+                ->where('UNIX_TIMESTAMP(updated_at) >', $sinceTimestamp)
+                ->orWhere('UNIX_TIMESTAMP(created_at) >', $sinceTimestamp)
+                ->orderBy('updated_at', 'DESC')
+                ->get()
+                ->getResultArray(),
+            'updated_stats' => $this->getCurrentStatistics(),
+            'snapshot' => $this->getRealtimeData(),
         ];
+    }
+
+    private function getSecurityEventsCountSince($sinceTimestamp)
+    {
+        return $this->db->table('security_events')
+            ->where('UNIX_TIMESTAMP(created_at) >', $sinceTimestamp)
+            ->countAllResults();
+    }
+
+    private function getSecurityNotificationsCountSince($sinceTimestamp)
+    {
+        return $this->db->table('security_notifications')
+            ->where('UNIX_TIMESTAMP(created_at) >', $sinceTimestamp)
+            ->countAllResults();
+    }
+
+    private function getBlockedIpCountSince($sinceTimestamp)
+    {
+        return $this->db->table('blocked_ips')
+            ->groupStart()
+            ->where('UNIX_TIMESTAMP(created_at) >', $sinceTimestamp)
+            ->orWhere('UNIX_TIMESTAMP(updated_at) >', $sinceTimestamp)
+            ->groupEnd()
+            ->countAllResults();
     }
 }

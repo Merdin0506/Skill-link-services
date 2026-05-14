@@ -85,7 +85,27 @@ class BlockedIPModel extends Model
         
         return $builder->orderBy('created_at', 'DESC')->get()->getResultArray();
     }
-    
+
+    public function getActiveBlockedIPs($limit = 100)
+    {
+        return $this->where('is_active', true)
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->findAll();
+    }
+
+    public function searchBlockedIPs($search, $limit = 100)
+    {
+        return $this->groupStart()
+            ->like('ip_address', $search)
+            ->orLike('reason', $search)
+            ->groupEnd()
+            ->where('is_active', true)
+            ->orderBy('created_at', 'DESC')
+            ->limit($limit)
+            ->findAll();
+    }
+
     /**
      * Record an attempt for an IP
      */
@@ -99,5 +119,10 @@ class BlockedIPModel extends Model
                 'last_attempt' => date('Y-m-d H:i:s'),
             ]);
         }
+    }
+
+    public function unblockIPById($id)
+    {
+        return $this->update($id, ['is_active' => false]);
     }
 }

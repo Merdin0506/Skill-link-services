@@ -6,6 +6,52 @@ export function getDefaultServiceFilters(role) {
   };
 }
 
+function buildMapQuery(latitude, longitude, address) {
+  const lat = String(latitude || '').trim();
+  const lng = String(longitude || '').trim();
+  const text = String(address || '').trim();
+
+  if (lat && lng) {
+    return `${lat},${lng}`;
+  }
+
+  return text;
+}
+
+function buildMapUrl(latitude, longitude, address) {
+  const query = buildMapQuery(latitude, longitude, address);
+  return query ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}` : '';
+}
+
+function updateBookingMapPreview() {
+  const addressField = getElementById('booking_location_address');
+  const latitudeField = getElementById('booking_latitude');
+  const longitudeField = getElementById('booking_longitude');
+  const previewLink = getElementById('bookingLocationPreviewLink');
+  const statusField = getElementById('bookingLocationStatus');
+  const coordinatesLabel = getElementById('bookingCoordinatesValue');
+
+  const address = addressField?.value || '';
+  const latitude = latitudeField?.value || '';
+  const longitude = longitudeField?.value || '';
+  const mapUrl = buildMapUrl(latitude, longitude, address);
+
+  if (previewLink) {
+    previewLink.href = mapUrl || '#';
+    previewLink.classList.toggle('hidden', !mapUrl);
+  }
+
+  if (coordinatesLabel) {
+    coordinatesLabel.textContent = latitude && longitude ? `${latitude}, ${longitude}` : 'No coordinates captured yet';
+  }
+
+  if (statusField && !statusField.dataset.lockedMessage) {
+    statusField.textContent = latitude && longitude
+      ? 'Location coordinates captured. You can preview or update them before booking.'
+      : 'Use current location to capture coordinates, or keep the typed address only.';
+  }
+}
+
 function getCategories(state) {
   return Array.isArray(state.serviceCategories)
     ? state.serviceCategories
@@ -176,6 +222,27 @@ function createCustomerServicesView(state, helpers) {
           <div class="field">
             <label for="booking_location_address">Location Address</label>
             <textarea id="booking_location_address" name="location_address" required>${state.profile.address || ''}</textarea>
+          </div>
+          <input id="booking_latitude" name="latitude" type="hidden" value="" />
+          <input id="booking_longitude" name="longitude" type="hidden" value="" />
+          <div class="card desktop-card mb-0">
+            <div class="card-header desktop-card-header">
+              <i class="fas fa-location-crosshairs"></i> Location Tools
+            </div>
+            <div class="card-body desktop-card-body">
+              <div class="desktop-form-actions">
+                <button id="bookingUseLocationButton" type="button" class="ghost-button">Use Current Location</button>
+                <a id="bookingLocationPreviewLink" href="#" target="_blank" rel="noopener noreferrer" class="ghost-button hidden">Preview on Map</a>
+                <button id="bookingClearLocationButton" type="button" class="ghost-button">Clear Coordinates</button>
+              </div>
+              <div class="desktop-settings-session-grid mt-3">
+                <div class="desktop-settings-stat desktop-settings-stat-wide">
+                  <span class="desktop-settings-label">Captured Coordinates</span>
+                  <strong id="bookingCoordinatesValue">No coordinates captured yet</strong>
+                </div>
+              </div>
+              <p id="bookingLocationStatus" class="desktop-table-subtext mb-0">Use current location to capture coordinates, or keep the typed address only.</p>
+            </div>
           </div>
           <div class="form-row">
             <div class="field">
@@ -601,6 +668,75 @@ export function bindServicesView(state, session, bridge, actions) {
   if (isAdmin || !bookingForm || !bookingSubmitButton) {
     return;
   }
+
+  const bookingAddressField = getElementById('booking_location_address');
+  const bookingLatitudeField = getElementById('booking_latitude');
+  const bookingLongitudeField = getElementById('booking_longitude');
+  const bookingLocationStatus = getElementById('bookingLocationStatus');
+  const bookingUseLocationButton = getElementById('bookingUseLocationButton');
+  const bookingClearLocationButton = getElementById('bookingClearLocationButton');
+
+  updateBookingMapPreview();
+
+  bookingAddressField?.addEventListener('input', () => {
+    if (bookingLocationStatus) {
+      delete bookingLocationStatus.dataset.lockedMessage;
+    }
+    updateBookingMapPreview();
+  });
+
+  bookingUseLocationButton?.addEventListener('click', async () => {
+    if (!navigator.geolocation) {
+      if (bookingLocationStatus) {
+        bookingLocationStatus.dataset.lockedMessage = '1';
+        bookingLocationStatus.textContent = 'This device does not support location access. Please enter the address manually.';
+      }
+      return;
+    }
+
+    bookingUseLocationButton.disabled = true;
+    bookingUseLocationButton.textContent = 'Locating...';
+
+    navigator.geolocation.getCurrentPosition((position) => {
+      if (bookingLatitudeField) {
+        bookingLatitudeField.value = position.coords.latitude.toFixed(8);
+      }
+      if (bookingLongitudeField) {
+        bookingLongitudeField.value = position.coords.longitude.toFixed(8);
+      }
+      if (bookingLocationStatus) {
+        bookingLocationStatus.dataset.lockedMessage = '1';
+        bookingLocationStatus.textContent = 'Current location captured. Review the address and preview it on the map if needed.';
+      }
+      updateBookingMapPreview();
+      bookingUseLocationButton.disabled = false;
+      bookingUseLocationButton.textContent = 'Use Current Location';
+    }, () => {
+      if (bookingLocationStatus) {
+        bookingLocationStatus.dataset.lockedMessage = '1';
+        bookingLocationStatus.textContent = 'Location access was denied. You can still continue with a typed address.';
+      }
+      bookingUseLocationButton.disabled = false;
+      bookingUseLocationButton.textContent = 'Use Current Location';
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    });
+  });
+
+  bookingClearLocationButton?.addEventListener('click', () => {
+    if (bookingLatitudeField) {
+      bookingLatitudeField.value = '';
+    }
+    if (bookingLongitudeField) {
+      bookingLongitudeField.value = '';
+    }
+    if (bookingLocationStatus) {
+      delete bookingLocationStatus.dataset.lockedMessage;
+    }
+    updateBookingMapPreview();
+  });
 
   bookingForm.onsubmit = async (event) => {
     event.preventDefault();

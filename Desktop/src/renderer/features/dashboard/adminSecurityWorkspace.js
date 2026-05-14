@@ -37,6 +37,48 @@ export function getDefaultAdminSecurityFilters() {
   };
 }
 
+function getSecuritySyncMeta(state) {
+  return state.routeSecuritySyncMeta || {};
+}
+
+function applySecuritySyncSnapshot(state, snapshot = {}) {
+  if (Array.isArray(snapshot.security_events)) {
+    state.routeSecurityEvents = snapshot.security_events;
+  }
+
+  if (Array.isArray(snapshot.notifications)) {
+    state.routeSecurityNotifications = snapshot.notifications;
+  }
+
+  if (Array.isArray(snapshot.blocked_ips)) {
+    state.routeBlockedIps = snapshot.blocked_ips;
+  }
+
+  if (snapshot.statistics && typeof snapshot.statistics === 'object') {
+    state.routeSecurityStats = {
+      ...(state.routeSecurityStats || {}),
+      sync_statistics: snapshot.statistics
+    };
+  }
+
+  const timestamp = Number(snapshot.timestamp || 0);
+  if (timestamp) {
+    state.routeSecurityLastSync = timestamp;
+    state.routeSecuritySyncMeta = {
+      ...(state.routeSecuritySyncMeta || {}),
+      lastSync: timestamp,
+      status: 'connected'
+    };
+  }
+}
+
+function stopAdminSecuritySync(state) {
+  if (state.securitySyncTimer) {
+    window.clearInterval(state.securitySyncTimer);
+    state.securitySyncTimer = null;
+  }
+}
+
 export function createAdminSecurityView(state, helpers) {
   const {
     createInfoBanner,
@@ -61,6 +103,10 @@ export function createAdminSecurityView(state, helpers) {
   const notificationStats = stats.notification_stats || {};
   const dashboardSummary = dashboard.summary || {};
   const eventTypes = getSecurityEventTypeOptions(events);
+  const securitySettings = state.routeSecuritySettings || {};
+  const syncMeta = getSecuritySyncMeta(state);
+  const syncStatistics = stats.sync_statistics || {};
+  const lastSyncText = syncMeta.lastSync ? formatDate(syncMeta.lastSync * 1000) : 'Not synced yet';
 
   return `
     ${createPageHeading('fas fa-shield-alt', 'Security Center')}
@@ -73,6 +119,83 @@ export function createAdminSecurityView(state, helpers) {
       { icon: 'fas fa-bell', value: notificationStats.unread ?? alerts.length, label: 'Unread Alerts', tone: 'warning' },
       { icon: 'fas fa-check-circle', value: dashboardSummary.successful_logins ?? eventStats.login_success ?? 0, label: 'Successful Logins', tone: 'success' }
     ])}
+
+    <div class="row">
+      <div class="col-xl-5">
+        <div class="card desktop-card mb-4">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-rotate"></i> Live Sync
+          </div>
+          <div class="card-body desktop-card-body">
+            <div class="desktop-insight-grid">
+              <div class="desktop-insight-tile">
+                <span>Connection</span>
+                <strong>${escapeHtml(syncMeta.status || 'connected')}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Last Sync</span>
+                <strong>${escapeHtml(lastSyncText)}</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Polling Interval</span>
+                <strong>${escapeHtml(String(securitySettings.sync_poll_seconds || 20))}s</strong>
+              </div>
+              <div class="desktop-insight-tile">
+                <span>Unread Alerts</span>
+                <strong>${escapeHtml(String(syncStatistics.unread_notifications ?? notificationStats.unread ?? 0))}</strong>
+              </div>
+            </div>
+            <p class="desktop-table-subtext mt-3 mb-0">This screen polls the backend security sync endpoint while you keep the Security Center open.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-7">
+        <div class="card desktop-card mb-4">
+          <div class="card-header desktop-card-header">
+            <i class="fas fa-cog"></i> Security Settings
+          </div>
+          <div class="card-body desktop-card-body">
+            <form id="adminSecuritySettingsForm" class="desktop-form-grid">
+              <div class="form-row">
+                <div class="field">
+                  <label for="adminSecurityThreshold">Brute Force Threshold</label>
+                  <input id="adminSecurityThreshold" name="brute_force_threshold" type="number" min="1" max="20" value="${escapeHtml(securitySettings.brute_force_threshold ?? 5)}" />
+                </div>
+                <div class="field">
+                  <label for="adminSecurityDuration">Block Duration (minutes)</label>
+                  <input id="adminSecurityDuration" name="block_duration_minutes" type="number" min="5" max="10080" value="${escapeHtml(securitySettings.block_duration_minutes ?? 30)}" />
+                </div>
+              </div>
+              <div class="field">
+                <label for="adminSecurityPollSeconds">Sync Polling Interval (seconds)</label>
+                <input id="adminSecurityPollSeconds" name="sync_poll_seconds" type="number" min="10" max="300" value="${escapeHtml(securitySettings.sync_poll_seconds ?? 20)}" />
+              </div>
+              <div class="desktop-settings-session-grid">
+                <label class="d-flex align-items-center gap-2 mb-0">
+                  <input name="auto_block_enabled" type="checkbox" ${securitySettings.auto_block_enabled ? 'checked' : ''} />
+                  Auto-block repeated offenders
+                </label>
+                <label class="d-flex align-items-center gap-2 mb-0">
+                  <input name="notify_on_failed_login" type="checkbox" ${securitySettings.notify_on_failed_login ? 'checked' : ''} />
+                  Alert on failed logins
+                </label>
+                <label class="d-flex align-items-center gap-2 mb-0">
+                  <input name="notify_on_blocked_ip" type="checkbox" ${securitySettings.notify_on_blocked_ip ? 'checked' : ''} />
+                  Alert when IPs are blocked
+                </label>
+                <label class="d-flex align-items-center gap-2 mb-0">
+                  <input name="notify_on_suspicious_activity" type="checkbox" ${securitySettings.notify_on_suspicious_activity ? 'checked' : ''} />
+                  Alert on suspicious activity
+                </label>
+              </div>
+              <div class="desktop-form-actions">
+                <button id="adminSecuritySettingsSave" type="submit" class="action-button">Save Settings</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="card desktop-card mb-4">
       <div class="card-header desktop-card-header">
@@ -318,12 +441,14 @@ export async function loadAdminSecurityRouteData(state, session, bridge, perform
     notificationQuery.set('unread', 'true');
   }
 
-  const [dashboardResponse, eventsResponse, blockedResponse, statisticsResponse, notificationsResponse] = await Promise.all([
+  const [dashboardResponse, eventsResponse, blockedResponse, statisticsResponse, notificationsResponse, settingsResponse, syncResponse] = await Promise.all([
     performAuthenticatedRequest(session, bridge, '/api/security/dashboard', { method: 'GET' }),
     performAuthenticatedRequest(session, bridge, `/api/security/events?${eventQuery.toString()}`, { method: 'GET' }).catch(() => ({ data: { events: [] } })),
     performAuthenticatedRequest(session, bridge, `/api/security/blocked-ips?${blockedQuery.toString()}`, { method: 'GET' }).catch(() => ({ data: { blocked_ips: [] } })),
     performAuthenticatedRequest(session, bridge, '/api/security/statistics', { method: 'GET' }).catch(() => ({ data: {} })),
-    performAuthenticatedRequest(session, bridge, `/api/security/notifications?${notificationQuery.toString()}`, { method: 'GET' }).catch(() => ({ data: { notifications: [] } }))
+    performAuthenticatedRequest(session, bridge, `/api/security/notifications?${notificationQuery.toString()}`, { method: 'GET' }).catch(() => ({ data: { notifications: [] } })),
+    performAuthenticatedRequest(session, bridge, '/api/security/settings', { method: 'GET' }).catch(() => ({ data: {} })),
+    performAuthenticatedRequest(session, bridge, '/api/security/sync/initialize', { method: 'GET' }).catch(() => ({ data: {}, timestamp: 0 }))
   ]);
 
   state.routeSecurityDashboard = dashboardResponse?.data || {};
@@ -331,6 +456,12 @@ export async function loadAdminSecurityRouteData(state, session, bridge, perform
   state.routeBlockedIps = blockedResponse?.data?.blocked_ips || [];
   state.routeSecurityStats = statisticsResponse?.data || {};
   state.routeSecurityNotifications = notificationsResponse?.data?.notifications || [];
+  state.routeSecuritySettings = settingsResponse?.data || {};
+  state.routeSecuritySyncMeta = {
+    status: 'connected',
+    lastSync: Number(syncResponse?.timestamp || syncResponse?.data?.timestamp || 0) || null
+  };
+  state.routeSecurityLastSync = Number(syncResponse?.timestamp || syncResponse?.data?.timestamp || 0) || state.routeSecurityLastSync || null;
   state.routeNotice = 'Security activity is live from the backend APIs. Use the actions below when something needs intervention.';
 }
 
@@ -348,6 +479,7 @@ export function bindAdminSecurityView(state, session, bridge, tools) {
   const exportButton = getElementById('adminSecurityExportReport');
   const markAllReadButton = getElementById('adminSecurityMarkAllRead');
   const blockForm = getElementById('adminSecurityBlockForm');
+  const settingsForm = getElementById('adminSecuritySettingsForm');
 
   filterForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -371,9 +503,55 @@ export function bindAdminSecurityView(state, session, bridge, tools) {
   });
 
   refreshButton?.addEventListener('click', async () => {
-    await renderRoute(state, session, bridge);
+    try {
+      const response = await performAuthenticatedRequest(session, bridge, '/api/security/sync/refresh', { method: 'POST' });
+      applySecuritySyncSnapshot(state, response?.data || {});
+      await renderRoute(state, session, bridge);
+    } catch {
+      await renderRoute(state, session, bridge);
+    }
     updateInlineStatus('Security data refreshed successfully.', 'success');
     setStatus('Security data refreshed successfully.', 'success');
+  });
+
+  settingsForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submitButton = getElementById('adminSecuritySettingsSave');
+    const formData = new FormData(settingsForm);
+    const payload = {
+      brute_force_threshold: Number(formData.get('brute_force_threshold') || 5),
+      block_duration_minutes: Number(formData.get('block_duration_minutes') || 30),
+      sync_poll_seconds: Number(formData.get('sync_poll_seconds') || 20),
+      auto_block_enabled: formData.get('auto_block_enabled') === 'on',
+      notify_on_failed_login: formData.get('notify_on_failed_login') === 'on',
+      notify_on_blocked_ip: formData.get('notify_on_blocked_ip') === 'on',
+      notify_on_suspicious_activity: formData.get('notify_on_suspicious_activity') === 'on',
+    };
+
+    try {
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Saving...';
+      }
+
+      const response = await performAuthenticatedRequest(session, bridge, '/api/security/settings', {
+        method: 'PUT',
+        body: payload
+      });
+
+      state.routeSecuritySettings = response?.data || payload;
+      updateInlineStatus(response?.message || 'Security settings updated successfully.', 'success');
+      setStatus(response?.message || 'Security settings updated successfully.', 'success');
+      await renderRoute(state, session, bridge);
+    } catch (error) {
+      updateInlineStatus(error.message || 'Failed to update security settings.', 'error');
+      setStatus(error.message || 'Failed to update security settings.', 'error');
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Save Settings';
+      }
+    }
   });
 
   exportButton?.addEventListener('click', async () => {
@@ -507,4 +685,35 @@ export function bindAdminSecurityView(state, session, bridge, tools) {
       }
     }
   });
+
+  stopAdminSecuritySync(state);
+  const pollSeconds = Math.max(10, Number(state.routeSecuritySettings?.sync_poll_seconds || 20));
+  state.securitySyncTimer = window.setInterval(async () => {
+    if (state.currentRoute !== 'security') {
+      stopAdminSecuritySync(state);
+      return;
+    }
+
+    try {
+      const lastSync = Number(state.routeSecurityLastSync || 0);
+      const response = await performAuthenticatedRequest(session, bridge, `/api/security/sync?last_sync=${encodeURIComponent(String(lastSync))}`, { method: 'GET' });
+      state.routeSecuritySyncMeta = {
+        ...(state.routeSecuritySyncMeta || {}),
+        status: 'connected',
+        lastSync: Number(response?.timestamp || state.routeSecurityLastSync || 0) || null
+      };
+
+      if (response?.status === 'updated') {
+        applySecuritySyncSnapshot(state, response?.data?.snapshot || response?.data || {});
+        await renderRoute(state, session, bridge);
+      }
+    } catch {
+      state.routeSecuritySyncMeta = {
+        ...(state.routeSecuritySyncMeta || {}),
+        status: 'reconnecting'
+      };
+    }
+  }, pollSeconds * 1000);
 }
+
+export { stopAdminSecuritySync };
