@@ -178,6 +178,17 @@ class BookingsController extends BaseController
             return $this->fail('Invalid worker');
         }
 
+        $service = $this->serviceModel->find((int) ($booking['service_id'] ?? 0));
+        if (!$service) {
+            return $this->fail('The booking service could not be found');
+        }
+
+        $eligibleWorkers = $this->userModel->getWorkersForBooking($booking, (string) ($service['category'] ?? 'general'));
+        $isEligibleWorker = array_filter($eligibleWorkers, static fn(array $candidate): bool => (int) ($candidate['id'] ?? 0) === (int) $workerId) !== [];
+        if (!$isEligibleWorker) {
+            return $this->fail('Selected worker is outside the booking coverage area or does not match the required skill set.');
+        }
+
         try {
             $success = $this->bookingModel->assignWorker(
                 $bookingId, 
@@ -230,6 +241,17 @@ class BookingsController extends BaseController
 
         if (($worker['user_type'] ?? '') !== 'worker' && !in_array($userRole, ['admin', 'super_admin'], true)) {
             return $this->fail('Only worker accounts can be assigned to jobs');
+        }
+
+        $service = $this->serviceModel->find((int) ($booking['service_id'] ?? 0));
+        if (!$service) {
+            return $this->fail('The booking service could not be found');
+        }
+
+        $eligibleWorkers = $this->userModel->getWorkersForBooking($booking, (string) ($service['category'] ?? 'general'));
+        $workerIsEligible = array_filter($eligibleWorkers, static fn(array $candidate): bool => (int) ($candidate['id'] ?? 0) === $userId) !== [];
+        if (!$workerIsEligible) {
+            return $this->failForbidden('This job is outside your configured coverage area or does not match your listed skills.');
         }
 
         try {

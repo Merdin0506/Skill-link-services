@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\BookingModel;
 use App\Models\ServiceRecordModel;
+use App\Models\ServiceModel;
 use App\Models\UserModel;
 
 class WorkerActions extends BaseController
@@ -11,6 +12,7 @@ class WorkerActions extends BaseController
     protected $bookingModel;
     protected $recordModel;
     protected $userModel;
+    protected $serviceModel;
     protected $session;
 
     public function __construct()
@@ -18,6 +20,7 @@ class WorkerActions extends BaseController
         $this->bookingModel = new BookingModel();
         $this->recordModel = new ServiceRecordModel();
         $this->userModel = new UserModel();
+        $this->serviceModel = new ServiceModel();
         $this->session = session();
     }
 
@@ -50,6 +53,17 @@ class WorkerActions extends BaseController
         $worker = $this->userModel->find($workerId);
         if (!$worker || $worker['status'] !== 'active') {
             return redirect()->back()->with('error', 'Worker account not active');
+        }
+
+        $service = $this->serviceModel->find((int) ($booking['service_id'] ?? 0));
+        if (!$service) {
+            return redirect()->back()->with('error', 'The booking service could not be found');
+        }
+
+        $eligibleWorkers = $this->userModel->getWorkersForBooking($booking, (string) ($service['category'] ?? 'general'));
+        $workerIsEligible = array_filter($eligibleWorkers, static fn(array $candidate): bool => (int) ($candidate['id'] ?? 0) === $workerId) !== [];
+        if (!$workerIsEligible) {
+            return redirect()->back()->with('error', 'This job is outside your configured coverage area or does not match your listed skills.');
         }
 
         try {
@@ -301,6 +315,17 @@ class WorkerActions extends BaseController
         $worker = $this->userModel->find($workerId);
         if (!$worker || $worker['user_type'] !== 'worker') {
             return redirect()->back()->with('error', 'Invalid worker selected');
+        }
+
+        $service = $this->serviceModel->find((int) ($booking['service_id'] ?? 0));
+        if (!$service) {
+            return redirect()->back()->with('error', 'The booking service could not be found');
+        }
+
+        $eligibleWorkers = $this->userModel->getWorkersForBooking($booking, (string) ($service['category'] ?? 'general'));
+        $isEligibleWorker = array_filter($eligibleWorkers, static fn(array $candidate): bool => (int) ($candidate['id'] ?? 0) === (int) $workerId) !== [];
+        if (!$isEligibleWorker) {
+            return redirect()->back()->with('error', 'Selected worker is outside the booking coverage area or does not match the required skill set.');
         }
 
         try {

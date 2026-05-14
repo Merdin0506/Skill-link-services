@@ -274,6 +274,110 @@ class UserModel extends Model
         return $matchingWorkers;
     }
 
+    public function getWorkersForBooking(array $booking, string $serviceCategory): array
+    {
+        $matchingWorkers = $this->getWorkersByServiceCategory($serviceCategory);
+        if ($matchingWorkers === []) {
+            return [];
+        }
+
+        $bookingLatitude = self::normalizeCoordinate($booking['latitude'] ?? null);
+        $bookingLongitude = self::normalizeCoordinate($booking['longitude'] ?? null);
+        $bookingAddress = strtolower(trim((string) ($booking['location_address'] ?? '')));
+        $hasBookingCoordinates = $bookingLatitude !== null && $bookingLongitude !== null;
+
+        $eligibleWorkers = [];
+        foreach ($matchingWorkers as $worker) {
+            $workerLatitude = self::normalizeCoordinate($worker['work_latitude'] ?? null);
+            $workerLongitude = self::normalizeCoordinate($worker['work_longitude'] ?? null);
+            $coverageRadiusKm = self::normalizeRadius($worker['service_radius_km'] ?? null);
+            $serviceCity = strtolower(trim((string) ($worker['service_city'] ?? '')));
+            $distanceKm = null;
+            $withinCoverage = true;
+            $locationConfidence = 0;
+
+            if ($hasBookingCoordinates && $workerLatitude !== null && $workerLongitude !== null) {
+                $distanceKm = self::calculateDistanceKm($workerLatitude, $workerLongitude, $bookingLatitude, $bookingLongitude);
+                $withinCoverage = $distanceKm <= $coverageRadiusKm;
+                $locationConfidence = 2;
+            } elseif ($serviceCity !== '' && $bookingAddress !== '' && str_contains($bookingAddress, $serviceCity)) {
+                $locationConfidence = 1;
+            }
+
+            if (!$withinCoverage) {
+                continue;
+            }
+
+            $worker['distance_km'] = $distanceKm !== null ? round($distanceKm, 2) : null;
+            $worker['within_coverage'] = $withinCoverage;
+            $worker['coverage_radius_km'] = $coverageRadiusKm;
+            $worker['location_confidence'] = $locationConfidence;
+            $eligibleWorkers[] = $worker;
+        }
+
+        usort($eligibleWorkers, static function (array $left, array $right): int {
+            $leftDistance = $left['distance_km'];
+            $rightDistance = $right['distance_km'];
+
+            if ($leftDistance !== null && $rightDistance !== null && $leftDistance !== $rightDistance) {
+                return $leftDistance <=> $rightDistance;
+            }
+
+            if ($leftDistance !== null xor $rightDistance !== null) {
+                return $leftDistance !== null ? -1 : 1;
+            }
+
+            $leftConfidence = (int) ($left['location_confidence'] ?? 0);
+            $rightConfidence = (int) ($right['location_confidence'] ?? 0);
+            if ($leftConfidence !== $rightConfidence) {
+                return $rightConfidence <=> $leftConfidence;
+            }
+
+            return strcasecmp(
+                trim((string) (($left['first_name'] ?? '') . ' ' . ($left['last_name'] ?? ''))),
+                trim((string) (($right['first_name'] ?? '') . ' ' . ($right['last_name'] ?? '')))
+            );
+        });
+
+        return $eligibleWorkers;
+    }
+
+    public static function calculateDistanceKm(float $startLatitude, float $startLongitude, float $endLatitude, float $endLongitude): float
+    {
+        $earthRadiusKm = 6371.0;
+
+        $latitudeDelta = deg2rad($endLatitude - $startLatitude);
+        $longitudeDelta = deg2rad($endLongitude - $startLongitude);
+
+        $a = sin($latitudeDelta / 2) ** 2
+            + cos(deg2rad($startLatitude)) * cos(deg2rad($endLatitude)) * sin($longitudeDelta / 2) ** 2;
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadiusKm * $c;
+    }
+
+    private static function normalizeCoordinate($value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    private static function normalizeRadius($value): float
+    {
+        if ($value === null || $value === '' || !is_numeric($value)) {
+            return 20.0;
+        }
+
+        return max(1.0, (float) $value);
+    }
+
     public function updateProfileImage($userId, $imagePath)
     {
         return $this->update($userId, ['profile_image' => $imagePath]);

@@ -80,7 +80,7 @@ function createAssignmentBlock(state, helpers) {
           <option value="">Select worker</option>
           ${workers.map((worker) => `
             <option value="${worker.id}">
-              ${escapeHtml(formatParticipantName(worker, ''))}
+              ${escapeHtml(formatParticipantName(worker, ''))}${worker.distance_km !== null && worker.distance_km !== undefined ? ` (${escapeHtml(String(worker.distance_km))} km)` : ''}
             </option>
           `).join('')}
         </select>
