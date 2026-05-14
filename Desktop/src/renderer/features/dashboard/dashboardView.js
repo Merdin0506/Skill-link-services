@@ -299,7 +299,7 @@ function buildRoleStatCards(role, stats) {
     super_admin: [
       { icon: 'fas fa-users', value: stats.total_users ?? 0, label: 'Total Users', tone: 'primary' },
       { icon: 'fas fa-calendar-check', value: stats.total_bookings ?? 0, label: 'Total Bookings', tone: 'success' },
-      { icon: 'fas fa-peso-sign', value: stats.total_revenue ?? 0, label: 'Total Revenue', tone: 'warning' },
+      { icon: 'fas fa-peso-sign', value: formatCurrency(stats.total_revenue ?? 0), label: 'Total Revenue', tone: 'warning' },
       { icon: 'fas fa-user-tie', value: stats.active_workers ?? 0, label: 'Active Workers', tone: 'info' },
       { icon: 'fas fa-hourglass-half', value: stats.pending_bookings ?? 0, label: 'Pending Bookings', tone: 'danger' },
       { icon: 'fas fa-check-circle', value: stats.completed_bookings ?? 0, label: 'Completed Bookings', tone: 'success' }
@@ -307,23 +307,23 @@ function buildRoleStatCards(role, stats) {
     admin: [
       { icon: 'fas fa-users', value: stats.total_users ?? 0, label: 'Total Users', tone: 'primary' },
       { icon: 'fas fa-calendar-check', value: stats.total_bookings ?? 0, label: 'Total Bookings', tone: 'success' },
-      { icon: 'fas fa-peso-sign', value: stats.total_revenue ?? 0, label: 'Total Revenue', tone: 'warning' },
+      { icon: 'fas fa-peso-sign', value: formatCurrency(stats.total_revenue ?? 0), label: 'Total Revenue', tone: 'warning' },
       { icon: 'fas fa-user-tie', value: stats.active_workers ?? 0, label: 'Active Workers', tone: 'info' },
       { icon: 'fas fa-hourglass-half', value: stats.pending_bookings ?? 0, label: 'Pending Bookings', tone: 'danger' },
       { icon: 'fas fa-check-circle', value: stats.completed_bookings ?? 0, label: 'Completed Bookings', tone: 'success' }
     ],
     finance: [
-      { icon: 'fas fa-peso-sign', value: stats.total_collected ?? 0, label: 'Total Revenue', tone: 'success', subtitle: 'All completed bookings' },
+      { icon: 'fas fa-peso-sign', value: formatCurrency(stats.total_collected ?? 0), label: 'Total Revenue', tone: 'success', subtitle: 'All completed bookings' },
       { icon: 'fas fa-check-circle', value: stats.completed_payments ?? 0, label: 'Recorded Payments', tone: 'info', subtitle: 'Worker-collected' },
       { icon: 'fas fa-hourglass-half', value: stats.pending_payments ?? 0, label: 'Pending Payments', tone: 'warning', subtitle: 'Needs recording' },
-      { icon: 'fas fa-hand-holding-usd', value: stats.pending_payouts ?? 0, label: 'Pending Worker Payouts', tone: 'danger', subtitle: 'Action required' }
+      { icon: 'fas fa-hand-holding-usd', value: formatCurrency(stats.pending_payouts ?? 0), label: 'Pending Worker Payouts', tone: 'danger', subtitle: 'Action required' }
     ],
     worker: [
       { icon: 'fas fa-briefcase', value: stats.available_bookings ?? 0, label: 'Available Jobs', tone: 'primary' },
       { icon: 'fas fa-check-circle', value: stats.assigned_bookings ?? 0, label: 'Assigned Jobs', tone: 'success' },
       { icon: 'fas fa-spinner', value: stats.in_progress_bookings ?? 0, label: 'In Progress', tone: 'warning' },
       { icon: 'fas fa-tasks', value: stats.completed_jobs ?? 0, label: 'Completed Jobs', tone: 'info' },
-      { icon: 'fas fa-wallet', value: stats.total_earnings ?? 0, label: 'Total Earnings', tone: 'success' },
+      { icon: 'fas fa-wallet', value: formatCurrency(stats.total_earnings ?? 0), label: 'Total Earnings', tone: 'success' },
       { icon: 'fas fa-star', value: `${formatValue(stats.average_rating ?? 0)}/5`, label: 'Average Rating', tone: 'primary' }
     ],
     customer: [
@@ -331,7 +331,7 @@ function buildRoleStatCards(role, stats) {
       { icon: 'fas fa-hourglass-half', value: stats.pending_bookings ?? 0, label: 'Pending Bookings', tone: 'warning' },
       { icon: 'fas fa-check-circle', value: stats.completed_bookings ?? 0, label: 'Completed Bookings', tone: 'success' },
       { icon: 'fas fa-book', value: stats.total_bookings ?? 0, label: 'Total Bookings', tone: 'info' },
-      { icon: 'fas fa-peso-sign', value: stats.total_spent ?? 0, label: 'Total Spent', tone: 'success' },
+      { icon: 'fas fa-peso-sign', value: formatCurrency(stats.total_spent ?? 0), label: 'Total Spent', tone: 'success' },
       { icon: 'fas fa-star', value: `${formatValue(stats.average_rating_given ?? 0)}/5`, label: 'Avg. Rating Given', tone: 'primary' }
     ]
   };

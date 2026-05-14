@@ -12,7 +12,7 @@ if (!function_exists('formatCurrency')) {
      */
     function formatCurrency($value): string
     {
-        return 'â‚±' . number_format($value, 2);
+        return '&#8369;' . number_format((float) $value, 2);
     }
 }
 

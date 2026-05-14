@@ -11,17 +11,33 @@
         </a>
         
         <?php if (isset($role) && in_array($role, ['admin', 'super_admin'], true)): ?>
-            <a href="<?= base_url('admin/users') ?>" class="<?= (strpos(current_url(), '/admin/users') !== false) ? 'active' : '' ?>">
-                <i class="fas fa-users"></i>
-                <span>Users</span>
+            <a href="<?= base_url('security/dashboard') ?>" class="<?= (strpos(current_url(), '/security/') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-shield-alt"></i>
+                <span>Security</span>
             </a>
             <a href="<?= base_url('admin/pending-workers') ?>" class="<?= (strpos(current_url(), '/admin/pending-workers') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-user-clock"></i>
                 <span>Pending Workers</span>
             </a>
+            <a href="<?= base_url('admin/users') ?>" class="<?= (strpos(current_url(), '/admin/users') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-users"></i>
+                <span>Users</span>
+            </a>
+            <a href="<?= base_url('admin/user-analytics') ?>" class="<?= (strpos(current_url(), '/admin/user-analytics') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-chart-pie"></i>
+                <span>User Analytics</span>
+            </a>
+            <a href="<?= base_url('admin/services') ?>" class="<?= (strpos(current_url(), '/admin/services') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-list"></i>
+                <span>Services</span>
+            </a>
             <a href="<?= base_url('admin/bookings') ?>" class="<?= (strpos(current_url(), '/admin/bookings') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-calendar-check"></i>
                 <span>Bookings</span>
+            </a>
+            <a href="<?= base_url('admin/backups') ?>" class="<?= (strpos(current_url(), '/admin/backups') !== false) ? 'active' : '' ?>">
+                <i class="fas fa-database"></i>
+                <span>Backups</span>
             </a>
             <a href="<?= base_url('admin/rates') ?>" class="<?= (strpos(current_url(), '/admin/rates') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-star"></i>
@@ -31,18 +47,9 @@
                 <i class="fas fa-credit-card"></i>
                 <span>Payments</span>
             </a>
-            <a href="<?= base_url('admin/backups') ?>" class="<?= (strpos(current_url(), '/admin/backups') !== false) ? 'active' : '' ?>">
-                <i class="fas fa-database"></i>
-                <span>Backups</span>
-            </a>
             <a href="<?= base_url('admin/records') ?>" class="<?= (strpos(current_url(), '/admin/records') !== false) ? 'active' : '' ?>">
                 <i class="fas fa-file-invoice"></i>
                 <span>Service Records</span>
-            </a>
-
-            <a href="<?= base_url('security/dashboard') ?>" class="<?= (strpos(current_url(), '/security/') !== false) ? 'active' : '' ?>">
-                <i class="fas fa-shield-alt"></i>
-                <span>Security</span>
             </a>
         <?php elseif (isset($role) && $role === 'worker'): ?>
             <?php $isPending = (isset($user) && ($user['status'] ?? '') === 'pending'); ?>

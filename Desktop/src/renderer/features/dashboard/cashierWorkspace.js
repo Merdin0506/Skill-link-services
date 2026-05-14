@@ -678,11 +678,11 @@ export function createCashierReportsView(state, helpers) {
   return `
     ${createInfoBanner(state.routeNotice)}
     ${createMetricGrid([
-      { icon: 'fas fa-peso-sign', value: stats.total_revenue ?? 0, label: 'Total Revenue', tone: 'success' },
+      { icon: 'fas fa-peso-sign', value: formatCurrency(stats.total_revenue ?? 0), label: 'Total Revenue', tone: 'success' },
       { icon: 'fas fa-calendar-day', value: stats.today_payments ?? 0, label: 'Today Payments', tone: 'info' },
-      { icon: 'fas fa-chart-line', value: stats.monthly_revenue ?? 0, label: 'Monthly Revenue', tone: 'primary' },
+      { icon: 'fas fa-chart-line', value: formatCurrency(stats.monthly_revenue ?? 0), label: 'Monthly Revenue', tone: 'primary' },
       { icon: 'fas fa-hourglass-half', value: stats.pending_payments ?? 0, label: 'Pending Payments', tone: 'warning' },
-      { icon: 'fas fa-percentage', value: analytics.totalCommission, label: 'Total Commission', tone: 'secondary' },
+      { icon: 'fas fa-percentage', value: formatCurrency(analytics.totalCommission), label: 'Total Commission', tone: 'secondary' },
       { icon: 'fas fa-check-circle', value: analytics.completedJobs, label: 'Completed Jobs', tone: 'primary' }
     ])}
 

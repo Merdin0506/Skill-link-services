@@ -9,6 +9,7 @@ use App\Models\UserModel;
 use App\Models\BookingModel;
 use App\Models\PaymentModel;
 use App\Models\ReviewModel;
+use App\Models\ServiceModel;
 use App\Models\ServiceRecordModel;
 use App\Models\SecurityEventModel;
 
@@ -84,6 +85,208 @@ class Dashboard extends BaseController
         ];
 
         return view('dashboard/admin_users', $data);
+    }
+
+    public function userAnalytics()
+    {
+        $filters = [
+            'q' => trim((string) ($this->request->getGet('q') ?? '')),
+            'userType' => trim((string) ($this->request->getGet('userType') ?? '')),
+            'status' => trim((string) ($this->request->getGet('status') ?? '')),
+        ];
+        $selectedUserId = (int) ($this->request->getGet('user_id') ?? 0);
+
+        $users = $this->userModel->orderBy('created_at', 'DESC')->findAll();
+        $filteredUsers = array_values(array_filter($users, function (array $user) use ($filters): bool {
+            $searchableText = strtolower(trim(implode(' ', array_filter([
+                $user['first_name'] ?? '',
+                $user['last_name'] ?? '',
+                $user['email'] ?? '',
+                $user['phone'] ?? '',
+            ]))));
+
+            $matchesQuery = $filters['q'] === '' || str_contains($searchableText, strtolower($filters['q']));
+            $matchesRole = $filters['userType'] === '' || strtolower((string) ($user['user_type'] ?? '')) === strtolower($filters['userType']);
+            $matchesStatus = $filters['status'] === '' || strtolower((string) ($user['status'] ?? '')) === strtolower($filters['status']);
+
+            return $matchesQuery && $matchesRole && $matchesStatus;
+        }));
+
+        if ($selectedUserId <= 0 || !array_filter($filteredUsers, static fn (array $user): bool => (int) ($user['id'] ?? 0) === $selectedUserId)) {
+            $selectedUserId = (int) ($filteredUsers[0]['id'] ?? 0);
+        }
+
+        $selectedUser = null;
+        $selectedUserDashboard = [];
+        if ($selectedUserId > 0) {
+            $selectedUser = $this->userModel->find($selectedUserId);
+            if ($selectedUser) {
+                $selectedUserDashboard = $this->userModel->getDashboardData((string) ($selectedUser['user_type'] ?? ''), $selectedUserId);
+            }
+        }
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'users' => $filteredUsers,
+            'filters' => $filters,
+            'selectedUserId' => $selectedUserId,
+            'selectedUser' => $selectedUser,
+            'selectedUserDashboard' => $selectedUserDashboard,
+            'userStats' => [
+                'total_users' => $this->userModel->countAll(),
+                'total_admin_staff' => $this->userModel->whereIn('user_type', ['super_admin', 'admin', 'finance'])->countAllResults(),
+                'total_workers' => $this->userModel->where('user_type', 'worker')->countAllResults(),
+                'total_customers' => $this->userModel->where('user_type', 'customer')->countAllResults(),
+                'active_users' => $this->userModel->where('status', 'active')->countAllResults(),
+                'inactive_users' => $this->userModel->where('status', 'inactive')->countAllResults(),
+                'suspended_users' => $this->userModel->where('status', 'suspended')->countAllResults(),
+            ],
+        ];
+
+        return view('dashboard/admin_user_analytics', $data);
+    }
+
+    public function adminServices()
+    {
+        $serviceModel = new ServiceModel();
+        $filters = [
+            'status' => trim((string) ($this->request->getGet('status') ?? 'active')),
+            'category' => trim((string) ($this->request->getGet('category') ?? '')),
+        ];
+        $selectedServiceId = (int) ($this->request->getGet('service_id') ?? 0);
+
+        $servicesQuery = $serviceModel->orderBy('name', 'ASC');
+        if ($filters['status'] !== '') {
+            $servicesQuery->where('status', $filters['status']);
+        }
+        if ($filters['category'] !== '') {
+            $servicesQuery->where('category', $filters['category']);
+        }
+
+        $services = $servicesQuery->findAll();
+        if ($selectedServiceId <= 0 || !array_filter($services, static fn (array $service): bool => (int) ($service['id'] ?? 0) === $selectedServiceId)) {
+            $selectedServiceId = (int) ($services[0]['id'] ?? 0);
+        }
+
+        $selectedService = $selectedServiceId > 0 ? $serviceModel->find($selectedServiceId) : null;
+        $allServices = $serviceModel->orderBy('name', 'ASC')->findAll();
+
+        $data = [
+            'role' => $this->session->get('user_role'),
+            'user' => $this->getCurrentUser(),
+            'services' => $services,
+            'allServices' => $allServices,
+            'selectedService' => $selectedService,
+            'selectedServiceId' => $selectedServiceId,
+            'filters' => $filters,
+            'serviceCategories' => $serviceModel->getServiceCategories(),
+            'serviceStats' => [
+                'visible_services' => count($services),
+                'categories' => count($serviceModel->getServiceCategories()),
+                'active_services' => count(array_filter($allServices, static fn (array $service): bool => ($service['status'] ?? 'active') === 'active')),
+                'inactive_services' => count(array_filter($allServices, static fn (array $service): bool => ($service['status'] ?? '') === 'inactive')),
+            ],
+        ];
+
+        return view('dashboard/admin_services', $data);
+    }
+
+    public function adminServiceStore()
+    {
+        $serviceModel = new ServiceModel();
+        $rules = [
+            'name' => 'required|min_length[3]|max_length[255]',
+            'description' => 'permit_empty|max_length[1000]',
+            'category' => 'required|in_list[mechanic,electrician,plumber,technician,general]',
+            'base_price' => 'required|numeric|greater_than[0]',
+            'estimated_duration' => 'permit_empty|integer|greater_than[0]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
+        }
+
+        $serviceModel->insert([
+            'name' => $this->request->getPost('name'),
+            'description' => $this->request->getPost('description'),
+            'category' => $this->request->getPost('category'),
+            'base_price' => $this->request->getPost('base_price'),
+            'estimated_duration' => $this->request->getPost('estimated_duration') ?: null,
+            'status' => 'active',
+        ]);
+
+        $serviceId = (int) $serviceModel->getInsertID();
+        $redirectCategory = trim((string) ($this->request->getPost('redirect_category') ?? ''));
+        $query = http_build_query(array_filter([
+            'status' => 'active',
+            'category' => $redirectCategory,
+            'service_id' => $serviceId > 0 ? $serviceId : null,
+        ], static fn ($value) => $value !== null && $value !== ''));
+
+        return redirect()->to('/admin/services' . ($query !== '' ? '?' . $query : ''))->with('success', 'Service created successfully.');
+    }
+
+    public function adminServiceUpdate($id = null)
+    {
+        $serviceModel = new ServiceModel();
+        $service = $serviceModel->find($id);
+
+        if (!$service) {
+            return redirect()->to('/admin/services')->with('error', 'Service not found.');
+        }
+
+        $rules = [
+            'name' => 'required|min_length[3]|max_length[255]',
+            'description' => 'permit_empty|max_length[1000]',
+            'category' => 'required|in_list[mechanic,electrician,plumber,technician,general]',
+            'base_price' => 'required|numeric|greater_than[0]',
+            'estimated_duration' => 'permit_empty|integer|greater_than[0]',
+            'status' => 'required|in_list[active,inactive]',
+        ];
+
+        if (!$this->validate($rules)) {
+            return redirect()->back()->withInput()->with('error', implode(' ', $this->validator->getErrors()));
+        }
+
+        $serviceModel->update((int) $id, [
+            'name' => $this->request->getPost('name'),
+            'description' => $this->request->getPost('description'),
+            'category' => $this->request->getPost('category'),
+            'base_price' => $this->request->getPost('base_price'),
+            'estimated_duration' => $this->request->getPost('estimated_duration') ?: null,
+            'status' => $this->request->getPost('status'),
+        ]);
+
+        $redirectStatus = trim((string) ($this->request->getPost('redirect_status') ?? $this->request->getPost('status') ?? 'active'));
+        $redirectCategory = trim((string) ($this->request->getPost('redirect_category') ?? ''));
+        $query = http_build_query(array_filter([
+            'service_id' => (int) $id,
+            'status' => $redirectStatus,
+            'category' => $redirectCategory,
+        ], static fn ($value) => $value !== null && $value !== ''));
+
+        return redirect()->to('/admin/services' . ($query !== '' ? '?' . $query : ''))->with('success', 'Service updated successfully.');
+    }
+
+    public function adminServiceDeactivate($id = null)
+    {
+        $serviceModel = new ServiceModel();
+        $service = $serviceModel->find($id);
+
+        if (!$service) {
+            return redirect()->to('/admin/services')->with('error', 'Service not found.');
+        }
+
+        $serviceModel->update((int) $id, ['status' => 'inactive']);
+        $redirectCategory = trim((string) ($this->request->getPost('redirect_category') ?? ''));
+        $query = http_build_query(array_filter([
+            'status' => 'inactive',
+            'category' => $redirectCategory,
+            'service_id' => (int) $id,
+        ], static fn ($value) => $value !== null && $value !== ''));
+
+        return redirect()->to('/admin/services' . ($query !== '' ? '?' . $query : ''))->with('success', 'Service deactivated successfully.');
     }
 
     public function approveWorker($id = null)

@@ -56,6 +56,7 @@ $routes->get('bookings/view/(:num)', 'Bookings::view/$1', ['filter' => ['dashboa
 
 $routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']], function ($routes) {
     $routes->get('users', 'Dashboard::users');
+    $routes->get('user-analytics', 'Dashboard::userAnalytics');
     $routes->get('users/create', 'Dashboard::userCreate');
     $routes->post('users/store', 'Dashboard::userStore');
     $routes->get('users/edit/(:num)', 'Dashboard::userEdit/$1');
@@ -69,6 +70,10 @@ $routes->group('admin', ['filter' => ['dashboardauth', 'role:admin,super_admin',
     $routes->get('pending-workers/view/(:num)', 'Dashboard::viewPendingWorker/$1');
     $routes->post('pending-workers/send-email/(:num)', 'Dashboard::sendPendingWorkerEmail/$1');
     $routes->get('bookings', 'Dashboard::bookings');
+    $routes->get('services', 'Dashboard::adminServices');
+    $routes->post('services/store', 'Dashboard::adminServiceStore');
+    $routes->post('services/update/(:num)', 'Dashboard::adminServiceUpdate/$1');
+    $routes->post('services/deactivate/(:num)', 'Dashboard::adminServiceDeactivate/$1');
     $routes->get('payments', 'Dashboard::payments');
     $routes->get('backups', 'Dashboard::backups');
     $routes->post('backups/create', 'Dashboard::backupCreate');
