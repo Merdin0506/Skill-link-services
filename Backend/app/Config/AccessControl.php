@@ -29,6 +29,7 @@ class AccessControl extends BaseConfig
             'bookings' => ['read'],
             'services' => ['read'],
             'reviews' => ['read'],
+            'records' => ['read', 'write', 'update'],
         ],
         'worker' => [
             'dashboard' => ['read'],
@@ -40,6 +41,7 @@ class AccessControl extends BaseConfig
             'reviews' => ['read'],
             'jobs' => ['read', 'update'],
             'earnings' => ['read'],
+            'records' => ['read', 'update'],
         ],
         'customer' => [
             'dashboard' => ['read'],
@@ -49,6 +51,7 @@ class AccessControl extends BaseConfig
             'services' => ['read'],
             'reviews' => ['read', 'write', 'update'],
             'payments' => ['read', 'write'],
+            'records' => ['read'],
         ],
     ];
 

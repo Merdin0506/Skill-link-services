@@ -172,6 +172,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('services/category/(:segment)', 'ServicesController::byCategory/$1');
     $routes->get('services/(:num)', 'ServicesController::show/$1');
     $routes->get('payments/mine', 'PaymentsController::myPayments');
+    $routes->get('records', 'RecordsController::index');
+    $routes->get('records/(:num)', 'RecordsController::show/$1');
 });
 
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin', 'permissionapi']], function ($routes) {
@@ -225,6 +227,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('payments/methods', 'PaymentsController::paymentMethods');
     $routes->get('payments/statistics', 'PaymentsController::statistics');
     $routes->get('payments/revenue-report', 'PaymentsController::revenueReport');
+    $routes->post('records', 'RecordsController::create');
+    $routes->put('records/(:num)', 'RecordsController::update/$1');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -260,10 +264,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('backups', 'BackupsController::index');
     $routes->post('backups', 'BackupsController::create');
     $routes->post('backups/restore', 'BackupsController::restore');
-    $routes->get('records', 'RecordsController::index');
-    $routes->get('records/(:num)', 'RecordsController::show/$1');
-    $routes->post('records', 'RecordsController::create');
-    $routes->put('records/(:num)', 'RecordsController::update/$1');
     $routes->delete('records/(:num)', 'RecordsController::delete/$1');
     $routes->put('reviews/(:num)/status', 'ReviewsController::updateStatus/$1');
     $routes->get('reviews/flagged', 'ReviewsController::flaggedReviews');

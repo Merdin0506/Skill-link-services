@@ -37,7 +37,7 @@ if (!function_exists('isAdmin')) {
      */
     function isAdmin(): bool
     {
-        return userHasRole('admin');
+        return userHasRole(['super_admin', 'admin']);
     }
 }
 
@@ -62,18 +62,6 @@ if (!function_exists('isCustomer')) {
     function isCustomer(): bool
     {
         return userHasRole('customer');
-    }
-}
-
-if (!function_exists('isOwner')) {
-    /**
-     * Check if current user is owner
-     *
-     * @return bool
-     */
-    function isOwner(): bool
-    {
-        return userHasRole('owner');
     }
 }
 
@@ -129,13 +117,13 @@ if (!function_exists('hasResourceAccess')) {
         $userRole = getCurrentUserRole();
 
         $permissions = [
-            'dashboard' => ['admin', 'owner', 'worker', 'customer', 'finance'],
-            'users' => ['admin'],
-            'bookings' => ['admin', 'owner', 'worker', 'customer'],
-            'payments' => ['admin', 'finance', 'customer', 'owner'],
-            'reports' => ['admin', 'finance'],
-            'profile' => ['admin', 'owner', 'worker', 'customer', 'finance'],
-            'settings' => ['admin'],
+            'dashboard' => ['super_admin', 'admin', 'worker', 'customer', 'finance'],
+            'users' => ['super_admin', 'admin'],
+            'bookings' => ['super_admin', 'admin', 'worker', 'customer'],
+            'payments' => ['super_admin', 'admin', 'finance', 'customer'],
+            'reports' => ['super_admin', 'admin', 'finance'],
+            'profile' => ['super_admin', 'admin', 'worker', 'customer', 'finance'],
+            'settings' => ['super_admin', 'admin'],
         ];
 
         if (!isset($permissions[$resource])) {
@@ -157,10 +145,10 @@ if (!function_exists('getDashboardRoute')) {
         $userRole = getCurrentUserRole();
 
         return match ($userRole) {
+            'super_admin' => '/admin/dashboard',
             'admin' => '/admin/dashboard',
             'worker' => '/worker/dashboard',
             'customer' => '/customer/dashboard',
-            'owner' => '/owner/dashboard',
             'finance' => '/dashboard',
             default => '/dashboard'
         };
@@ -184,6 +172,7 @@ if (!function_exists('getSidebarMenu')) {
         ];
 
         $roleMenu = match ($userRole) {
+            'super_admin',
             'admin' => [
                 ['label' => 'Dashboard', 'url' => '/dashboard', 'icon' => 'fa-chart-line'],
                 ['label' => 'Users', 'url' => '/admin/users', 'icon' => 'fa-users'],
@@ -205,13 +194,6 @@ if (!function_exists('getSidebarMenu')) {
                 ['label' => 'My Bookings', 'url' => '/customer/bookings', 'icon' => 'fa-calendar-check'],
                 ['label' => 'Services', 'url' => '/customer/services', 'icon' => 'fa-list'],
                 ['label' => 'Payments', 'url' => '/customer/payments', 'icon' => 'fa-credit-card'],
-                ['label' => 'Profile', 'url' => '/profile', 'icon' => 'fa-user-circle'],
-            ],
-            'owner' => [
-                ['label' => 'Dashboard', 'url' => '/dashboard', 'icon' => 'fa-chart-line'],
-                ['label' => 'My Bookings', 'url' => '/owner/bookings', 'icon' => 'fa-calendar-check'],
-                ['label' => 'My Services', 'url' => '/owner/services', 'icon' => 'fa-list'],
-                ['label' => 'Payments', 'url' => '/owner/payments', 'icon' => 'fa-credit-card'],
                 ['label' => 'Profile', 'url' => '/profile', 'icon' => 'fa-user-circle'],
             ],
             'finance' => [

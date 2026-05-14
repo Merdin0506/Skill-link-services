@@ -534,7 +534,8 @@ function getSidebarLinks(role) {
       { icon: 'fas fa-chart-line', label: 'Dashboard', route: 'dashboard' },
       { icon: 'fas fa-briefcase', label: 'Available Jobs', route: 'available-jobs' },
       { icon: 'fas fa-tasks', label: 'My Jobs', route: 'my-jobs' },
-      { icon: 'fas fa-wallet', label: 'Earnings', route: 'earnings' }
+      { icon: 'fas fa-wallet', label: 'Earnings', route: 'earnings' },
+      { icon: 'fas fa-file-invoice', label: 'Service Records', route: 'records' }
     ];
   }
 
@@ -543,7 +544,8 @@ function getSidebarLinks(role) {
       { icon: 'fas fa-chart-line', label: 'Dashboard', route: 'dashboard' },
       { icon: 'fas fa-money-bill-wave', label: 'Payments', route: 'payments' },
       { icon: 'fas fa-hand-holding-usd', label: 'Worker Payouts', route: 'payouts' },
-      { icon: 'fas fa-chart-bar', label: 'Financial Reports', route: 'reports' }
+      { icon: 'fas fa-chart-bar', label: 'Financial Reports', route: 'reports' },
+      { icon: 'fas fa-file-invoice', label: 'Service Records', route: 'records' }
     ];
   }
 
@@ -551,7 +553,8 @@ function getSidebarLinks(role) {
     { icon: 'fas fa-chart-line', label: 'Dashboard', route: 'dashboard' },
     { icon: 'fas fa-calendar-check', label: 'My Bookings', route: 'bookings' },
     { icon: 'fas fa-list', label: 'Services', route: 'services' },
-    { icon: 'fas fa-credit-card', label: 'Payments', route: 'payments' }
+    { icon: 'fas fa-credit-card', label: 'Payments', route: 'payments' },
+    { icon: 'fas fa-file-invoice', label: 'Service Records', route: 'records' }
   ];
 }
 
@@ -1643,6 +1646,8 @@ function createPaymentsView(state) {
 
 function createRecordsView(state) {
   const records = state.routeRecords || [];
+  const role = String(state.role || '').toLowerCase();
+  const counterpartHeader = role === 'customer' ? 'Worker' : 'Customer';
 
   return `
     ${createInfoBanner(state.routeNotice || 'Service records help operations track field work, notes, and payment status.')}
@@ -1656,7 +1661,7 @@ function createRecordsView(state) {
             <thead>
               <tr>
                 <th>Record</th>
-                <th>Customer</th>
+                <th>${counterpartHeader}</th>
                 <th>Status</th>
                 <th>Payment Status</th>
                 <th>Total</th>
@@ -1667,7 +1672,11 @@ function createRecordsView(state) {
               ${records.length ? records.map((record) => `
                 <tr>
                   <td><strong>${record.id}</strong></td>
-                  <td>${record.customer_name || record.customer_id || '-'}</td>
+                  <td>${
+                    role === 'customer'
+                      ? ([record.provider_first_name, record.provider_last_name].filter(Boolean).join(' ') || record.provider_id || 'Not assigned yet')
+                      : ([record.customer_first_name, record.customer_last_name].filter(Boolean).join(' ') || record.customer_id || '-')
+                  }</td>
                   <td><span class="badge badge-${record.status || 'pending'}">${String(record.status || 'pending').replace(/_/g, ' ')}</span></td>
                   <td><span class="badge bg-secondary">${String(record.payment_status || 'unpaid').replace(/_/g, ' ')}</span></td>
                   <td>${formatCurrency(record.total_amount || 0)}</td>
@@ -1675,7 +1684,7 @@ function createRecordsView(state) {
                 </tr>
               `).join('') : `
                 <tr>
-                  <td colspan="6" class="text-center text-muted py-4">No service records are available to the desktop app for this role yet.</td>
+                  <td colspan="6" class="text-center text-muted py-4">No service records matched your account yet.</td>
                 </tr>
               `}
             </tbody>
@@ -2635,7 +2644,7 @@ async function renderRoute(state, session, bridge) {
     }
 
     if (state.currentRoute === 'records') {
-      if (['admin', 'super_admin'].includes(state.role)) {
+      if (['admin', 'super_admin', 'finance'].includes(state.role)) {
         contentElement.innerHTML = createAdminRecordsView(state, {
           createInfoBanner,
           createMetricGrid,
@@ -3104,7 +3113,7 @@ async function ensureRouteData(state, session, bridge) {
   }
 
   if (state.currentRoute === 'records') {
-    if (['admin', 'super_admin'].includes(state.role)) {
+    if (['admin', 'super_admin', 'finance'].includes(state.role)) {
       await loadAdminRecordsRouteData(state, session, bridge, performAuthenticatedRequest);
       return;
     }
@@ -3112,6 +3121,9 @@ async function ensureRouteData(state, session, bridge) {
     try {
       const recordsResponse = await performAuthenticatedRequest(session, bridge, '/api/records?limit=50', { method: 'GET' });
       state.routeRecords = recordsResponse?.data || [];
+      state.routeNotice = state.role === 'customer'
+        ? 'Track the service records tied to your bookings here.'
+        : 'Track the service records assigned to your field work here.';
     } catch (error) {
       state.routeRecords = [];
       state.routeNotice = error.message || 'Service records are not available in the desktop flow yet.';

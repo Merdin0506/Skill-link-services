@@ -328,8 +328,7 @@ class UserModel extends Model
     public function getDashboardData($userType, $userId)
     {
         switch ($userType) {
-            case 'owner':
-                return $this->getOwnerDashboard();
+            case 'super_admin':
             case 'admin':
             case 'finance':
                 return $this->getAdminDashboard();
@@ -342,7 +341,7 @@ class UserModel extends Model
         }
     }
 
-    private function getOwnerDashboard()
+    private function getAdminDashboardSnapshot()
     {
         $bookingModel = new BookingModel();
         $paymentModel = new PaymentModel();
@@ -387,7 +386,7 @@ class UserModel extends Model
 
     private function getAdminDashboard()
     {
-        return $this->getOwnerDashboard();
+        return $this->getAdminDashboardSnapshot();
     }
 
     /**

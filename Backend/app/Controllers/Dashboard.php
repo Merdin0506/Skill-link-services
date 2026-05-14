@@ -668,7 +668,7 @@ class Dashboard extends BaseController
 
         // Soft delete by setting status to inactive
         $this->userModel->update($userId, ['status' => 'inactive', 'email' => 'deleted_' . time() . '_' . $currentUser['email']]);
-        $this->activityLogger->record('account', 'account_deleted_by_owner', 'success', (int) $userId, (int) $userId, [
+        $this->activityLogger->record('account', 'account_deleted_by_user', 'success', (int) $userId, (int) $userId, [
             'target_email' => $currentUser['email'] ?? null,
         ], 'web');
 
@@ -1996,21 +1996,6 @@ class Dashboard extends BaseController
     }
 
     /**
-     * Owner Dashboard Stats
-     */
-    private function getOwnerStats($userId)
-    {
-        return [
-            'total_services' => $this->getServiceCount($userId),
-            'active_bookings' => $this->bookingModel->where('customer_id', $userId)->where('status', 'in_progress')->countAllResults(),
-            'completed_jobs' => $this->bookingModel->where('customer_id', $userId)->where('status', 'completed')->countAllResults(),
-            'total_bookings' => $this->bookingModel->where('customer_id', $userId)->countAllResults(),
-            'average_rating' => $this->getAverageRating($userId),
-            'total_spent' => $this->getTotalUserSpent($userId),
-        ];
-    }
-
-    /**
      * Worker Dashboard Stats
      */
     private function getWorkerStats($userId)
@@ -2091,21 +2076,6 @@ class Dashboard extends BaseController
      * Get recent bookings
      */
     private function getCustomerBookings($userId, $limit = 10)
-    {
-        return $this->bookingModel
-            ->select('bookings.*, workers.first_name AS worker_first_name, workers.last_name AS worker_last_name, services.name AS service_name, services.category AS service_category')
-            ->join('users AS workers', 'workers.id = bookings.worker_id', 'left')
-            ->join('services', 'services.id = bookings.service_id', 'left')
-            ->where('bookings.customer_id', $userId)
-            ->orderBy('bookings.created_at', 'DESC')
-            ->limit($limit)
-            ->find();
-    }
-
-    /**
-     * Get owner bookings
-     */
-    private function getOwnerBookings($userId, $limit = 10)
     {
         return $this->bookingModel
             ->select('bookings.*, workers.first_name AS worker_first_name, workers.last_name AS worker_last_name, services.name AS service_name, services.category AS service_category')
@@ -2213,17 +2183,6 @@ class Dashboard extends BaseController
                 'status' => $worker['status'] ?? 'pending',
             ];
         }, $workers);
-    }
-
-    /**
-     * Get owner analytics
-     */
-    private function getOwnerAnalytics($userId)
-    {
-        return [
-            'booking_timeline' => $this->getBookingTimeline($userId),
-            'service_performance' => $this->getOwnerServicePerformance($userId),
-        ];
     }
 
     /**
@@ -2365,32 +2324,6 @@ class Dashboard extends BaseController
             ->where('customer_id', $userId)
             ->first();
         return $result['rating'] ?? 0;
-    }
-
-    private function getServiceCount($userId)
-    {
-        // This would need ServiceModel which we saw in workspace
-        return 0;
-    }
-
-    private function getBookingTimeline($userId)
-    {
-        return $this->bookingModel->where('customer_id', $userId)
-            ->orderBy('created_at', 'DESC')
-            ->limit(5)
-            ->select('id, title, status, created_at, completed_at')
-            ->find();
-    }
-
-    private function getOwnerServicePerformance($userId)
-    {
-        return $this->bookingModel->selectSum('total_fee')
-            ->selectCount('id')
-            ->where('customer_id', $userId)
-            ->where('status', 'completed')
-            ->groupBy('service_id')
-            ->limit(5)
-            ->find();
     }
 
     private function getWorkerEarningsTrend($userId, $days = 30)

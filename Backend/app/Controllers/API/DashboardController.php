@@ -87,8 +87,8 @@ class DashboardController extends ResourceController
         $userRole = $user['user_type'];
 
         $stats = match ($userRole) {
+            'super_admin' => $this->getAdminStats(),
             'admin' => $this->getAdminStats(),
-            'owner' => $this->getOwnerStats($userId),
             'worker' => $this->getWorkerStats($userId),
             'customer' => $this->getCustomerStats($userId),
             'finance' => $this->getFinanceStats(),
@@ -115,8 +115,8 @@ class DashboardController extends ResourceController
         $userRole = $user['user_type'];
 
         $analytics = match ($userRole) {
+            'super_admin' => $this->getSystemAnalytics(),
             'admin' => $this->getSystemAnalytics(),
-            'owner' => $this->getOwnerAnalytics($userId),
             'worker' => $this->getWorkerAnalytics($userId),
             'customer' => $this->getCustomerAnalytics($userId),
             'finance' => $this->getPaymentAnalytics(),
@@ -144,8 +144,8 @@ class DashboardController extends ResourceController
         $limit = $this->getPositiveIntParam('limit', 10);
 
         $bookings = match ($userRole) {
+            'super_admin' => $this->bookingModel->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'admin' => $this->bookingModel->limit($limit)->orderBy('created_at', 'DESC')->find(),
-            'owner' => $this->bookingModel->where('customer_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'worker' => $this->bookingModel->where('worker_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'customer' => $this->bookingModel->where('customer_id', $userId)->limit($limit)->orderBy('created_at', 'DESC')->find(),
             'finance' => $this->getFinanceDashboardBookings($limit),
@@ -171,18 +171,6 @@ class DashboardController extends ResourceController
             'pending_workers' => $this->userModel->where('user_type', 'worker')->where('status', 'pending')->countAllResults(),
             'pending_bookings' => $this->bookingModel->where('status', 'pending')->countAllResults(),
             'completed_bookings' => $this->bookingModel->where('status', 'completed')->countAllResults(),
-        ];
-    }
-
-    private function getOwnerStats($userId)
-    {
-        return [
-            'total_services' => $this->getServiceCount($userId),
-            'active_bookings' => $this->bookingModel->where('customer_id', $userId)->where('status', 'in_progress')->countAllResults(),
-            'completed_jobs' => $this->bookingModel->where('customer_id', $userId)->where('status', 'completed')->countAllResults(),
-            'total_bookings' => $this->bookingModel->where('customer_id', $userId)->countAllResults(),
-            'average_rating' => $this->getAverageRating($userId),
-            'total_spent' => $this->getTotalUserSpent($userId),
         ];
     }
 
@@ -265,14 +253,6 @@ class DashboardController extends ResourceController
             'bookings_by_priority' => $this->getBookingsByPriority(),
             'revenue_trend' => $this->getRevenueTrend(),
             'user_growth' => $this->getUserGrowth(),
-        ];
-    }
-
-    private function getOwnerAnalytics($userId)
-    {
-        return [
-            'booking_timeline' => $this->getBookingTimeline($userId),
-            'spending_distribution' => $this->getSpendingDistribution($userId),
         ];
     }
 
@@ -407,31 +387,6 @@ class DashboardController extends ResourceController
         return round(floatval($result['rating'] ?? 0), 2);
     }
 
-    private function getServiceCount($userId)
-    {
-        return 0; // Will depend on ServiceModel
-    }
-
-    private function getBookingTimeline($userId)
-    {
-        return $this->bookingModel->where('customer_id', $userId)
-            ->orderBy('created_at', 'DESC')
-            ->limit(5)
-            ->select('id, title, status, created_at, completed_at')
-            ->find();
-    }
-
-    private function getSpendingDistribution($userId)
-    {
-        return $this->bookingModel
-            ->where('customer_id', $userId)
-            ->where('status', 'completed')
-            ->selectSum('total_fee')
-            ->selectCount('id', 'count')
-            ->groupBy('status')
-            ->find();
-    }
-
     private function getWorkerEarningsTrend($userId, $days = 30)
     {
         $data = [];
@@ -509,22 +464,29 @@ class DashboardController extends ResourceController
     {
         $data = [
             'stats' => match ($userRole) {
+                'super_admin' => $this->getAdminStats(),
                 'admin' => $this->getAdminStats(),
-                'owner' => $this->getOwnerStats($userId),
                 'worker' => $this->getWorkerStats($userId),
                 'customer' => $this->getCustomerStats($userId),
                 'finance' => $this->getFinanceStats(),
                 default => []
             },
             'analytics' => match ($userRole) {
+                'super_admin' => $this->getSystemAnalytics(),
                 'admin' => $this->getSystemAnalytics(),
-                'owner' => $this->getOwnerAnalytics($userId),
                 'worker' => $this->getWorkerAnalytics($userId),
                 'customer' => $this->getCustomerAnalytics($userId),
                 'finance' => $this->getPaymentAnalytics(),
                 default => []
             },
-            'recentBookings' => $this->bookingModel->limit(10)->orderBy('created_at', 'DESC')->find()
+            'recentBookings' => match ($userRole) {
+                'super_admin' => $this->bookingModel->limit(10)->orderBy('created_at', 'DESC')->find(),
+                'admin' => $this->bookingModel->limit(10)->orderBy('created_at', 'DESC')->find(),
+                'worker' => $this->bookingModel->where('worker_id', $userId)->limit(10)->orderBy('created_at', 'DESC')->find(),
+                'customer' => $this->bookingModel->where('customer_id', $userId)->limit(10)->orderBy('created_at', 'DESC')->find(),
+                'finance' => $this->getFinanceDashboardBookings(10),
+                default => [],
+            },
         ];
 
         // Include pending worker applications for admin dashboards
