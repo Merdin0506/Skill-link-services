@@ -68,6 +68,9 @@
                     <p class="mb-0"><?= $user['email'] ?></p>
                     <small class="text-muted">Last login: Today</small>
                 </div>
+                <a href="<?= base_url('logout') ?>" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-sign-out-alt me-1"></i> Logout
+                </a>
             </div>
         </div>
 

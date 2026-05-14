@@ -1428,14 +1428,29 @@ function createUsersView(state) {
   const pageSize = Number(pagination.limit || filters.limit || 25);
   const rangeStart = totalUsers ? ((currentPage - 1) * pageSize) + 1 : 0;
   const rangeEnd = totalUsers ? Math.min(currentPage * pageSize, totalUsers) : 0;
+  const hasSearchFilter = Boolean(String(filters.q || '').trim() || String(filters.userType || '').trim());
+  const summaryLabel = isArchivedView
+    ? 'Archived Users'
+    : filters.status === 'active'
+      ? 'Active Users'
+      : filters.status
+        ? `${String(filters.status).replace(/_/g, ' ')} Users`
+        : hasSearchFilter
+          ? 'Matching Users'
+          : 'Visible Users';
+  const systemUserTotal = Number(stats.total_users ?? totalUsers);
+  const paginationMessage = totalPages > 1
+    ? `Page ${currentPage} of ${totalPages}`
+    : `Only one page for the current filters (${totalUsers} result${totalUsers === 1 ? '' : 's'}).`;
 
   return `
     ${createInfoBanner(state.routeNotice)}
     ${createMetricGrid([
-      { icon: 'fas fa-users', value: stats.total_users ?? users.length, label: 'Total Users', tone: 'primary' },
+      { icon: 'fas fa-users', value: totalUsers, label: summaryLabel, tone: 'primary' },
+      { icon: 'fas fa-database', value: systemUserTotal, label: 'All Users', tone: 'secondary' },
       { icon: 'fas fa-box-archive', value: stats.archived_users ?? 0, label: 'Archived', tone: 'secondary' },
-      { icon: 'fas fa-user-tie', value: stats.total_workers ?? 0, label: 'Workers', tone: 'info' },
-      { icon: 'fas fa-user-friends', value: stats.total_customers ?? 0, label: 'Customers', tone: 'success' }
+      { icon: 'fas fa-user-friends', value: stats.total_customers ?? 0, label: 'Customers', tone: 'success' },
+      { icon: 'fas fa-user-tie', value: stats.total_workers ?? 0, label: 'Workers', tone: 'info' }
     ])}
 
     <div class="card desktop-card">
@@ -1488,7 +1503,7 @@ function createUsersView(state) {
       <div class="card desktop-card">
         <div class="card-header desktop-card-header d-flex justify-content-between align-items-center">
           <span><i class="fas fa-users"></i> ${tableTitle}</span>
-          <span class="badge bg-secondary">${rangeStart}-${rangeEnd} of ${totalUsers}</span>
+          <span class="badge bg-secondary">${rangeStart}-${rangeEnd} of ${totalUsers}${systemUserTotal !== totalUsers ? ` · system total ${systemUserTotal}` : ''}</span>
         </div>
         <div class="card-body desktop-card-body">
           <div class="table-responsive desktop-users-list-scroll">
@@ -1522,7 +1537,7 @@ function createUsersView(state) {
             </table>
           </div>
           <div class="desktop-pagination-bar">
-            <div class="desktop-table-subtext">Page ${currentPage} of ${totalPages}</div>
+            <div class="desktop-table-subtext">${paginationMessage}</div>
             <div class="desktop-form-actions">
               <button type="button" class="ghost-button" id="usersPrevPageButton" ${currentPage <= 1 ? 'disabled' : ''}>Previous</button>
               <button type="button" class="ghost-button" id="usersNextPageButton" ${currentPage >= totalPages ? 'disabled' : ''}>Next</button>
@@ -2580,6 +2595,10 @@ function buildDashboardShell(profile, role) {
               <p class="mb-0">${profile.email || '-'}</p>
               <small class="text-muted">Last login: Today</small>
             </div>
+            <button type="button" class="ghost-button" id="topbarLogoutButton">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Logout</span>
+            </button>
           </div>
         </div>
 
@@ -4196,6 +4215,7 @@ export async function renderDashboardView(session = getSession()) {
 
     getElementById('logoutButton')?.addEventListener('click', performLogout);
     getElementById('sidebarLogoutLink')?.addEventListener('click', performLogout);
+    getElementById('topbarLogoutButton')?.addEventListener('click', performLogout);
 
     bindSidebarNavigation(state, session, bridge);
     await renderRoute(state, session, bridge);

@@ -100,7 +100,7 @@
             <i class="fas fa-cog"></i>
             <span>Settings</span>
         </a>
-        <a href="<?= base_url('logout') ?>" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+        <a href="<?= base_url('logout') ?>" class="sidebar-logout-link" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
             <i class="fas fa-sign-out-alt"></i>
             <span>Logout</span>
         </a>
@@ -116,5 +116,9 @@
 
 .sidebar-nav a.disabled-link:hover {
     background-color: transparent;
+}
+
+.sidebar-nav .sidebar-logout-link {
+    margin-top: auto;
 }
 </style>
