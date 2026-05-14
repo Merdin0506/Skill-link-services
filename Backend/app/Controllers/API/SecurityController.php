@@ -123,7 +123,7 @@ class SecurityController extends BaseController
         
         $builder = $this->securityNotificationModel;
         
-        if ($currentUser && $currentUser['user_type'] === 'admin') {
+        if ($currentUser && in_array($currentUser['user_type'] ?? '', ['admin', 'super_admin'], true)) {
             $builder = $builder->where('admin_id', $currentUser['id']);
         }
         
@@ -136,7 +136,7 @@ class SecurityController extends BaseController
         }
         
         if ($unread !== null) {
-            $builder = $builder->where('is_read', $unread === 'true');
+            $builder = $builder->where('is_read', $unread === 'true' ? 0 : 1);
         }
         
         $total = $builder->countAllResults(false);
@@ -176,7 +176,7 @@ class SecurityController extends BaseController
         }
         
         // Check if user owns this notification (admin check)
-        if ($currentUser['user_type'] === 'admin' && $notification['admin_id'] != $currentUser['id']) {
+        if (in_array($currentUser['user_type'] ?? '', ['admin', 'super_admin'], true) && $notification['admin_id'] != $currentUser['id']) {
             return $this->failForbidden('Access denied');
         }
         
@@ -199,7 +199,7 @@ class SecurityController extends BaseController
             return $this->failUnauthorized();
         }
         
-        if ($currentUser['user_type'] === 'admin') {
+        if (in_array($currentUser['user_type'] ?? '', ['admin', 'super_admin'], true)) {
             $this->securityNotificationModel->markAllAsRead($currentUser['id']);
         }
         
@@ -251,7 +251,7 @@ class SecurityController extends BaseController
     {
         $currentUser = $this->getCurrentUser();
         
-        if (!$currentUser || $currentUser['user_type'] !== 'admin') {
+        if (!$currentUser || !in_array($currentUser['user_type'] ?? '', ['admin', 'super_admin'], true)) {
             return $this->failUnauthorized();
         }
         
@@ -439,8 +439,15 @@ class SecurityController extends BaseController
      */
     private function getCurrentUser()
     {
-        // This should implement JWT token extraction and validation
-        // For now, return null as placeholder
-        return null;
+        $user = $this->request->authUser ?? null;
+        if (!is_array($user)) {
+            return null;
+        }
+
+        return [
+            'id' => $user['id'] ?? ($this->request->authUserId ?? null),
+            'email' => $user['email'] ?? null,
+            'user_type' => $user['user_type'] ?? ($this->request->authUserRole ?? null),
+        ];
     }
 }

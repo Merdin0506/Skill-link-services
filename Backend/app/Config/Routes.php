@@ -173,6 +173,9 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('security/dashboard', 'SecurityController::dashboard');
     $routes->get('security/events', 'SecurityController::events');
     $routes->get('security/events/export', 'SecurityController::exportEvents');
+    $routes->get('security/notifications', 'SecurityController::notifications');
+    $routes->post('security/notifications/mark-all-read', 'SecurityController::markAllNotificationsRead');
+    $routes->post('security/notifications/(:num)/mark-read', 'SecurityController::markNotificationRead/$1');
     $routes->post('security/block-ip', 'SecurityController::blockIP');
     $routes->get('security/blocked-ips', 'SecurityController::blockedIPs');
     $routes->post('security/unblock-ip/(:num)', 'SecurityController::unblockIP/$1');

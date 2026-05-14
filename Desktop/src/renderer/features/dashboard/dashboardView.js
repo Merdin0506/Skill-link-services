@@ -40,6 +40,12 @@ import {
   loadAdminUserAnalyticsRouteData,
   getDefaultAdminUserAnalyticsFilters
 } from './adminUserAnalyticsWorkspace.js';
+import {
+  bindAdminSecurityView,
+  createAdminSecurityView,
+  loadAdminSecurityRouteData,
+  getDefaultAdminSecurityFilters
+} from './adminSecurityWorkspace.js';
 import { bindServicesView as bindServicesWorkspaceView, createServicesView as createServicesWorkspaceView, getDefaultServiceFilters } from './servicesWorkspace.js';
 
 function formatValue(value) {
@@ -1845,181 +1851,6 @@ function createPendingWorkersView(state) {
   `;
 }
 
-function createSecurityView(state) {
-  const dashboard = state.routeSecurityDashboard || {};
-  const stats = state.routeSecurityStats || {};
-  const topThreats = Array.isArray(dashboard.top_threats) ? dashboard.top_threats : [];
-  const alerts = Array.isArray(dashboard.recent_alerts) ? dashboard.recent_alerts : [];
-  const events = Array.isArray(state.routeSecurityEvents) ? state.routeSecurityEvents : [];
-  const blockedIps = Array.isArray(state.routeBlockedIps) ? state.routeBlockedIps : [];
-  const eventStats = stats.event_stats || {};
-  const blockStats = stats.block_stats || {};
-  const notificationStats = stats.notification_stats || {};
-  const dashboardSummary = dashboard.summary || {};
-
-  return `
-    ${createPageHeading('fas fa-shield-alt', 'Security Center')}
-    ${createInfoBanner(state.routeNotice || 'This workspace surfaces the backend security monitoring APIs for admins.')}
-    <div class="desktop-form-actions mb-3">
-      <button id="securityRefreshButton" type="button" class="action-button">Refresh Security Data</button>
-    </div>
-
-    ${createMetricGrid([
-      { icon: 'fas fa-triangle-exclamation', value: dashboardSummary.total_events ?? eventStats.total_events ?? 0, label: 'Tracked Events', tone: 'danger' },
-      { icon: 'fas fa-lock', value: dashboardSummary.failed_logins ?? eventStats.login_failed ?? 0, label: 'Failed Logins', tone: 'warning' },
-      { icon: 'fas fa-user-shield', value: dashboardSummary.suspicious_activities ?? eventStats.suspicious_activity ?? 0, label: 'Suspicious Activity', tone: 'info' },
-      { icon: 'fas fa-ban', value: dashboardSummary.blocked_ips ?? blockStats.active_blocks ?? blockedIps.length, label: 'Blocked IPs', tone: 'primary' },
-      { icon: 'fas fa-bell', value: notificationStats.unread ?? alerts.length, label: 'Unread Alerts', tone: 'warning' },
-      { icon: 'fas fa-check-circle', value: dashboardSummary.successful_logins ?? eventStats.login_success ?? 0, label: 'Successful Logins', tone: 'success' }
-    ])}
-
-    <div class="row">
-      <div class="col-xl-7">
-        <div class="card desktop-card">
-          <div class="card-header desktop-card-header">
-            <i class="fas fa-clock-rotate-left"></i> Recent Security Events
-          </div>
-          <div class="card-body desktop-card-body">
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>Event</th>
-                    <th>Severity</th>
-                    <th>IP Address</th>
-                    <th>Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${events.length ? events.map((event) => `
-                    <tr>
-                      <td>
-                        <strong>${escapeHtml(String(event.event_type || 'event').replace(/_/g, ' '))}</strong>
-                        <div class="desktop-table-subtext">${escapeHtml(event.details || 'No additional details provided.')}</div>
-                      </td>
-                      <td><span class="badge bg-${getSeverityTone(event.severity)}">${escapeHtml(String(event.severity || 'info').replace(/_/g, ' '))}</span></td>
-                      <td>${escapeHtml(event.ip_address || '-')}</td>
-                      <td>${formatDate(event.created_at)}</td>
-                    </tr>
-                  `).join('') : `
-                    <tr>
-                      <td colspan="4" class="text-center text-muted py-4">No recent security events were returned.</td>
-                    </tr>
-                  `}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-xl-5">
-        <div class="card desktop-card">
-          <div class="card-header desktop-card-header">
-            <i class="fas fa-radar"></i> Top Threat Sources
-          </div>
-          <div class="card-body desktop-card-body">
-            ${topThreats.length ? topThreats.map((threat) => `
-              <div class="desktop-insight-row">
-                <div>
-                  <strong>${escapeHtml(threat.ip_address || 'Unknown IP')}</strong>
-                  <div class="desktop-table-subtext">${escapeHtml(threat.details || threat.event_type || 'Suspicious activity detected')}</div>
-                </div>
-                <span class="badge bg-${getSeverityTone(threat.severity || 'medium')}">${formatRelativeCount(threat.event_count || threat.total || 1)} hits</span>
-              </div>
-            `).join('') : `
-              <div class="chart-placeholder desktop-placeholder-card">No top threat data is available yet.</div>
-            `}
-          </div>
-        </div>
-
-        <div class="card desktop-card">
-          <div class="card-header desktop-card-header">
-            <i class="fas fa-bell"></i> Action Alerts
-          </div>
-          <div class="card-body desktop-card-body">
-            ${alerts.length ? alerts.map((alert) => `
-              <div class="desktop-insight-row">
-                <div>
-                  <strong>${escapeHtml(alert.title || alert.type || 'Security alert')}</strong>
-                  <div class="desktop-table-subtext">${escapeHtml(alert.message || alert.description || 'Review this alert in the backend.')}</div>
-                </div>
-                <span class="badge bg-${getSeverityTone(alert.priority || 'warning')}">${escapeHtml(String(alert.priority || 'pending').replace(/_/g, ' '))}</span>
-              </div>
-            `).join('') : `
-              <div class="chart-placeholder desktop-placeholder-card">No action-required alerts are waiting right now.</div>
-            `}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="row">
-      <div class="col-xl-6">
-        <div class="card desktop-card">
-          <div class="card-header desktop-card-header">
-            <i class="fas fa-ban"></i> Blocked IP Addresses
-          </div>
-          <div class="card-body desktop-card-body">
-            <div class="table-responsive">
-              <table class="table table-hover">
-                <thead>
-                  <tr>
-                    <th>IP Address</th>
-                    <th>Reason</th>
-                    <th>Blocked Until</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${blockedIps.length ? blockedIps.map((blockedIp) => `
-                    <tr>
-                      <td><strong>${escapeHtml(blockedIp.ip_address || '-')}</strong></td>
-                      <td>${escapeHtml(blockedIp.reason || blockedIp.notes || 'Manual or automated security block')}</td>
-                      <td>${formatDate(blockedIp.blocked_until || blockedIp.expires_at || blockedIp.created_at)}</td>
-                    </tr>
-                  `).join('') : `
-                    <tr>
-                      <td colspan="3" class="text-center text-muted py-4">No active blocked IP entries were returned.</td>
-                    </tr>
-                  `}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-xl-6">
-        <div class="card desktop-card">
-          <div class="card-header desktop-card-header">
-            <i class="fas fa-chart-column"></i> Security Snapshot
-          </div>
-          <div class="card-body desktop-card-body">
-            <div class="desktop-insight-grid">
-              <div class="desktop-insight-tile">
-                <span>Blocks Today</span>
-                <strong>${formatRelativeCount(blockStats.blocks_today ?? blockStats.total_blocks_today ?? 0)}</strong>
-              </div>
-              <div class="desktop-insight-tile">
-                <span>Total Active Blocks</span>
-                <strong>${formatRelativeCount(blockStats.active_blocks ?? blockedIps.length)}</strong>
-              </div>
-              <div class="desktop-insight-tile">
-                <span>Critical Alerts</span>
-                <strong>${formatRelativeCount(notificationStats.critical ?? 0)}</strong>
-              </div>
-              <div class="desktop-insight-tile">
-                <span>Notifications</span>
-                <strong>${formatRelativeCount(notificationStats.total ?? alerts.length)}</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function getBookingActionButtons(booking, role, route) {
   const status = String(booking.status || '');
   const actions = [];
@@ -2784,8 +2615,21 @@ async function renderRoute(state, session, bridge) {
     }
 
     if (state.currentRoute === 'security') {
-      contentElement.innerHTML = createSecurityView(state);
-      bindSecurityView(state, session, bridge);
+      contentElement.innerHTML = createAdminSecurityView(state, {
+        createInfoBanner,
+        createMetricGrid,
+        createPageHeading,
+        escapeHtml,
+        formatDate,
+        formatRelativeCount,
+        getSeverityTone
+      });
+      bindAdminSecurityView(state, session, bridge, {
+        performAuthenticatedRequest,
+        renderRoute,
+        setStatus,
+        updateInlineStatus
+      });
       updateInlineStatus('', null);
       return;
     }
@@ -2903,6 +2747,7 @@ function resetRouteState(state) {
   state.routeSecurityDashboard = {};
   state.routeSecurityStats = {};
   state.routeSecurityEvents = [];
+  state.routeSecurityNotifications = [];
   state.routeBlockedIps = [];
 }
 
@@ -3250,18 +3095,7 @@ async function ensureRouteData(state, session, bridge) {
   }
 
   if (state.currentRoute === 'security') {
-    const [dashboardResponse, eventsResponse, blockedResponse, statisticsResponse] = await Promise.all([
-      performAuthenticatedRequest(session, bridge, '/api/security/dashboard', { method: 'GET' }),
-      performAuthenticatedRequest(session, bridge, '/api/security/events?limit=10', { method: 'GET' }).catch(() => ({ data: { events: [] } })),
-      performAuthenticatedRequest(session, bridge, '/api/security/blocked-ips?limit=10', { method: 'GET' }).catch(() => ({ data: { blocked_ips: [] } })),
-      performAuthenticatedRequest(session, bridge, '/api/security/statistics', { method: 'GET' }).catch(() => ({ data: {} }))
-    ]);
-
-    state.routeSecurityDashboard = dashboardResponse?.data || {};
-    state.routeSecurityEvents = eventsResponse?.data?.events || [];
-    state.routeBlockedIps = blockedResponse?.data?.blocked_ips || [];
-    state.routeSecurityStats = statisticsResponse?.data || {};
-    state.routeNotice = 'Security data is live from the backend admin APIs. Refresh this page after investigating new incidents.';
+    await loadAdminSecurityRouteData(state, session, bridge, performAuthenticatedRequest);
     return;
   }
 
@@ -3410,30 +3244,6 @@ function bindReviewForm(state, session, bridge) {
     } finally {
       submitButton.disabled = false;
       submitButton.textContent = 'Submit Review';
-    }
-  };
-}
-
-function bindSecurityView(state, session, bridge) {
-  const refreshButton = getElementById('securityRefreshButton');
-  if (!refreshButton) {
-    return;
-  }
-
-  refreshButton.onclick = async () => {
-    refreshButton.disabled = true;
-    refreshButton.textContent = 'Refreshing...';
-
-    try {
-      await renderRoute(state, session, bridge);
-      updateInlineStatus('Security data refreshed successfully.', 'success');
-      setStatus('Security data refreshed successfully.', 'success');
-    } catch (error) {
-      updateInlineStatus(error.message || 'Failed to refresh security data.', 'error');
-      setStatus(error.message || 'Failed to refresh security data.', 'error');
-    } finally {
-      refreshButton.disabled = false;
-      refreshButton.textContent = 'Refresh Security Data';
     }
   };
 }
@@ -4025,6 +3835,7 @@ export async function renderDashboardView(session = getSession()) {
       bookings: bookingsResponse?.bookings || [],
       role,
       adminUserAnalyticsFilters: getDefaultAdminUserAnalyticsFilters(),
+      adminSecurityFilters: getDefaultAdminSecurityFilters(),
       selectedAnalyticsUserId: null,
       selectedAnalyticsUser: null,
       selectedAnalyticsUserDashboard: {},
