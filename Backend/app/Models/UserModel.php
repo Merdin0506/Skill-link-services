@@ -151,6 +151,10 @@ class UserModel extends Model
         'password',
         'phone',
         'address',
+        'service_city',
+        'service_radius_km',
+        'work_latitude',
+        'work_longitude',
         'resume_path',
         'user_type',
         'status',
@@ -167,6 +171,10 @@ class UserModel extends Model
         'otp',
         'otp_expire',
         'otp_attempts',
+        'pending_email',
+        'email_change_otp',
+        'email_change_otp_expire',
+        'email_change_otp_attempts',
     ];
 
     protected $useTimestamps = true;

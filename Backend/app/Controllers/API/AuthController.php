@@ -4,6 +4,7 @@ namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
 use App\Libraries\ActivityLogger;
+use App\Models\ActivityLogModel;
 use App\Models\UserModel;
 use CodeIgniter\API\ResponseTrait;
 use Firebase\JWT\JWT;
@@ -301,6 +302,111 @@ class AuthController extends BaseController
         ]);
     }
 
+    public function requestPasswordReset()
+    {
+        $rules = [
+            'email' => 'required|valid_email',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = strtolower(trim((string) $this->request->getVar('email')));
+        $user = $this->userModel->where('email', $email)->first();
+
+        if (! $user) {
+            return $this->failNotFound('User not found');
+        }
+
+        $otp = $this->issueOtpForUser((int) $user['id']);
+        if (! $this->sendOtpEmail($email, $otp, 'password_reset')) {
+            return $this->failServerError('We could not send the password reset code. Please try again.');
+        }
+
+        $this->activityLogger->record('auth', 'password_reset_requested', 'success', null, (int) $user['id'], [
+            'email' => $email,
+        ], 'api');
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'Password reset code sent. Enter the code to continue.',
+            'requires_otp' => true,
+            'data' => [
+                'email' => $email,
+            ],
+        ]);
+    }
+
+    public function resetPasswordWithOtp()
+    {
+        $rules = [
+            'email' => 'required|valid_email',
+            'otp' => 'required|exact_length[6]|numeric',
+            'new_password' => 'required|min_length[8]',
+            'confirm_password' => 'required|matches[new_password]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = strtolower(trim((string) $this->request->getVar('email')));
+        $otpInput = trim((string) $this->request->getVar('otp'));
+        $user = $this->userModel->where('email', $email)->first();
+
+        if (! $user) {
+            return $this->failNotFound('User not found');
+        }
+
+        if (($user['otp_attempts'] ?? 0) >= 3) {
+            return $this->fail('Max OTP attempts reached. Please request a new code.');
+        }
+
+        if (empty($user['otp']) || ! hash_equals((string) $user['otp'], $otpInput)) {
+            $attempts = ((int) ($user['otp_attempts'] ?? 0)) + 1;
+            $this->userModel->update((int) $user['id'], ['otp_attempts' => $attempts]);
+            return $this->fail('Invalid OTP code. Tries left: ' . max(0, 3 - $attempts));
+        }
+
+        if (!empty($user['otp_expire']) && strtotime((string) $user['otp_expire']) < time()) {
+            return $this->fail('OTP has expired. Please request a new code.');
+        }
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->changePassword((int) $user['id'], (string) $this->request->getVar('new_password')) === false) {
+                throw new \RuntimeException('Failed to update password.');
+            }
+
+            $this->userModel->update((int) $user['id'], [
+                'otp' => null,
+                'otp_expire' => null,
+                'otp_attempts' => 0,
+            ]);
+
+            $this->activityLogger->record('account', 'password_reset_completed', 'success', (int) $user['id'], (int) $user['id'], [
+                'method' => 'otp_reset',
+            ], 'api');
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Password reset successful. You can now sign in.',
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return $this->fail('Password reset failed: ' . $e->getMessage());
+        }
+    }
+
     private function getApprovalStateMessage(string $status): string
     {
         return match ($status) {
@@ -342,6 +448,7 @@ class AuthController extends BaseController
     public function updateProfile()
     {
         $userId = $this->request->authUserId;
+        $isWorker = (($this->request->authUser['user_type'] ?? '') === 'worker');
 
         $rules = [
             'first_name' => 'required|min_length[2]|max_length[100]',
@@ -349,6 +456,13 @@ class AuthController extends BaseController
             'phone'      => 'max_length[20]',
             'address'    => 'max_length[500]',
         ];
+
+        if ($isWorker) {
+            $rules['service_city'] = 'permit_empty|max_length[120]';
+            $rules['service_radius_km'] = 'permit_empty|numeric|greater_than[0]|less_than_equal_to[500]';
+            $rules['work_latitude'] = 'permit_empty|decimal|greater_than_equal_to[-90]|less_than_equal_to[90]';
+            $rules['work_longitude'] = 'permit_empty|decimal|greater_than_equal_to[-180]|less_than_equal_to[180]';
+        }
 
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
@@ -361,9 +475,22 @@ class AuthController extends BaseController
             'address'    => $this->request->getVar('address'),
         ];
 
-        if (($this->request->authUser['user_type'] ?? '') === 'worker') {
-            $data['skills']           = $this->request->getVar('skills');
-            $data['experience_years'] = $this->request->getVar('experience_years');
+        if ($isWorker) {
+            $skills = $this->request->getVar('skills');
+            if (is_string($skills)) {
+                $skills = array_values(array_filter(array_map('trim', explode(',', $skills))));
+            }
+
+            if (!is_array($skills)) {
+                $skills = [];
+            }
+
+            $data['skills'] = json_encode(UserModel::normalizeWorkerSkills($skills));
+            $data['experience_years'] = (int) ($this->request->getVar('experience_years') ?? 0);
+            $data['service_city'] = trim((string) ($this->request->getVar('service_city') ?? ''));
+            $data['service_radius_km'] = (float) ($this->request->getVar('service_radius_km') ?: 20);
+            $data['work_latitude'] = $this->nullIfEmpty($this->request->getVar('work_latitude'));
+            $data['work_longitude'] = $this->nullIfEmpty($this->request->getVar('work_longitude'));
         }
 
         $db = \Config\Database::connect();
@@ -395,6 +522,158 @@ class AuthController extends BaseController
         } catch (\Exception $e) {
             $db->transRollback();
             return $this->fail('Profile update failed: ' . $e->getMessage());
+        }
+    }
+
+    public function settings()
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $role = (string) ($this->request->authUserRole ?? '');
+        if ($userId <= 0) {
+            return $this->failUnauthorized('User not authenticated');
+        }
+
+        $sessionTracker = service('sessiontracker');
+        $activityLogModel = new ActivityLogModel();
+        $currentSession = $sessionTracker->getCurrentSessionSummary();
+        $myActiveSessions = $sessionTracker->getActiveSessionsForUser($userId);
+        $myActivityLogs = $activityLogModel->getRecentForUser($userId, 20);
+        $isAdmin = in_array($role, ['admin', 'super_admin'], true);
+
+        return $this->respond([
+            'status' => 'success',
+            'data' => [
+                'environment' => ENVIRONMENT,
+                'baseUrl' => (string) base_url('/'),
+                'role' => $role,
+                'currentSession' => $currentSession,
+                'myActiveSessions' => $myActiveSessions,
+                'myActivityLogs' => $myActivityLogs,
+                'activeSessionCount' => $isAdmin ? $sessionTracker->getActiveSessionCount() : 0,
+                'recentActiveSessions' => $isAdmin ? $sessionTracker->getActiveSessions(20) : [],
+                'recentActivityLogs' => $isAdmin ? $activityLogModel->getRecentWithUsers(30) : [],
+            ],
+        ]);
+    }
+
+    public function requestEmailChange()
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $currentUser = $this->request->authUser ?? null;
+        if ($userId <= 0 || !is_array($currentUser)) {
+            return $this->failUnauthorized('User not authenticated');
+        }
+
+        $rules = [
+            'email' => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = strtolower(trim((string) $this->request->getVar('email')));
+        if ($email === strtolower(trim((string) ($currentUser['email'] ?? '')))) {
+            return $this->fail('Your new email must be different from the current one.');
+        }
+
+        $otp = $this->issueEmailChangeOtpForUser($userId, $email);
+        if (! $this->sendOtpEmail($email, $otp, 'email_change')) {
+            return $this->failServerError('We could not send the verification code to your new email address.');
+        }
+
+        $this->activityLogger->record('account', 'email_change_requested', 'success', $userId, $userId, [
+            'pending_email' => $email,
+        ], 'api', $this->request->authSessionKey ?? null);
+
+        return $this->respond([
+            'status' => 'success',
+            'message' => 'Verification code sent to your new email address.',
+            'data' => [
+                'email' => $email,
+            ],
+        ]);
+    }
+
+    public function confirmEmailChange()
+    {
+        $userId = (int) ($this->request->authUserId ?? 0);
+        $currentUser = $this->request->authUser ?? null;
+        if ($userId <= 0 || !is_array($currentUser)) {
+            return $this->failUnauthorized('User not authenticated');
+        }
+
+        $rules = [
+            'email' => 'required|valid_email',
+            'otp' => 'required|exact_length[6]|numeric',
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $email = strtolower(trim((string) $this->request->getVar('email')));
+        $otpInput = trim((string) $this->request->getVar('otp'));
+        $user = $this->userModel->find($userId);
+
+        if (! $user) {
+            return $this->failNotFound('User not found');
+        }
+
+        if (($user['email_change_otp_attempts'] ?? 0) >= 3) {
+            return $this->fail('Max OTP attempts reached. Please request a new code.');
+        }
+
+        if ($email !== strtolower(trim((string) ($user['pending_email'] ?? '')))) {
+            return $this->fail('This email change request is no longer valid.');
+        }
+
+        if (!empty($user['email_change_otp_expire']) && strtotime((string) $user['email_change_otp_expire']) < time()) {
+            return $this->fail('OTP has expired. Please request a new code.');
+        }
+
+        if (empty($user['email_change_otp']) || ! hash_equals((string) $user['email_change_otp'], $otpInput)) {
+            $attempts = ((int) ($user['email_change_otp_attempts'] ?? 0)) + 1;
+            $this->userModel->update($userId, ['email_change_otp_attempts' => $attempts]);
+            return $this->fail('Invalid OTP code. Tries left: ' . max(0, 3 - $attempts));
+        }
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->update($userId, [
+                'email' => $email,
+                'pending_email' => null,
+                'email_change_otp' => null,
+                'email_change_otp_expire' => null,
+                'email_change_otp_attempts' => 0,
+                'email_verified_at' => date('Y-m-d H:i:s'),
+            ]) === false) {
+                throw new \RuntimeException('Failed to update email.');
+            }
+
+            $updatedUser = $this->userModel->find($userId);
+            unset($updatedUser['password']);
+
+            $this->activityLogger->record('account', 'email_changed', 'success', $userId, $userId, [
+                'new_email' => $email,
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Database transaction failed.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Profile and email updated successfully.',
+                'data' => $updatedUser,
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return $this->fail('Email update failed: ' . $e->getMessage());
         }
     }
 
@@ -473,6 +752,21 @@ class AuthController extends BaseController
         return $otp;
     }
 
+    private function issueEmailChangeOtpForUser(int $userId, string $pendingEmail): string
+    {
+        $otp = sprintf('%06d', mt_rand(0, 999999));
+        $expire = date('Y-m-d H:i:s', strtotime('+5 minutes'));
+
+        $this->userModel->update($userId, [
+            'pending_email' => $pendingEmail,
+            'email_change_otp' => $otp,
+            'email_change_otp_expire' => $expire,
+            'email_change_otp_attempts' => 0,
+        ]);
+
+        return $otp;
+    }
+
     private function sendOtpEmail(string $recipientEmail, string $otp, string $context): bool
     {
         if (!class_exists(PHPMailer::class)) {
@@ -513,6 +807,8 @@ class AuthController extends BaseController
         $mail->Subject = match ($context) {
             'register' => 'Verify your SkillLink account',
             'login' => 'SkillLink login verification code',
+            'password_reset' => 'SkillLink password reset code',
+            'email_change' => 'Confirm your new SkillLink email',
             default => 'Your new SkillLink verification code',
         };
         $mail->Body = $this->generateOtpEmailMessage($otp, $recipientEmail, $context);
@@ -549,6 +845,17 @@ class AuthController extends BaseController
         return is_string($normalized) && $normalized !== '' ? $normalized : null;
     }
 
+    private function nullIfEmpty($value)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
+
     private function generateOtpEmailMessage(string $otp, string $email, string $context): string
     {
         $apiKey = getenv('GEMINI_API_KEY');
@@ -558,6 +865,11 @@ class AuthController extends BaseController
 
         $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" . $apiKey;
         $action = $context === 'register' ? 'verifying a newly created SkillLink account' : 'logging into SkillLink Services';
+        if ($context === 'password_reset') {
+            $action = 'resetting a SkillLink Services password';
+        } elseif ($context === 'email_change') {
+            $action = 'confirming a new email address for SkillLink Services';
+        }
         $prompt = "Write a very short, professional and welcoming security email for a user with email $email who is $action.
                    The 6-digit verification code is $otp.
                    Mention it expires in 5 minutes.
@@ -601,7 +913,11 @@ class AuthController extends BaseController
     {
         $intro = $context === 'register'
             ? 'Thanks for creating your SkillLink account.'
-            : 'We received a request to verify your SkillLink sign-in.';
+            : ($context === 'password_reset'
+                ? 'We received a request to reset your SkillLink password.'
+                : ($context === 'email_change'
+                    ? 'We received a request to confirm your new SkillLink email address.'
+                    : 'We received a request to verify your SkillLink sign-in.'));
 
         return "<p>{$intro}</p><p>Your verification code is <b>{$otp}</b>.</p><p>This code expires in 5 minutes.</p>";
     }

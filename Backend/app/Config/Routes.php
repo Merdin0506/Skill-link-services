@@ -139,6 +139,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->post('auth/login', 'AuthController::login');
     $routes->post('auth/verify-otp', 'AuthController::verifyOtp');
     $routes->post('auth/resend-otp', 'AuthController::resendOtp');
+    $routes->post('auth/forgot-password/request', 'AuthController::requestPasswordReset');
+    $routes->post('auth/forgot-password/reset', 'AuthController::resetPasswordWithOtp');
     $routes->get('health', static function () {
         return service('response')->setJSON([
             'status' => 'success',
@@ -155,7 +157,10 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'permissionapi']], function ($routes) {
     $routes->get('auth/profile', 'AuthController::profile');
     $routes->put('auth/profile', 'AuthController::updateProfile');
+    $routes->get('auth/settings', 'AuthController::settings');
     $routes->post('auth/change-password', 'AuthController::changePassword');
+    $routes->post('auth/change-email/request', 'AuthController::requestEmailChange');
+    $routes->post('auth/change-email/confirm', 'AuthController::confirmEmailChange');
     $routes->post('auth/logout', 'AuthController::logout');
     $routes->get('dashboard/data', 'DashboardController::data');
     $routes->get('dashboard/stats', 'DashboardController::stats');
