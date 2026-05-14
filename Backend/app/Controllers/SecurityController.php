@@ -37,6 +37,7 @@ class SecurityController extends BaseController
         return view('security/dashboard', [
             'dashboardData' => $this->getDashboardData(),
             'apiToken' => session()->get('api_token'),
+            'securityNavActive' => 'dashboard',
         ]);
     }
 
@@ -47,6 +48,7 @@ class SecurityController extends BaseController
     {
         return view('security/audit_logs', [
             'apiToken' => session()->get('api_token'),
+            'securityNavActive' => 'audit',
         ]);
     }
 
@@ -55,9 +57,80 @@ class SecurityController extends BaseController
      */
     public function reports()
     {
-        return view('security/dashboard', [
+        return view('security/reports', [
             'dashboardData' => $this->getDashboardData(),
             'apiToken' => session()->get('api_token'),
+            'securityNavActive' => 'reports',
+        ]);
+    }
+
+    /**
+     * Render notifications page.
+     */
+    public function notifications()
+    {
+        return view('security/notifications', [
+            'notifications' => $this->securityNotificationModel
+                ->orderBy('created_at', 'DESC')
+                ->findAll(50),
+            'securityNavActive' => 'notifications',
+        ]);
+    }
+
+    /**
+     * Render blocked IPs page.
+     */
+    public function blockedIPs()
+    {
+        return view('security/blocked_ips', [
+            'blockedIps' => $this->blockedIPModel->getBlockedIPs(true),
+            'securityNavActive' => 'blocked',
+        ]);
+    }
+
+    /**
+     * Unblock an IP from the web admin module.
+     */
+    public function unblockIP($id)
+    {
+        $blockedIp = $this->blockedIPModel->find((int) $id);
+
+        if (!$blockedIp || empty($blockedIp['is_active'])) {
+            return redirect()->to('/security/blocked-ips')
+                ->with('error', 'Blocked IP entry not found.');
+        }
+
+        $updated = $this->blockedIPModel->update((int) $id, [
+            'is_active' => false,
+            'updated_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        if (!$updated) {
+            return redirect()->to('/security/blocked-ips')
+                ->with('error', 'Failed to unblock IP address.');
+        }
+
+        $currentUserId = session()->get('user_id');
+        $currentUserEmail = session()->get('email');
+        $this->logEvent(
+            'account_unlocked',
+            'medium',
+            'IP unblocked via web admin: ' . ($blockedIp['ip_address'] ?? 'unknown'),
+            $currentUserId,
+            $currentUserEmail
+        );
+
+        return redirect()->to('/security/blocked-ips')
+            ->with('success', 'IP address unblocked successfully.');
+    }
+
+    /**
+     * Render settings page.
+     */
+    public function settings()
+    {
+        return view('security/settings', [
+            'securityNavActive' => 'settings',
         ]);
     }
     

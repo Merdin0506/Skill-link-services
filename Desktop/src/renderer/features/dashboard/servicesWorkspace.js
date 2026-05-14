@@ -303,7 +303,7 @@ function createAdminServicesView(state, helpers) {
         <i class="fas fa-filter"></i> Service Filters
       </div>
       <div class="card-body desktop-card-body">
-        <div class="desktop-filter-grid">
+        <div class="desktop-services-filter-grid">
           <div class="field">
             <label>Status</label>
             <div class="desktop-chip-row">

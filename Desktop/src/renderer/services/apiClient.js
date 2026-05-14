@@ -42,8 +42,17 @@ function parseErrorMessage(data, status) {
       ? data.messages.error || Object.values(data.messages)[0]
       : null;
 
+  const validationSummary =
+    data && typeof data.messages === 'object' && data.messages !== null
+      ? Object.entries(data.messages)
+          .filter(([key, value]) => key !== 'error' && typeof value === 'string' && value.trim())
+          .map(([key, value]) => `${String(key).replace(/_/g, ' ')}: ${value}`)
+          .join(' ')
+      : null;
+
   return polishMessage((
     data?.message ||
+    validationSummary ||
     nestedError ||
     (typeof data?.messages === 'string' ? data.messages : null) ||
     `Request failed (${status})`
@@ -77,7 +86,10 @@ async function requestOnce(baseUrl, endpoint, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(parseErrorMessage(data, response.status));
+    const error = new Error(parseErrorMessage(data, response.status));
+    error.details = data?.messages || null;
+    error.status = response.status;
+    throw error;
   }
 
   return data;

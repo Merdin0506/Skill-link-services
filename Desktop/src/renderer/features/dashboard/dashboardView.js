@@ -12,6 +12,34 @@ import {
   createCashierReportsView,
   loadCashierRouteData
 } from './cashierWorkspace.js';
+import {
+  bindAdminBookingsView,
+  createAdminBookingsView,
+  loadAdminBookingsRouteData
+} from './adminBookingsWorkspace.js';
+import {
+  bindAdminReviewsView,
+  createAdminReviewsView,
+  loadAdminReviewsRouteData,
+  getDefaultAdminReviewFilters
+} from './adminReviewsWorkspace.js';
+import {
+  bindAdminRecordsView,
+  createAdminRecordsView,
+  loadAdminRecordsRouteData,
+  getDefaultAdminRecordFilters
+} from './adminRecordsWorkspace.js';
+import {
+  bindAdminBackupsView,
+  createAdminBackupsView,
+  loadAdminBackupsRouteData
+} from './adminBackupsWorkspace.js';
+import {
+  bindAdminUserAnalyticsView,
+  createAdminUserAnalyticsView,
+  loadAdminUserAnalyticsRouteData,
+  getDefaultAdminUserAnalyticsFilters
+} from './adminUserAnalyticsWorkspace.js';
 import { bindServicesView as bindServicesWorkspaceView, createServicesView as createServicesWorkspaceView, getDefaultServiceFilters } from './servicesWorkspace.js';
 
 function formatValue(value) {
@@ -483,9 +511,13 @@ function getSidebarLinks(role) {
     return [
       { icon: 'fas fa-chart-line', label: 'Dashboard', route: 'dashboard' },
       { icon: 'fas fa-shield-alt', label: 'Security', route: 'security' },
+      { icon: 'fas fa-user-clock', label: 'Pending Workers', route: 'pending-workers' },
       { icon: 'fas fa-users', label: 'Users', route: 'users' },
+      { icon: 'fas fa-chart-pie', label: 'User Analytics', route: 'user-analytics' },
       { icon: 'fas fa-list', label: 'Services', route: 'services' },
       { icon: 'fas fa-calendar-check', label: 'Bookings', route: 'bookings' },
+      { icon: 'fas fa-database', label: 'Backups', route: 'backups' },
+      { icon: 'fas fa-star', label: 'Rates', route: 'rates' },
       { icon: 'fas fa-credit-card', label: 'Payments', route: 'payments' },
       { icon: 'fas fa-file-invoice', label: 'Service Records', route: 'records' }
     ];
@@ -521,10 +553,14 @@ function getViewTitle(route, role) {
   const titles = {
     dashboard: 'Dashboard',
     security: 'Security',
+    'pending-workers': 'Pending Workers',
     profile: 'Profile',
     settings: 'Settings',
     users: 'Users',
+    'user-analytics': 'User Analytics',
     bookings: role === 'customer' ? 'My Bookings' : 'Bookings',
+    backups: 'Backups',
+    rates: 'Rates',
     payments: 'Payments',
     records: 'Service Records',
     'available-jobs': 'Available Jobs',
@@ -1100,9 +1136,41 @@ function parseSkills(value) {
   return [];
 }
 
+function normalizeUserFormErrors(rawErrors) {
+  if (!rawErrors || typeof rawErrors !== 'object') {
+    return {};
+  }
+
+  return Object.entries(rawErrors).reduce((accumulator, [key, value]) => {
+    if (typeof value === 'string' && value.trim()) {
+      accumulator[key] = value.trim();
+    }
+    return accumulator;
+  }, {});
+}
+
+function getUserFieldError(errors, fieldName) {
+  return String(errors?.[fieldName] || '').trim();
+}
+
+function getUserFieldClass(errors, fieldName) {
+  return getUserFieldError(errors, fieldName) ? 'desktop-field-invalid' : '';
+}
+
+function renderUserFieldError(errors, fieldName) {
+  const message = getUserFieldError(errors, fieldName);
+  if (!message) {
+    return '';
+  }
+
+  return `<small class="desktop-field-error" role="alert">${escapeHtml(message)}</small>`;
+}
+
 function createUserEditorForm(state) {
   const mode = state.userEditorMode || 'create';
   const user = state.selectedUser || {};
+  const formError = String(state.userFormError || '').trim();
+  const formErrors = state.userFormErrors || {};
   const isEditing = mode === 'edit';
   const isViewing = mode === 'view';
   const isArchivedView = Boolean(state.userFilters?.showDeleted);
@@ -1132,34 +1200,40 @@ function createUserEditorForm(state) {
           : isViewing
             ? createInfoBanner('This is a read-only view. Click Edit to update this account.', 'info')
             : ''}
+        ${formError ? createInfoBanner(formError, 'danger') : ''}
         <form id="userEditorForm" class="desktop-form-grid">
           ${isEditing ? `<input type="hidden" name="id" value="${escapeHtml(user.id || '')}" />` : ''}
           ${isSuperAdmin ? '<input type="hidden" name="user_type" value="super_admin" />' : ''}
           <div class="form-row">
             <div class="field">
               <label for="admin_user_first_name">First Name</label>
-              <input id="admin_user_first_name" name="first_name" type="text" value="${escapeHtml(user.first_name || '')}" ${locked} required />
+              <input id="admin_user_first_name" class="${getUserFieldClass(formErrors, 'first_name')}" name="first_name" type="text" value="${escapeHtml(user.first_name || '')}" ${locked} required />
+              ${renderUserFieldError(formErrors, 'first_name')}
             </div>
             <div class="field">
               <label for="admin_user_last_name">Last Name</label>
-              <input id="admin_user_last_name" name="last_name" type="text" value="${escapeHtml(user.last_name || '')}" ${locked} required />
+              <input id="admin_user_last_name" class="${getUserFieldClass(formErrors, 'last_name')}" name="last_name" type="text" value="${escapeHtml(user.last_name || '')}" ${locked} required />
+              ${renderUserFieldError(formErrors, 'last_name')}
             </div>
           </div>
 
           <div class="form-row">
             <div class="field">
               <label for="admin_user_email">Email</label>
-              <input id="admin_user_email" name="email" type="email" value="${escapeHtml(user.email || '')}" ${locked} required />
+              <input id="admin_user_email" class="${getUserFieldClass(formErrors, 'email')}" name="email" type="email" value="${escapeHtml(user.email || '')}" ${locked} required />
+              ${renderUserFieldError(formErrors, 'email')}
             </div>
             <div class="field">
               <label for="admin_user_phone">Phone</label>
-              <input id="admin_user_phone" name="phone" type="text" value="${escapeHtml(user.phone || '')}" ${locked} />
+              <input id="admin_user_phone" class="${getUserFieldClass(formErrors, 'phone')}" name="phone" type="text" value="${escapeHtml(user.phone || '')}" ${locked} />
+              ${renderUserFieldError(formErrors, 'phone')}
             </div>
           </div>
 
           <div class="field">
             <label for="admin_user_address">Address</label>
-            <textarea id="admin_user_address" name="address" ${locked}>${escapeHtml(user.address || '')}</textarea>
+            <textarea id="admin_user_address" class="${getUserFieldClass(formErrors, 'address')}" name="address" ${locked}>${escapeHtml(user.address || '')}</textarea>
+            ${renderUserFieldError(formErrors, 'address')}
           </div>
 
           <div class="form-row">
@@ -1169,28 +1243,31 @@ function createUserEditorForm(state) {
                 <input id="admin_user_type_label" type="text" value="super_admin" disabled />
                 <small class="text-muted">Super admin role is fixed and cannot be reassigned.</small>
               ` : `
-                <select id="admin_user_type" name="user_type" ${locked} required>
+                <select id="admin_user_type" class="${getUserFieldClass(formErrors, 'user_type')}" name="user_type" ${locked} required>
                   <option value="">Select role</option>
                   ${['admin', 'finance', 'worker', 'customer'].map((role) => `
                     <option value="${role}" ${String(user.user_type || '') === role ? 'selected' : ''}>${role.replace(/_/g, ' ')}</option>
                   `).join('')}
                 </select>
+                ${renderUserFieldError(formErrors, 'user_type')}
               `}
             </div>
             <div class="field">
               <label for="admin_user_status">Status</label>
-              <select id="admin_user_status" name="status" ${locked} required>
+              <select id="admin_user_status" class="${getUserFieldClass(formErrors, 'status')}" name="status" ${locked} required>
                 ${['active', 'inactive', 'suspended'].map((status) => `
                   <option value="${status}" ${String(user.status || 'active') === status ? 'selected' : ''}>${status}</option>
                 `).join('')}
               </select>
+              ${renderUserFieldError(formErrors, 'status')}
             </div>
           </div>
 
           ${!isEditing ? `
             <div class="field">
               <label for="admin_user_password">Password</label>
-              <input id="admin_user_password" name="password" type="password" minlength="8" ${locked} required />
+              <input id="admin_user_password" class="${getUserFieldClass(formErrors, 'password')}" name="password" type="password" minlength="8" ${locked} required />
+              ${renderUserFieldError(formErrors, 'password')}
             </div>
           ` : `
             <div class="desktop-inline-banner">Password changes stay in the self-service profile flow, just like the website admin page.</div>
@@ -1203,36 +1280,43 @@ function createUserEditorForm(state) {
             </div>
             <div class="field">
               <label for="admin_user_skills">Skills</label>
-              <input id="admin_user_skills" name="skills" type="text" value="${escapeHtml(skills)}" placeholder="e.g., plumbing, electrical, carpentry" ${locked} />
+              <input id="admin_user_skills" class="${getUserFieldClass(formErrors, 'skills')}" name="skills" type="text" value="${escapeHtml(skills)}" placeholder="e.g., plumbing, electrical, carpentry" ${locked} />
+              ${renderUserFieldError(formErrors, 'skills')}
             </div>
             <div class="form-row">
               <div class="field">
                 <label for="admin_user_experience_years">Years of Experience</label>
-                <input id="admin_user_experience_years" name="experience_years" type="number" min="0" max="50" value="${escapeHtml(user.experience_years ?? 0)}" ${locked} />
+                <input id="admin_user_experience_years" class="${getUserFieldClass(formErrors, 'experience_years')}" name="experience_years" type="number" min="0" max="50" value="${escapeHtml(user.experience_years ?? 0)}" ${locked} />
+                ${renderUserFieldError(formErrors, 'experience_years')}
               </div>
               <div class="field">
                 <label for="admin_user_commission_rate">Commission Rate (%)</label>
-                <input id="admin_user_commission_rate" name="commission_rate" type="number" min="0" max="100" step="0.01" value="${escapeHtml(user.commission_rate ?? 20)}" ${locked} />
+                <input id="admin_user_commission_rate" class="${getUserFieldClass(formErrors, 'commission_rate')}" name="commission_rate" type="number" min="0" max="100" step="0.01" value="${escapeHtml(user.commission_rate ?? 20)}" ${locked} />
+                ${renderUserFieldError(formErrors, 'commission_rate')}
               </div>
             </div>
             <div class="form-row">
               <div class="field">
                 <label for="admin_user_service_city">Service City / Area</label>
-                <input id="admin_user_service_city" name="service_city" type="text" value="${escapeHtml(user.service_city || '')}" ${locked} />
+                <input id="admin_user_service_city" class="${getUserFieldClass(formErrors, 'service_city')}" name="service_city" type="text" value="${escapeHtml(user.service_city || '')}" ${locked} />
+                ${renderUserFieldError(formErrors, 'service_city')}
               </div>
               <div class="field">
                 <label for="admin_user_service_radius_km">Coverage Radius (km)</label>
-                <input id="admin_user_service_radius_km" name="service_radius_km" type="number" min="1" max="500" step="0.1" value="${escapeHtml(user.service_radius_km ?? 20)}" ${locked} />
+                <input id="admin_user_service_radius_km" class="${getUserFieldClass(formErrors, 'service_radius_km')}" name="service_radius_km" type="number" min="1" max="500" step="0.1" value="${escapeHtml(user.service_radius_km ?? 20)}" ${locked} />
+                ${renderUserFieldError(formErrors, 'service_radius_km')}
               </div>
             </div>
             <div class="form-row">
               <div class="field">
                 <label for="admin_user_work_latitude">Base Latitude</label>
-                <input id="admin_user_work_latitude" name="work_latitude" type="number" min="-90" max="90" step="0.00000001" value="${escapeHtml(user.work_latitude || '')}" ${locked} />
+                <input id="admin_user_work_latitude" class="${getUserFieldClass(formErrors, 'work_latitude')}" name="work_latitude" type="number" min="-90" max="90" step="0.00000001" value="${escapeHtml(user.work_latitude || '')}" ${locked} />
+                ${renderUserFieldError(formErrors, 'work_latitude')}
               </div>
               <div class="field">
                 <label for="admin_user_work_longitude">Base Longitude</label>
-                <input id="admin_user_work_longitude" name="work_longitude" type="number" min="-180" max="180" step="0.00000001" value="${escapeHtml(user.work_longitude || '')}" ${locked} />
+                <input id="admin_user_work_longitude" class="${getUserFieldClass(formErrors, 'work_longitude')}" name="work_longitude" type="number" min="-180" max="180" step="0.00000001" value="${escapeHtml(user.work_longitude || '')}" ${locked} />
+                ${renderUserFieldError(formErrors, 'work_longitude')}
               </div>
             </div>
           </div>
@@ -1358,7 +1442,7 @@ function createUsersView(state) {
               `).join('')}
             </select>
           </div>
-          <div class="desktop-form-actions">
+          <div class="desktop-form-actions desktop-users-filter-actions">
             <button type="submit" class="action-button">Apply Filters</button>
             <button type="button" class="ghost-button" id="usersResetFiltersButton">Reset</button>
             <button type="button" class="ghost-button" id="usersArchivedToggleButton">${isArchivedView ? 'Back to Active Users' : 'View Archived'}</button>
@@ -1455,6 +1539,16 @@ function renderUsersViewOnly(state, session, bridge) {
 
   contentElement.innerHTML = createUsersView(state);
   bindUsersView(state, session, bridge);
+}
+
+function renderPendingWorkersViewOnly(state, session, bridge) {
+  const contentElement = getElementById('desktopContentArea');
+  if (!contentElement) {
+    return;
+  }
+
+  contentElement.innerHTML = createPendingWorkersView(state);
+  bindPendingWorkersView(state, session, bridge);
 }
 
 function createPaymentsView(state) {
@@ -1581,6 +1675,171 @@ function createRecordsView(state) {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  `;
+}
+
+function createPendingWorkersEmptyPanel() {
+  return `
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header">
+        <i class="fas fa-id-card"></i> Application Details
+      </div>
+      <div class="card-body desktop-card-body">
+        <div class="chart-placeholder desktop-placeholder-card">
+          <div>
+            <h5 class="mb-2">Select a worker application</h5>
+            <p class="mb-0 text-muted">Review the applicant details here, then approve or reject the worker application.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createPendingWorkerDetailPanel(state) {
+  const worker = state.selectedPendingWorker || null;
+  if (!worker) {
+    return createPendingWorkersEmptyPanel();
+  }
+
+  const displayedSkills = Array.isArray(worker.skills_display)
+    ? worker.skills_display
+    : parseSkills(worker.skills);
+  const workerName = [worker.first_name, worker.last_name].filter(Boolean).join(' ') || 'Worker Applicant';
+  const resumePath = String(worker.resume_path || '').trim();
+
+  return `
+    <div class="card desktop-card">
+      <div class="card-header desktop-card-header d-flex justify-content-between align-items-center">
+        <span><i class="fas fa-id-card"></i> Application Details</span>
+        <span class="badge bg-warning text-dark">Pending Review</span>
+      </div>
+      <div class="card-body desktop-card-body">
+        <h5 class="mb-2">${escapeHtml(workerName)}</h5>
+        <p class="text-muted mb-3">${escapeHtml(worker.email || 'No email provided')}</p>
+
+        <div class="desktop-insight-grid">
+          <div class="desktop-insight-tile">
+            <span>Phone</span>
+            <strong>${escapeHtml(worker.phone || '-')}</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Applied On</span>
+            <strong>${formatDate(worker.created_at)}</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Experience</span>
+            <strong>${formatValue(worker.experience_years ?? 0)} years</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Commission Rate</span>
+            <strong>${formatValue(worker.commission_rate ?? 20)}%</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Service City</span>
+            <strong>${escapeHtml(worker.service_city || '-')}</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Coverage Radius</span>
+            <strong>${formatValue(worker.service_radius_km ?? '-')} km</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Resume</span>
+            <strong>${escapeHtml(resumePath || 'Not uploaded')}</strong>
+          </div>
+          <div class="desktop-insight-tile">
+            <span>Status</span>
+            <strong>${escapeHtml(String(worker.status || 'pending').replace(/_/g, ' '))}</strong>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <h6 class="text-muted mb-2">Address</h6>
+          <div class="border rounded p-3">${escapeHtml(worker.address || 'No address provided.')}</div>
+        </div>
+
+        <div class="mt-4">
+          <h6 class="text-muted mb-2">Skills</h6>
+          ${displayedSkills.length ? `
+            <div class="desktop-chip-row">
+              ${displayedSkills.map((skill) => `<span class="badge bg-secondary">${escapeHtml(skill)}</span>`).join('')}
+            </div>
+          ` : `
+            <div class="border rounded p-3 text-muted">No skills were provided for this application.</div>
+          `}
+        </div>
+
+        <div class="desktop-form-actions mt-4">
+          <button type="button" class="action-button" data-pending-worker-action="approve" data-worker-id="${worker.id}">Approve Worker</button>
+          <button type="button" class="ghost-button desktop-danger-button" data-pending-worker-action="reject" data-worker-id="${worker.id}">Reject Worker</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function createPendingWorkersView(state) {
+  const workers = state.routePendingWorkers || [];
+  const selectedWorkerId = Number(state.selectedPendingWorkerId || 0);
+  const applicantsWithResume = workers.filter((worker) => String(worker.resume_path || '').trim()).length;
+  const withSkills = workers.filter((worker) => {
+    const displayedSkills = Array.isArray(worker.skills_display) ? worker.skills_display : parseSkills(worker.skills);
+    return displayedSkills.length > 0;
+  }).length;
+
+  return `
+    ${createPageHeading('fas fa-user-clock', 'Pending Worker Applications')}
+    ${createInfoBanner(state.routeNotice || 'Review pending worker applications and approve or reject them directly from Desktop.')}
+    ${createMetricGrid([
+      { icon: 'fas fa-user-clock', value: workers.length, label: 'Pending Applications', tone: 'warning' },
+      { icon: 'fas fa-file-arrow-up', value: applicantsWithResume, label: 'With Resume', tone: 'info' },
+      { icon: 'fas fa-screwdriver-wrench', value: withSkills, label: 'With Skills Listed', tone: 'success' }
+    ])}
+
+    <div class="desktop-admin-split">
+      <div class="card desktop-card">
+        <div class="card-header desktop-card-header">
+          <i class="fas fa-users-viewfinder"></i> Application Queue
+        </div>
+        <div class="card-body desktop-card-body">
+          <div class="table-responsive desktop-users-list-scroll">
+            <table class="table table-hover desktop-users-table">
+              <thead>
+                <tr>
+                  <th>Applicant</th>
+                  <th>Experience</th>
+                  <th>Applied</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${workers.length ? workers.map((worker) => `
+                  <tr
+                    class="${selectedWorkerId === Number(worker.id) ? 'desktop-row-selected' : ''} desktop-clickable-row"
+                    data-pending-worker-row="true"
+                    data-worker-id="${worker.id}"
+                  >
+                    <td>
+                      <strong class="desktop-user-name">${escapeHtml([worker.first_name, worker.last_name].filter(Boolean).join(' ') || 'Unnamed applicant')}</strong>
+                      <div class="desktop-table-subtext">${escapeHtml(worker.email || '-')}</div>
+                    </td>
+                    <td>${formatValue(worker.experience_years ?? 0)} years</td>
+                    <td>${formatDate(worker.created_at)}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="3" class="text-center text-muted py-4">No pending worker applications are waiting right now.</td>
+                  </tr>
+                `}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        ${createPendingWorkerDetailPanel(state)}
       </div>
     </div>
   `;
@@ -2399,8 +2658,26 @@ async function renderRoute(state, session, bridge) {
     }
 
     if (['bookings', 'my-jobs'].includes(state.currentRoute)) {
-      contentElement.innerHTML = createBookingsView(state);
-      bindBookingsView(state, session, bridge);
+      if (state.currentRoute === 'bookings' && ['admin', 'super_admin'].includes(state.role)) {
+        contentElement.innerHTML = createAdminBookingsView(state, {
+          createInfoBanner,
+          createMetricGrid,
+          createPageHeading,
+          escapeHtml,
+          formatCurrency,
+          formatDate,
+          formatValue
+        });
+        bindAdminBookingsView(state, session, bridge, {
+          performAuthenticatedRequest,
+          renderRoute,
+          setStatus,
+          updateInlineStatus
+        });
+      } else {
+        contentElement.innerHTML = createBookingsView(state);
+        bindBookingsView(state, session, bridge);
+      }
       return;
     }
 
@@ -2429,6 +2706,83 @@ async function renderRoute(state, session, bridge) {
       return;
     }
 
+    if (state.currentRoute === 'user-analytics') {
+      contentElement.innerHTML = createAdminUserAnalyticsView(state, {
+        createInfoBanner,
+        createMetricGrid,
+        createPageHeading,
+        escapeHtml,
+        formatCurrency,
+        formatDate,
+        formatValue
+      });
+      bindAdminUserAnalyticsView(state, session, bridge, {
+        performAuthenticatedRequest,
+        updateInlineStatus,
+        helpers: {
+          createInfoBanner,
+          createMetricGrid,
+          createPageHeading,
+          escapeHtml,
+          formatCurrency,
+          formatDate,
+          formatValue
+        }
+      });
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'backups') {
+      contentElement.innerHTML = createAdminBackupsView(state, {
+        createInfoBanner,
+        createMetricGrid,
+        createPageHeading,
+        escapeHtml,
+        formatDate
+      });
+      bindAdminBackupsView(state, session, bridge, {
+        performAuthenticatedRequest,
+        renderRoute,
+        setStatus,
+        updateInlineStatus
+      });
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'rates') {
+      contentElement.innerHTML = createAdminReviewsView(state, {
+        createInfoBanner,
+        createMetricGrid,
+        createPageHeading,
+        escapeHtml,
+        formatDate,
+        formatValue
+      });
+      bindAdminReviewsView(state, session, bridge, {
+        performAuthenticatedRequest,
+        renderRoute,
+        setStatus,
+        updateInlineStatus,
+        createInfoBanner,
+        createMetricGrid,
+        createPageHeading,
+        escapeHtml,
+        formatDate,
+        formatValue
+      });
+      updateInlineStatus('', null);
+      return;
+    }
+
+    if (state.currentRoute === 'pending-workers') {
+      contentElement.innerHTML = createPendingWorkersView(state);
+      bindPendingWorkersView(state, session, bridge);
+      updateInlineStatus('', null);
+      return;
+    }
+
     if (state.currentRoute === 'security') {
       contentElement.innerHTML = createSecurityView(state);
       bindSecurityView(state, session, bridge);
@@ -2437,7 +2791,34 @@ async function renderRoute(state, session, bridge) {
     }
 
     if (state.currentRoute === 'records') {
-      contentElement.innerHTML = createRecordsView(state);
+      if (['admin', 'super_admin'].includes(state.role)) {
+        contentElement.innerHTML = createAdminRecordsView(state, {
+          createInfoBanner,
+          createMetricGrid,
+          createPageHeading,
+          escapeHtml,
+          formatCurrency,
+          formatDate,
+          formatValue
+        });
+        bindAdminRecordsView(state, session, bridge, {
+          performAuthenticatedRequest,
+          renderRoute,
+          setStatus,
+          updateInlineStatus,
+          helpers: {
+            createInfoBanner,
+            createMetricGrid,
+            createPageHeading,
+            escapeHtml,
+            formatCurrency,
+            formatDate,
+            formatValue
+          }
+        });
+      } else {
+        contentElement.innerHTML = createRecordsView(state);
+      }
       updateInlineStatus('', null);
       return;
     }
@@ -2500,13 +2881,24 @@ function setActiveNav(route) {
 function resetRouteState(state) {
   state.routeNotice = '';
   state.routeBookings = [];
+  state.routeBookingStats = {};
+  state.routeBackups = [];
+  state.routeBackupSummary = {};
+  state.routeReviews = [];
+  state.routeReviewStats = {};
+  state.routeReviewWorkers = [];
+  state.routeTopReviewWorkers = [];
   state.routePayments = [];
   state.routeUsers = [];
+  state.selectedAnalyticsUser = null;
+  state.selectedAnalyticsUserDashboard = {};
+  state.routePendingWorkers = [];
   state.routeUserStats = {};
   state.routeUsersPagination = { total: 0, page: 1, limit: 25, pages: 1 };
   state.routePaymentStats = {};
   state.routeRevenueReport = [];
   state.routeRecords = [];
+  state.selectedAdminRecord = null;
   state.routeSettingsSummary = {};
   state.routeSecurityDashboard = {};
   state.routeSecurityStats = {};
@@ -2709,6 +3101,11 @@ async function ensureRouteData(state, session, bridge) {
   }
 
   if (['bookings', 'my-jobs'].includes(state.currentRoute)) {
+    if (state.currentRoute === 'bookings' && ['admin', 'super_admin'].includes(state.role)) {
+      await loadAdminBookingsRouteData(state, session, bridge, performAuthenticatedRequest);
+      return;
+    }
+
     const bookingResponse = await performAuthenticatedRequest(session, bridge, '/api/dashboard/bookings?limit=50', { method: 'GET' });
     const allBookings = bookingResponse?.bookings || [];
 
@@ -2800,6 +3197,58 @@ async function ensureRouteData(state, session, bridge) {
     return;
   }
 
+  if (state.currentRoute === 'user-analytics') {
+    await loadAdminUserAnalyticsRouteData(state, session, bridge, performAuthenticatedRequest);
+    return;
+  }
+
+  if (state.currentRoute === 'backups') {
+    await loadAdminBackupsRouteData(state, session, bridge, performAuthenticatedRequest);
+    return;
+  }
+
+  if (state.currentRoute === 'rates') {
+    await loadAdminReviewsRouteData(state, session, bridge, performAuthenticatedRequest);
+    return;
+  }
+
+  if (state.currentRoute === 'pending-workers') {
+    const workersResponse = await performAuthenticatedRequest(
+      session,
+      bridge,
+      '/api/users/pending-workers?limit=100',
+      { method: 'GET' }
+    );
+
+    state.routePendingWorkers = workersResponse?.data || [];
+    state.routeNotice = state.routePendingWorkers.length
+      ? 'Pending worker applications are waiting for admin review.'
+      : 'There are no pending worker applications at the moment.';
+
+    if (state.selectedPendingWorkerId) {
+      try {
+        const detailResponse = await performAuthenticatedRequest(
+          session,
+          bridge,
+          `/api/users/${state.selectedPendingWorkerId}`,
+          { method: 'GET' }
+        );
+        const detail = detailResponse?.data || null;
+        if (detail && detail.user_type === 'worker' && detail.status === 'pending') {
+          state.selectedPendingWorker = detail;
+        } else {
+          state.selectedPendingWorker = null;
+          state.selectedPendingWorkerId = null;
+        }
+      } catch {
+        state.selectedPendingWorker = null;
+        state.selectedPendingWorkerId = null;
+      }
+    }
+
+    return;
+  }
+
   if (state.currentRoute === 'security') {
     const [dashboardResponse, eventsResponse, blockedResponse, statisticsResponse] = await Promise.all([
       performAuthenticatedRequest(session, bridge, '/api/security/dashboard', { method: 'GET' }),
@@ -2821,6 +3270,11 @@ async function ensureRouteData(state, session, bridge) {
   }
 
   if (state.currentRoute === 'records') {
+    if (['admin', 'super_admin'].includes(state.role)) {
+      await loadAdminRecordsRouteData(state, session, bridge, performAuthenticatedRequest);
+      return;
+    }
+
     try {
       const recordsResponse = await performAuthenticatedRequest(session, bridge, '/api/records?limit=50', { method: 'GET' });
       state.routeRecords = recordsResponse?.data || [];
@@ -2984,6 +3438,84 @@ function bindSecurityView(state, session, bridge) {
   };
 }
 
+function bindPendingWorkersView(state, session, bridge) {
+  const contentElement = getElementById('desktopContentArea');
+  if (!contentElement) {
+    return;
+  }
+
+  contentElement.querySelectorAll('[data-pending-worker-row]').forEach((row) => {
+    row.addEventListener('click', async () => {
+      const workerId = Number(row.getAttribute('data-worker-id'));
+      if (!workerId) {
+        return;
+      }
+
+      const selectedFromList = (state.routePendingWorkers || []).find((worker) => Number(worker.id) === workerId) || null;
+      state.selectedPendingWorkerId = workerId;
+      state.selectedPendingWorker = selectedFromList;
+      renderPendingWorkersViewOnly(state, session, bridge);
+
+      try {
+        const detailResponse = await performAuthenticatedRequest(
+          session,
+          bridge,
+          `/api/users/${workerId}`,
+          { method: 'GET' }
+        );
+        const detail = detailResponse?.data || null;
+        if (Number(state.selectedPendingWorkerId || 0) !== workerId || !detail) {
+          return;
+        }
+
+        state.selectedPendingWorker = detail;
+        renderPendingWorkersViewOnly(state, session, bridge);
+      } catch {
+        // Keep the selected row data visible if detail loading fails.
+      }
+    });
+  });
+
+  contentElement.querySelectorAll('[data-pending-worker-action]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const action = String(button.getAttribute('data-pending-worker-action') || '');
+      const workerId = Number(button.getAttribute('data-worker-id'));
+      if (!workerId || !['approve', 'reject'].includes(action)) {
+        return;
+      }
+
+      const confirmed = typeof window.confirm === 'function'
+        ? window.confirm(`${action === 'approve' ? 'Approve' : 'Reject'} this worker application?`)
+        : true;
+      if (!confirmed) {
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = action === 'approve' ? 'Approving...' : 'Rejecting...';
+
+      try {
+        const endpoint = action === 'approve'
+          ? `/api/users/${workerId}/approve-worker`
+          : `/api/users/${workerId}/reject-worker`;
+        const response = await performAuthenticatedRequest(session, bridge, endpoint, { method: 'POST' });
+
+        state.selectedPendingWorkerId = null;
+        state.selectedPendingWorker = null;
+        updateInlineStatus(response?.message || `Worker application ${action}d successfully.`, 'success');
+        setStatus(response?.message || `Worker application ${action}d successfully.`, 'success');
+        await renderRoute(state, session, bridge);
+      } catch (error) {
+        updateInlineStatus(error.message || `Failed to ${action} the worker application.`, 'error');
+        setStatus(error.message || `Failed to ${action} the worker application.`, 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = action === 'approve' ? 'Approve Worker' : 'Reject Worker';
+      }
+    });
+  });
+}
+
 function syncUserWorkerFields() {
   const roleField = getElementById('admin_user_type');
   const workerFields = getElementById('desktopWorkerFields');
@@ -3065,6 +3597,8 @@ function bindUsersView(state, session, bridge) {
 
   if (createButton) {
     createButton.onclick = () => {
+      state.userFormError = '';
+      state.userFormErrors = {};
       state.userEditorMode = 'create';
       state.selectedUserId = null;
       state.selectedUser = null;
@@ -3080,6 +3614,8 @@ function bindUsersView(state, session, bridge) {
         }
 
         const userId = Number(row.getAttribute('data-user-id'));
+        state.userFormError = '';
+        state.userFormErrors = {};
         state.userEditorMode = 'view';
         selectUserFromCache(state, userId);
         renderUsersViewOnly(state, session, bridge);
@@ -3125,6 +3661,8 @@ function bindUsersView(state, session, bridge) {
         }
 
         state.userEditorMode = action === 'edit' ? 'edit' : 'view';
+        state.userFormError = '';
+        state.userFormErrors = {};
         selectUserFromCache(state, userId);
         renderUsersViewOnly(state, session, bridge);
       });
@@ -3177,6 +3715,8 @@ function bindUsersView(state, session, bridge) {
 
   if (editButton) {
     editButton.onclick = () => {
+      state.userFormError = '';
+      state.userFormErrors = {};
       state.userEditorMode = 'edit';
       renderUsersViewOnly(state, session, bridge);
     };
@@ -3312,6 +3852,8 @@ function bindUsersView(state, session, bridge) {
 
   if (clearButton) {
     clearButton.onclick = () => {
+      state.userFormError = '';
+      state.userFormErrors = {};
       state.selectedUserId = null;
       state.selectedUser = null;
       state.userEditorMode = 'idle';
@@ -3321,6 +3863,8 @@ function bindUsersView(state, session, bridge) {
 
   if (newButton) {
     newButton.onclick = () => {
+      state.userFormError = '';
+      state.userFormErrors = {};
       state.selectedUserId = null;
       state.selectedUser = null;
       state.userEditorMode = 'create';
@@ -3349,6 +3893,8 @@ function bindUsersView(state, session, bridge) {
         );
 
         const savedUser = response?.data || null;
+        state.userFormError = '';
+        state.userFormErrors = {};
         if (savedUser?.id) {
           state.userDetailsById = state.userDetailsById || {};
           state.userDetailsById[savedUser.id] = {
@@ -3363,6 +3909,9 @@ function bindUsersView(state, session, bridge) {
         setStatus(response?.message || (isEditing ? 'User updated successfully.' : 'User created successfully.'), 'success');
         await renderRoute(state, session, bridge);
       } catch (error) {
+        state.userFormError = error.message || 'Failed to save user.';
+        state.userFormErrors = normalizeUserFormErrors(error?.details);
+        renderUsersViewOnly(state, session, bridge);
         updateInlineStatus(error.message || 'Failed to save user.', 'error');
         setStatus(error.message || 'Failed to save user.', 'error');
       } finally {
@@ -3475,6 +4024,21 @@ export async function renderDashboardView(session = getSession()) {
       stats: statsResponse?.stats || {},
       bookings: bookingsResponse?.bookings || [],
       role,
+      adminUserAnalyticsFilters: getDefaultAdminUserAnalyticsFilters(),
+      selectedAnalyticsUserId: null,
+      selectedAnalyticsUser: null,
+      selectedAnalyticsUserDashboard: {},
+      adminReviewFilters: getDefaultAdminReviewFilters(),
+      selectedAdminReviewId: null,
+      selectedAdminReview: null,
+      adminRecordFilters: getDefaultAdminRecordFilters(),
+      selectedAdminRecordId: null,
+      selectedAdminRecord: null,
+      selectedAdminBookingId: null,
+      selectedAdminBooking: null,
+      selectedAdminBookingWorkers: [],
+      selectedPendingWorkerId: null,
+      selectedPendingWorker: null,
       userFilters: getDefaultUserFilters(),
       userEditorMode: 'idle',
       selectedUserId: null,

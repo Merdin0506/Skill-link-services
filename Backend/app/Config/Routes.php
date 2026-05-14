@@ -32,7 +32,11 @@ $routes->post('dashboard/refresh-pending-worker-applications', 'Dashboard::refre
 $routes->get('worker/profile/(:num)', 'Dashboard::workerProfile/$1', ['filter' => ['dashboardauth']]);
 $routes->get('security/dashboard', 'SecurityController::dashboard', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/audit-logs', 'SecurityController::auditLogs', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/notifications', 'SecurityController::notifications', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 $routes->get('security/reports', 'SecurityController::reports', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/blocked-ips', 'SecurityController::blockedIPs', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->post('security/unblock-ip/(:num)', 'SecurityController::unblockIP/$1', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
+$routes->get('security/settings', 'SecurityController::settings', ['filter' => ['dashboardauth', 'role:admin,super_admin', 'permission']]);
 
 $routes->group('profile', ['filter' => ['dashboardauth', 'permission']], function ($routes) {
     $routes->get('/', 'Dashboard::profile');
@@ -162,6 +166,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('services/popular', 'ServicesController::popular');
     $routes->get('services/category/(:segment)', 'ServicesController::byCategory/$1');
     $routes->get('services/(:num)', 'ServicesController::show/$1');
+    $routes->get('payments/mine', 'PaymentsController::myPayments');
 });
 
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:admin,super_admin', 'permissionapi']], function ($routes) {
@@ -182,6 +187,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
 $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors', 'jwtauth', 'roleapi:customer,admin,super_admin', 'permissionapi']], function ($routes) {
     $routes->post('bookings', 'BookingsController::store');
     $routes->put('bookings/(:num)/cancel', 'BookingsController::cancelBooking/$1');
+    $routes->get('reviews/can-review', 'ReviewsController::canReview');
     $routes->post('reviews', 'ReviewsController::store');
     $routes->post('payments/customer', 'PaymentsController::createCustomerPayment');
 });
@@ -223,6 +229,11 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->get('users/(:num)', 'UsersController::show/$1');
     $routes->put('users/(:num)', 'UsersController::update/$1');
     $routes->delete('users/(:num)', 'UsersController::delete/$1');
+    $routes->post('users/(:num)/restore', 'UsersController::restore/$1');
+    $routes->delete('users/(:num)/permanent', 'UsersController::permanentDelete/$1');
+    $routes->post('users/(:num)/approve-worker', 'UsersController::approveWorker/$1');
+    $routes->post('users/(:num)/reject-worker', 'UsersController::rejectWorker/$1');
+    $routes->get('users/pending-workers', 'UsersController::pendingWorkers');
     $routes->get('users/workers', 'UsersController::workers');
     $routes->get('users/customers', 'UsersController::customers');
     $routes->get('users/admin-staff', 'UsersController::adminStaff');
@@ -238,6 +249,9 @@ $routes->group('api', ['namespace' => 'App\Controllers\API', 'filter' => ['cors'
     $routes->post('services', 'ServicesController::store');
     $routes->put('services/(:num)', 'ServicesController::update/$1');
     $routes->delete('services/(:num)', 'ServicesController::delete/$1');
+    $routes->get('backups', 'BackupsController::index');
+    $routes->post('backups', 'BackupsController::create');
+    $routes->post('backups/restore', 'BackupsController::restore');
     $routes->get('records', 'RecordsController::index');
     $routes->get('records/(:num)', 'RecordsController::show/$1');
     $routes->post('records', 'RecordsController::create');

@@ -86,6 +86,9 @@ class UsersController extends BaseController
         if ($user['user_type'] === 'worker' && ($callerRole === 'admin' || $callerRole === 'super_admin')) {
             $user['average_rating'] = $this->userModel->getWorkerRating($id);
             $user['total_earnings'] = $this->userModel->getWorkerEarnings($id);
+            $skills = $this->userModel::normalizeWorkerSkills($user['skills'] ?? []);
+            $skillLabels = $this->userModel::WORKER_SKILL_OPTIONS;
+            $user['skills_display'] = array_map(fn ($skill) => $skillLabels[$skill] ?? $skill, $skills);
         }
 
         return $this->respond([
@@ -157,6 +160,32 @@ class UsersController extends BaseController
         ]);
     }
 
+    public function pendingWorkers()
+    {
+        $limit = $this->getPositiveIntParam('limit', 50);
+        $workers = $this->userModel
+            ->where('user_type', 'worker')
+            ->where('status', 'pending')
+            ->orderBy('created_at', 'DESC')
+            ->findAll($limit);
+
+        $skillLabels = $this->userModel::WORKER_SKILL_OPTIONS;
+        $pendingWorkers = array_map(function (array $worker) use ($skillLabels) {
+            unset($worker['password']);
+            $skills = $this->userModel::normalizeWorkerSkills($worker['skills'] ?? []);
+
+            return [
+                ...$worker,
+                'skills_display' => array_map(fn ($skill) => $skillLabels[$skill] ?? $skill, $skills),
+            ];
+        }, $workers);
+
+        return $this->respond([
+            'status' => 'success',
+            'data' => $pendingWorkers,
+        ]);
+    }
+
     public function store()
     {
         $requestedRole = (string) ($this->request->getVar('user_type') ?? '');
@@ -165,8 +194,8 @@ class UsersController extends BaseController
         }
 
         $rules = [
-            'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-            'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'first_name' => "required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s'.-]+$/]",
+            'last_name'  => "required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s'.-]+$/]",
             'email'      => 'required|valid_email|regex_match[/^[A-Za-z0-9]+([._][A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+$/]|is_unique[users.email]',
             'password'   => 'required|min_length[8]',
             'phone'      => 'permit_empty|max_length[20]',
@@ -257,8 +286,8 @@ class UsersController extends BaseController
         }
 
         $rules = [
-            'first_name' => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
-            'last_name'  => 'required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s]+$/]',
+            'first_name' => "required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s'.-]+$/]",
+            'last_name'  => "required|min_length[2]|max_length[100]|regex_match[/^[a-zA-Z\s'.-]+$/]",
             'phone'      => 'max_length[20]',
             'address'    => 'max_length[500]',
             'service_city' => 'permit_empty|max_length[120]',
@@ -467,6 +496,16 @@ class UsersController extends BaseController
         ]);
     }
 
+    public function approveWorker($id = null)
+    {
+        return $this->updatePendingWorkerStatus($id, 'active', 'approved');
+    }
+
+    public function rejectWorker($id = null)
+    {
+        return $this->updatePendingWorkerStatus($id, 'rejected', 'rejected');
+    }
+
     public function restore($id = null)
     {
         $user = $this->userModel->onlyDeleted()->find($id);
@@ -602,5 +641,54 @@ class UsersController extends BaseController
         }
 
         return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on'], true);
+    }
+
+    private function updatePendingWorkerStatus($id, string $status, string $actionLabel)
+    {
+        $workerId = (int) $id;
+        $worker = $this->userModel->find($workerId);
+
+        if (!$worker || ($worker['user_type'] ?? '') !== 'worker') {
+            return $this->failNotFound('Worker application not found');
+        }
+
+        if (($worker['status'] ?? '') !== 'pending') {
+            return $this->fail('Only pending worker applications can be updated');
+        }
+
+        $db = \Config\Database::connect();
+        $db->transBegin();
+
+        try {
+            if ($this->userModel->update($workerId, ['status' => $status]) === false) {
+                throw new \RuntimeException('Failed to update worker status.');
+            }
+
+            $updatedWorker = $this->userModel->find($workerId);
+            if (is_array($updatedWorker)) {
+                unset($updatedWorker['password']);
+            }
+
+            $this->activityLogger->record('account', 'worker_application_' . $actionLabel, 'success', $this->currentActorId(), $workerId, [
+                'target_email' => $worker['email'] ?? null,
+                'target_name' => trim(($worker['first_name'] ?? '') . ' ' . ($worker['last_name'] ?? '')),
+                'status' => $status,
+            ], 'api', $this->request->authSessionKey ?? null);
+
+            if ($db->transStatus() === false) {
+                throw new \RuntimeException('Database constraint error.');
+            }
+
+            $db->transCommit();
+
+            return $this->respond([
+                'status' => 'success',
+                'message' => 'Worker application ' . $actionLabel . ' successfully.',
+                'data' => $updatedWorker,
+            ]);
+        } catch (\Throwable $e) {
+            $db->transRollback();
+            return $this->fail('Failed to update worker application: ' . $e->getMessage());
+        }
     }
 }
